@@ -9,11 +9,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         if (auth()->user()->role === 'admin') {
             return redirect()->route('admin.dashboard');
         }
+
         return redirect()->route('kasir.dashboard');
     })->name('dashboard');
 
     Route::middleware(['role:admin'])->group(function () {
         Route::inertia('admin/dashboard', 'admin/Dashboard')->name('admin.dashboard');
+        Route::inertia('admin/users', 'admin/Users')->name('admin.users');
+        Route::inertia('admin/products', 'admin/Products')->name('admin.products');
+        Route::inertia('admin/transactions', 'admin/Transactions')->name('admin.transactions');
     });
 
     Route::middleware(['role:kasir'])->group(function () {

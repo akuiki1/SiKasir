@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-vue-next';
+import { BookOpen, FolderGit2, LayoutGrid, Users, Package, ShoppingCart } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -25,9 +25,24 @@ const mainNavItems = computed<NavItem[]>(() => {
     if (role === 'admin') {
         return [
             {
-                title: 'Admin Dashboard',
+                title: 'Dashboard',
                 href: '/admin/dashboard',
                 icon: LayoutGrid,
+            },
+            {
+                title: 'Data User',
+                href: '/admin/users',
+                icon: Users,
+            },
+            {
+                title: 'Data Produk',
+                href: '/admin/products',
+                icon: Package,
+            },
+            {
+                title: 'Data Transaksi',
+                href: '/admin/transactions',
+                icon: ShoppingCart,
             },
         ];
     }
