@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { BookOpen, FolderGit2, LayoutGrid, Users, Package, ShoppingCart } from 'lucide-vue-next';
+import { BookOpen, FolderGit2, LayoutGrid, Users, Package, ShoppingCart, History } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -49,9 +49,19 @@ const mainNavItems = computed<NavItem[]>(() => {
 
     return [
         {
-            title: 'Kasir Dashboard',
+            title: 'Dashboard',
             href: '/kasir/dashboard',
             icon: LayoutGrid,
+        },
+        {
+            title: 'Transaksi',
+            href: '/kasir/transaksi',
+            icon: ShoppingCart,
+        },
+        {
+            title: 'Riwayat Transaksi',
+            href: '/kasir/riwayat',
+            icon: History,
         },
     ];
 });

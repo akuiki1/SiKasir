@@ -22,6 +22,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['role:kasir'])->group(function () {
         Route::inertia('kasir/dashboard', 'kasir/Dashboard')->name('kasir.dashboard');
+        Route::inertia('kasir/transaksi', 'kasir/Transaksi')->name('kasir.transaksi');
+        Route::inertia('kasir/riwayat', 'kasir/Riwayat')->name('kasir.riwayat');
     });
 });
 
