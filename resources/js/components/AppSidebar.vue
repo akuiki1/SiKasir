@@ -35,6 +35,11 @@ const mainNavItems = computed<NavItem[]>(() => {
                 icon: Users,
             },
             {
+                title: 'Kategori',
+                href: '/admin/kategori',
+                icon: Users,
+            },
+            {
                 title: 'Data Produk',
                 href: '/admin/products',
                 icon: Package,
