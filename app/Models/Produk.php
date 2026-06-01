@@ -2,9 +2,54 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Produk extends Model
 {
-    //
+    use HasFactory;
+
+    protected $primaryKey = 'id_produk';
+
+    protected $fillable = [
+        'id_kategori',
+        'nama',
+        'foto',
+        'harga_beli',
+        'harga_jual',
+        'stok',
+        'barcode',
+        'sku',
+    ];
+
+    protected $casts = [
+        'harga_beli' => 'integer',
+        'harga_jual' => 'integer',
+        'stok' => 'integer',
+    ];
+
+    public function kategori(): BelongsTo
+    {
+        return $this->belongsTo(Kategori::class, 'id_kategori', 'id_kategori');
+    }
+
+    public function detailTransaksis(): HasMany
+    {
+        return $this->hasMany(DetailTransaksi::class, 'id_produk', 'id_produk');
+    }
+
+    public function getStatusStokAttribute(): string
+    {
+        if ($this->stok === 0) {
+            return 'out-of-stock';
+        }
+
+        if ($this->stok <= 5) {
+            return 'low-stock';
+        }
+
+        return 'in-stock';
+    }
 }
