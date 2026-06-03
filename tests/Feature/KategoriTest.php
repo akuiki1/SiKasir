@@ -146,6 +146,8 @@ test('admin can view transaksi page', function () {
         fn ($page) => $page
             ->component('admin/Transactions')
             ->has('transaksis')
+            ->has('kasirs')
+            ->has('produks')
             ->has('stats.total_penjualan_hari_ini')
             ->has('stats.total_transaksi_sukses')
             ->has('stats.rata_rata')
@@ -160,6 +162,7 @@ test('kasir cannot access admin pages', function () {
     $this->actingAs($kasir)->get(route('admin.kategori'))->assertForbidden();
     $this->actingAs($kasir)->get(route('admin.products'))->assertForbidden();
     $this->actingAs($kasir)->get(route('admin.transactions'))->assertForbidden();
+    $this->actingAs($kasir)->get(route('admin.users'))->assertForbidden();
 });
 
 test('guests are redirected from admin pages', function () {

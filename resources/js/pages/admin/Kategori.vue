@@ -12,6 +12,7 @@ import {
     Save,
     AlertCircle,
 } from 'lucide-vue-next';
+import { store as kategoriStore, update as kategoriUpdate, destroy as kategoriDestroy } from '@/routes/admin/kategori';
 
 defineOptions({
     layout: {
@@ -77,11 +78,11 @@ function closeModal() {
 
 function submitForm() {
     if (editingKategori.value) {
-        form.put(route('admin.kategori.update', editingKategori.value.id_kategori), {
+        form.put(kategoriUpdate(editingKategori.value.id_kategori).url, {
             onSuccess: () => closeModal(),
         });
     } else {
-        form.post(route('admin.kategori.store'), {
+        form.post(kategoriStore().url, {
             onSuccess: () => closeModal(),
         });
     }
@@ -89,7 +90,7 @@ function submitForm() {
 
 function hapusKategori(kategori: Kategori) {
     if (confirm(`Hapus kategori "${kategori.nama_kategori}"? Tindakan ini tidak dapat dibatalkan.`)) {
-        router.delete(route('admin.kategori.destroy', kategori.id_kategori));
+        router.delete(kategoriDestroy(kategori.id_kategori).url);
     }
 }
 </script>

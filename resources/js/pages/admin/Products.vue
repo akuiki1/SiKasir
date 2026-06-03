@@ -13,6 +13,7 @@ import {
     Save,
     AlertCircle,
 } from 'lucide-vue-next';
+import { store as productStore, update as productUpdate, destroy as productDestroy } from '@/routes/admin/products';
 
 defineOptions({
     layout: {
@@ -125,11 +126,11 @@ function submitForm() {
     };
 
     if (editingProduk.value) {
-        router.put(route('admin.products.update', editingProduk.value.id_produk), data, {
+        router.put(productUpdate(editingProduk.value.id_produk).url, data, {
             onSuccess: () => closeModal(),
         });
     } else {
-        router.post(route('admin.products.store'), data, {
+        router.post(productStore().url, data, {
             onSuccess: () => closeModal(),
         });
     }
@@ -137,7 +138,7 @@ function submitForm() {
 
 function hapusProduk(produk: Produk) {
     if (confirm(`Hapus produk "${produk.nama}"? Tindakan ini tidak dapat dibatalkan.`)) {
-        router.delete(route('admin.products.destroy', produk.id_produk));
+        router.delete(productDestroy(produk.id_produk).url);
     }
 }
 

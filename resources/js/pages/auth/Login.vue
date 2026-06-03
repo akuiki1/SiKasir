@@ -29,7 +29,8 @@ defineProps<{
 
     <div
         v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        role="status"
+        class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800"
     >
         {{ status }}
     </div>
@@ -38,7 +39,7 @@ defineProps<{
         v-bind="store.form()"
         :reset-on-success="['password']"
         v-slot="{ errors, processing }"
-        class="flex flex-col gap-6"
+        class="space-y-6"
     >
         <div class="grid gap-6">
             <div class="grid gap-2">
@@ -57,7 +58,7 @@ defineProps<{
             </div>
 
             <div class="grid gap-2">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between gap-4">
                     <Label for="password">Password</Label>
                     <TextLink
                         v-if="canResetPassword"
@@ -85,17 +86,19 @@ defineProps<{
                     <span>Remember me</span>
                 </Label>
             </div>
-
-            <Button
-                type="submit"
-                class="mt-4 w-full"
-                :tabindex="4"
-                :disabled="processing"
-                data-test="login-button"
-            >
-                <Spinner v-if="processing" />
-                Log in
-            </Button>
         </div>
+
+        <Button
+            type="submit"
+            class="w-full"
+            :tabindex="4"
+            :disabled="processing"
+            data-test="login-button"
+        >
+            <span class="inline-flex items-center justify-center gap-2">
+                <Spinner v-if="processing" />
+                {{ processing ? 'Signing in...' : 'Log in' }}
+            </span>
+        </Button>
     </Form>
 </template>

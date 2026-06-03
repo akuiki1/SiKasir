@@ -39,7 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Transaksi
         Route::get('admin/transactions', [TransaksiController::class, 'index'])->name('admin.transactions');
-        Route::get('admin/transactions/{transaksi}', [TransaksiController::class, 'show'])->name('admin.transactions.show');
+        Route::post('admin/transactions', [TransaksiController::class, 'store'])->name('admin.transactions.store');
+        Route::put('admin/transactions/{transaksi}', [TransaksiController::class, 'update'])->name('admin.transactions.update');
+        Route::delete('admin/transactions/{transaksi}', [TransaksiController::class, 'destroy'])->name('admin.transactions.destroy');
     });
 
     Route::middleware(['role:kasir'])->group(function () {

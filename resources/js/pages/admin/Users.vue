@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { 
-    Plus, 
-    Search, 
-    Filter, 
-    MoreVertical, 
-    Edit, 
-    Trash2, 
-    UserCheck, 
-    Shield, 
+import { Head, useForm, router, usePage } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import {
+    Plus,
+    Search,
+    Edit,
+    Trash2,
+    UserCheck,
+    Shield,
     User,
     Mail,
-    SearchCode
+    X,
+    Save,
+    AlertCircle,
 } from 'lucide-vue-next';
+import { store as userStore, update as userUpdate, destroy as userDestroy } from '@/routes/admin/users';
 
 defineOptions({
     layout: {
@@ -25,111 +27,247 @@ defineOptions({
     },
 });
 
-// Mock user list data
-const users = [
-    { id: 1, name: 'Administrator Utama', email: 'admin@sikasir.com', role: 'admin', status: 'active', lastActive: 'Baru saja' },
-    { id: 2, name: 'Ahmad Kasir', email: 'ahmad@sikasir.com', role: 'kasir', status: 'active', lastActive: '5 menit yang lalu' },
-    { id: 3, name: 'Rina Kasir', email: 'rina@sikasir.com', role: 'kasir', status: 'active', lastActive: '12 menit yang lalu' },
-    { id: 4, name: 'Budi Kasir', email: 'budi@sikasir.com', role: 'kasir', status: 'inactive', lastActive: '2 hari yang lalu' },
-];
+interface UserItem {
+    id: number;
+    name: string;
+    email: string;
+    role: 'admin' | 'kasir';
+    created_at: string;
+}
+
+interface Stats {
+    total_users: number;
+    total_admin: number;
+    total_kasir: number;
+}
+
+const props = defineProps<{
+    users: UserItem[];
+    stats: Stats;
+}>();
+
+const page = usePage();
+const currentUserId = computed(() => (page.props.auth as { user: { id: number } }).user.id);
+
+const searchQuery = ref('');
+const filterRole = ref('');
+
+const filteredUsers = computed(() => {
+    return props.users.filter((user) => {
+        const matchSearch =
+            !searchQuery.value ||
+            user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchQuery.value.toLowerCase());
+        const matchRole = !filterRole.value || user.role === filterRole.value;
+        return matchSearch && matchRole;
+    });
+});
+
+const showModal = ref(false);
+const editingUser = ref<UserItem | null>(null);
+
+const form = useForm({
+    name: '',
+    email: '',
+    role: 'kasir' as 'admin' | 'kasir',
+    password: '',
+    password_confirmation: '',
+});
+
+function openTambah() {
+    editingUser.value = null;
+    form.reset();
+    form.role = 'kasir';
+    showModal.value = true;
+}
+
+function openEdit(user: UserItem) {
+    editingUser.value = user;
+    form.name = user.name;
+    form.email = user.email;
+    form.role = user.role;
+    form.password = '';
+    form.password_confirmation = '';
+    showModal.value = true;
+}
+
+function closeModal() {
+    showModal.value = false;
+    form.reset();
+    form.clearErrors();
+}
+
+function submitForm() {
+    if (editingUser.value) {
+        form.put(userUpdate(editingUser.value.id).url, {
+            onSuccess: () => closeModal(),
+        });
+    } else {
+        form.post(userStore().url, {
+            onSuccess: () => closeModal(),
+        });
+    }
+}
+
+function hapusUser(user: UserItem) {
+    if (user.id === currentUserId.value) {
+        alert('Anda tidak dapat menghapus akun sendiri.');
+        return;
+    }
+
+    if (confirm(`Hapus user "${user.name}"? Tindakan ini tidak dapat dibatalkan.`)) {
+        router.delete(userDestroy(user.id).url);
+    }
+}
+
+function formatDate(dateString: string): string {
+    return new Intl.DateTimeFormat('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    }).format(new Date(dateString));
+}
 </script>
 
 <template>
     <Head title="Data User - Admin" />
 
     <div class="flex h-full flex-1 flex-col gap-6 p-6">
-        <!-- Header Section -->
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">Manajemen User</h1>
-                <p class="text-sm text-muted-foreground mt-1">
+                <p class="mt-1 text-sm text-muted-foreground">
                     Kelola data pengguna, hak akses, dan atur akun kasir di sistem Anda.
                 </p>
             </div>
-            
-            <button class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-indigo-500 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 cursor-pointer">
+
+            <button
+                id="btn-tambah-user"
+                class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-colors hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                @click="openTambah"
+            >
                 <Plus class="h-4 w-4" />
                 Tambah User Baru
             </button>
         </div>
 
-        <!-- Stats Row -->
         <div class="grid gap-4 md:grid-cols-3">
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border flex items-center gap-4 shadow-sm">
-                <div class="rounded-lg bg-indigo-500/10 p-3 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+            <div
+                class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border"
+            >
+                <div
+                    class="rounded-lg border border-indigo-500/20 bg-indigo-500/10 p-3 text-indigo-600 dark:text-indigo-400"
+                >
                     <User class="h-6 w-6" />
                 </div>
                 <div>
                     <span class="text-xs font-medium text-muted-foreground">Total Pengguna</span>
-                    <h3 class="text-xl font-bold mt-0.5">4 Orang</h3>
+                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.total_users }} Orang</h3>
                 </div>
             </div>
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border flex items-center gap-4 shadow-sm">
-                <div class="rounded-lg bg-emerald-500/10 p-3 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <div
+                class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border"
+            >
+                <div
+                    class="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-emerald-600 dark:text-emerald-400"
+                >
                     <Shield class="h-6 w-6" />
                 </div>
                 <div>
                     <span class="text-xs font-medium text-muted-foreground">Administrator</span>
-                    <h3 class="text-xl font-bold mt-0.5">1 Akun</h3>
+                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.total_admin }} Akun</h3>
                 </div>
             </div>
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border flex items-center gap-4 shadow-sm">
-                <div class="rounded-lg bg-blue-500/10 p-3 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+            <div
+                class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border"
+            >
+                <div
+                    class="rounded-lg border border-blue-500/20 bg-blue-500/10 p-3 text-blue-600 dark:text-blue-400"
+                >
                     <UserCheck class="h-6 w-6" />
                 </div>
                 <div>
-                    <span class="text-xs font-medium text-muted-foreground">Kasir Aktif</span>
-                    <h3 class="text-xl font-bold mt-0.5">3 Akun</h3>
+                    <span class="text-xs font-medium text-muted-foreground">Kasir</span>
+                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.total_kasir }} Akun</h3>
                 </div>
             </div>
         </div>
 
-        <!-- Filters & Table Section -->
-        <div class="rounded-xl border border-sidebar-border/70 bg-card shadow-sm dark:border-sidebar-border overflow-hidden">
-            <!-- Table Action Bar -->
-            <div class="flex flex-col gap-4 border-b border-sidebar-border/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-sidebar-border">
-                <div class="relative flex-1 max-w-md">
-                    <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input 
-                        type="text" 
-                        placeholder="Cari user berdasarkan nama atau email..." 
-                        class="w-full rounded-lg border border-sidebar-border/70 bg-background pl-9 pr-4 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+        <div
+            class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card shadow-sm dark:border-sidebar-border"
+        >
+            <div
+                class="flex flex-col gap-4 border-b border-sidebar-border/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-sidebar-border"
+            >
+                <div class="relative max-w-md flex-1">
+                    <Search
+                        class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <input
+                        v-model="searchQuery"
+                        type="text"
+                        placeholder="Cari user berdasarkan nama atau email..."
+                        class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                     />
                 </div>
-                
-                <div class="flex gap-2">
-                    <button class="inline-flex items-center gap-1.5 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-zinc-800/40 dark:border-sidebar-border">
-                        <Filter class="h-4 w-4" />
-                        Filter
-                    </button>
-                </div>
+
+                <select
+                    v-model="filterRole"
+                    class="rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
+                >
+                    <option value="">Semua Role</option>
+                    <option value="admin">Admin</option>
+                    <option value="kasir">Kasir</option>
+                </select>
             </div>
 
-            <!-- Responsive Table -->
             <div class="overflow-x-auto">
                 <table class="w-full border-collapse text-left text-sm">
                     <thead>
-                        <tr class="border-b border-sidebar-border/70 bg-slate-50/50 dark:bg-zinc-800/20 dark:border-sidebar-border">
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">Nama Pengguna</th>
+                        <tr
+                            class="border-b border-sidebar-border/70 bg-slate-50/50 dark:border-sidebar-border dark:bg-zinc-800/20"
+                        >
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">
+                                Nama Pengguna
+                            </th>
                             <th class="px-6 py-4 font-semibold text-muted-foreground">Email</th>
                             <th class="px-6 py-4 font-semibold text-muted-foreground">Role</th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">Status</th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">Aktifitas Terakhir</th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground text-right">Aksi</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">
+                                Terdaftar Sejak
+                            </th>
+                            <th class="px-6 py-4 text-right font-semibold text-muted-foreground">
+                                Aksi
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr 
-                            v-for="userItem in users" 
+                        <tr v-if="filteredUsers.length === 0">
+                            <td colspan="5" class="px-6 py-12 text-center text-muted-foreground">
+                                <User class="mx-auto mb-3 h-10 w-10 opacity-30" />
+                                <p class="font-medium">
+                                    {{
+                                        searchQuery || filterRole
+                                            ? 'Tidak ada user yang sesuai pencarian.'
+                                            : 'Belum ada user. Tambahkan user pertama!'
+                                    }}
+                                </p>
+                            </td>
+                        </tr>
+                        <tr
+                            v-for="userItem in filteredUsers"
                             :key="userItem.id"
-                            class="hover:bg-slate-50/50 dark:hover:bg-zinc-800/10 transition-colors"
+                            class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-800 font-bold text-slate-700 dark:text-slate-300">
+                                    <div
+                                        class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-700 dark:bg-zinc-800 dark:text-slate-300"
+                                    >
                                         {{ userItem.name.charAt(0) }}
                                     </div>
-                                    <span class="font-semibold text-foreground">{{ userItem.name }}</span>
+                                    <span class="font-semibold text-foreground">{{
+                                        userItem.name
+                                    }}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-muted-foreground">
@@ -139,37 +277,39 @@ const users = [
                                 </div>
                             </td>
                             <td class="px-6 py-4">
-                                <span 
+                                <span
                                     :class="[
-                                        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider',
-                                        userItem.role === 'admin' 
-                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20' 
-                                            : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                                        'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider',
+                                        userItem.role === 'admin'
+                                            ? 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                            : 'border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
                                     ]"
                                 >
                                     {{ userItem.role }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4">
-                                <span 
-                                    :class="[
-                                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
-                                        userItem.status === 'active' 
-                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                                            : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                                    ]"
-                                >
-                                    <span :class="['h-1.5 w-1.5 rounded-full', userItem.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400']"></span>
-                                    {{ userItem.status === 'active' ? 'Aktif' : 'Nonaktif' }}
-                                </span>
+                            <td class="px-6 py-4 text-muted-foreground">
+                                {{ formatDate(userItem.created_at) }}
                             </td>
-                            <td class="px-6 py-4 text-muted-foreground">{{ userItem.lastActive }}</td>
                             <td class="px-6 py-4 text-right">
-                                <div class="inline-flex gap-2 justify-end">
-                                    <button class="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800 text-muted-foreground hover:text-indigo-600 transition-colors">
+                                <div class="inline-flex justify-end gap-2">
+                                    <button
+                                        class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-zinc-800"
+                                        title="Edit"
+                                        @click="openEdit(userItem)"
+                                    >
                                         <Edit class="h-4 w-4" />
                                     </button>
-                                    <button class="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800 text-muted-foreground hover:text-rose-600 transition-colors">
+                                    <button
+                                        class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
+                                        title="Hapus"
+                                        :disabled="userItem.id === currentUserId"
+                                        :class="{
+                                            'cursor-not-allowed opacity-40':
+                                                userItem.id === currentUserId,
+                                        }"
+                                        @click="hapusUser(userItem)"
+                                    >
                                         <Trash2 class="h-4 w-4" />
                                     </button>
                                 </div>
@@ -180,4 +320,155 @@ const users = [
             </div>
         </div>
     </div>
+
+    <Teleport to="body">
+        <div
+            v-if="showModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            @click.self="closeModal"
+        >
+            <div
+                class="w-full max-w-md rounded-2xl border border-sidebar-border/70 bg-card p-6 shadow-2xl dark:border-sidebar-border"
+                style="max-height: 90vh; overflow-y: auto"
+            >
+                <div class="mb-5 flex items-center justify-between">
+                    <h2 class="text-lg font-bold">
+                        {{ editingUser ? 'Edit User' : 'Tambah User Baru' }}
+                    </h2>
+                    <button
+                        class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
+                        @click="closeModal"
+                    >
+                        <X class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <form class="flex flex-col gap-4" @submit.prevent="submitForm">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" for="user-name">
+                            Nama
+                        </label>
+                        <input
+                            id="user-name"
+                            v-model="form.name"
+                            type="text"
+                            placeholder="Nama lengkap"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            :class="{ 'border-rose-500': form.errors.name }"
+                        />
+                        <p
+                            v-if="form.errors.name"
+                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                        >
+                            <AlertCircle class="h-3 w-3" />{{ form.errors.name }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" for="user-email">
+                            Email
+                        </label>
+                        <input
+                            id="user-email"
+                            v-model="form.email"
+                            type="email"
+                            placeholder="email@example.com"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            :class="{ 'border-rose-500': form.errors.email }"
+                        />
+                        <p
+                            v-if="form.errors.email"
+                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                        >
+                            <AlertCircle class="h-3 w-3" />{{ form.errors.email }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" for="user-role">
+                            Role
+                        </label>
+                        <select
+                            id="user-role"
+                            v-model="form.role"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            :class="{ 'border-rose-500': form.errors.role }"
+                        >
+                            <option value="kasir">Kasir</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <p
+                            v-if="form.errors.role"
+                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                        >
+                            <AlertCircle class="h-3 w-3" />{{ form.errors.role }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" for="user-password">
+                            Password
+                            <span v-if="editingUser" class="font-normal text-muted-foreground">
+                                (kosongkan jika tidak diubah)
+                            </span>
+                        </label>
+                        <input
+                            id="user-password"
+                            v-model="form.password"
+                            type="password"
+                            placeholder="Password"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            :class="{ 'border-rose-500': form.errors.password }"
+                        />
+                        <p
+                            v-if="form.errors.password"
+                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                        >
+                            <AlertCircle class="h-3 w-3" />{{ form.errors.password }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label
+                            class="mb-1.5 block text-sm font-medium"
+                            for="user-password-confirmation"
+                        >
+                            Konfirmasi Password
+                        </label>
+                        <input
+                            id="user-password-confirmation"
+                            v-model="form.password_confirmation"
+                            type="password"
+                            placeholder="Ulangi password"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                        />
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button
+                            type="button"
+                            class="rounded-lg border border-sidebar-border/70 bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
+                            @click="closeModal"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-60"
+                            :disabled="form.processing"
+                        >
+                            <Save class="h-4 w-4" />
+                            {{
+                                form.processing
+                                    ? 'Menyimpan...'
+                                    : editingUser
+                                      ? 'Simpan Perubahan'
+                                      : 'Tambah User'
+                            }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </Teleport>
 </template>
