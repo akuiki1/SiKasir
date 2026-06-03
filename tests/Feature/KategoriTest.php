@@ -70,18 +70,19 @@ test('admin can delete a kategori with no products', function () {
     $this->assertDatabaseMissing('kategoris', ['id_kategori' => $kategori->id_kategori]);
 });
 
-test('admin cannot delete a kategori that has products', function () {
+test('admin can delete a kategori with products and preserve existing history', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $kategori = Kategori::factory()->create();
-    Produk::factory()->create(['id_kategori' => $kategori->id_kategori]);
+    $produk = Produk::factory()->create(['id_kategori' => $kategori->id_kategori]);
 
     $response = $this->actingAs($admin)->delete(
         route('admin.kategori.destroy', $kategori->id_kategori)
     );
 
     $response->assertRedirect(route('admin.kategori'));
-    $response->assertSessionHas('error');
-    $this->assertDatabaseHas('kategoris', ['id_kategori' => $kategori->id_kategori]);
+    $response->assertSessionHas('success');
+    $this->assertDatabaseMissing('kategoris', ['id_kategori' => $kategori->id_kategori]);
+    $this->assertDatabaseHas('produks', ['id_produk' => $produk->id_produk, 'id_kategori' => null]);
 });
 
 // ─── Produk ──────────────────────────────────────────────────────────────────

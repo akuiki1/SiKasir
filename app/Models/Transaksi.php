@@ -31,7 +31,9 @@ class Transaksi extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'id_user', 'id');
+        return $this->belongsTo(User::class, 'id_user', 'id')->withDefault([
+            'name' => 'User Terhapus',
+        ]);
     }
 
     public function detailTransaksis(): HasMany

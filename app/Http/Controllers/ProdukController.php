@@ -97,10 +97,6 @@ class ProdukController extends Controller
      */
     public function destroy(Produk $produk): RedirectResponse
     {
-        if ($produk->detailTransaksis()->exists()) {
-            return redirect()->route('admin.products')->with('error', 'Produk tidak dapat dihapus karena sudah digunakan dalam transaksi.');
-        }
-
         $produk->delete();
 
         return redirect()->route('admin.products')->with('success', 'Produk berhasil dihapus.');

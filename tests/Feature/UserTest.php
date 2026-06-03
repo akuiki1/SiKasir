@@ -56,14 +56,16 @@ test('admin can update a user', function () {
     $this->assertDatabaseHas('users', ['id' => $user->id, 'name' => 'Baru']);
 });
 
-test('admin can delete another user', function () {
+test('admin can delete another user and preserve transaction history', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $user = User::factory()->create(['role' => 'kasir']);
+    $transaksi = Transaksi::factory()->create(['id_user' => $user->id, 'total_harga' => 10000, 'bayar' => 20000, 'kembalian' => 10000]);
 
     $response = $this->actingAs($admin)->delete(route('admin.users.destroy', $user->id));
 
     $response->assertRedirect(route('admin.users'));
     $this->assertDatabaseMissing('users', ['id' => $user->id]);
+    $this->assertDatabaseHas('transaksis', ['id_transaksi' => $transaksi->id_transaksi, 'id_user' => null]);
 });
 
 test('admin cannot delete their own account', function () {
@@ -246,13 +248,16 @@ test('admin can delete a transaction and restore stock', function () {
     expect($produk->fresh()->stok)->toBe(5);
 });
 
-test('admin cannot delete produk used in transaction', function () {
+test('admin can delete produk used in transaction and preserve transaction history', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $produk = Produk::factory()->create();
     $transaksi = Transaksi::factory()->create();
     DetailTransaksi::factory()->create([
         'id_transaksi' => $transaksi->id_transaksi,
         'id_produk' => $produk->id_produk,
+        'jumlah' => 1,
+        'harga' => $produk->harga_jual,
+        'subtotal' => $produk->harga_jual,
     ]);
 
     $response = $this->actingAs($admin)->delete(
@@ -260,6 +265,7 @@ test('admin cannot delete produk used in transaction', function () {
     );
 
     $response->assertRedirect(route('admin.products'));
-    $response->assertSessionHas('error');
-    $this->assertDatabaseHas('produks', ['id_produk' => $produk->id_produk]);
+    $response->assertSessionHas('success');
+    $this->assertDatabaseMissing('produks', ['id_produk' => $produk->id_produk]);
+    $this->assertDatabaseHas('detail_transaksis', ['id_transaksi' => $transaksi->id_transaksi, 'id_produk' => null]);
 });

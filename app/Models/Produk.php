@@ -32,7 +32,9 @@ class Produk extends Model
 
     public function kategori(): BelongsTo
     {
-        return $this->belongsTo(Kategori::class, 'id_kategori', 'id_kategori');
+        return $this->belongsTo(Kategori::class, 'id_kategori', 'id_kategori')->withDefault([
+            'nama_kategori' => 'Kategori Terhapus',
+        ]);
     }
 
     public function detailTransaksis(): HasMany
