@@ -28,6 +28,7 @@ class KasirController extends Controller
                 'kategori' => $produk->kategori?->nama_kategori,
                 'harga_jual' => $produk->harga_jual,
                 'stok' => $produk->stok,
+                'barcode' => $produk->barcode,
             ]);
 
         return Inertia::render('kasir/Transaksi', [

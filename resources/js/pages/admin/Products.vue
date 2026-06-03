@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
 import {
     Plus,
     Search,
@@ -13,6 +12,7 @@ import {
     Save,
     AlertCircle,
 } from 'lucide-vue-next';
+import { ref, computed, watch } from 'vue';
 import { store as productStore, update as productUpdate, destroy as productDestroy } from '@/routes/admin/products';
 
 defineOptions({
@@ -65,6 +65,7 @@ const filteredProduks = computed(() => {
     return props.produks.filter((p) => {
         const matchSearch = !searchQuery.value || p.nama.toLowerCase().includes(searchQuery.value.toLowerCase());
         const matchKategori = !filterKategori.value || String(p.id_kategori) === filterKategori.value;
+
         return matchSearch && matchKategori;
     });
 });
@@ -115,6 +116,37 @@ function closeModal() {
     form.reset();
     form.clearErrors();
 }
+
+
+const lastGeneratedSku = ref('');
+
+function generateSKUFromBarcode(barcode: string): string {
+    const normalized = barcode
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 12);
+
+    return normalized ? `SKU-${normalized}` : '';
+}
+
+watch(
+    () => form.barcode,
+    (barcode) => {
+        const value = String(barcode || '').trim();
+        const generated = generateSKUFromBarcode(value);
+
+        if (!value) {
+            lastGeneratedSku.value = '';
+
+            return;
+        }
+
+        if (!form.sku || form.sku === lastGeneratedSku.value) {
+            form.sku = generated;
+            lastGeneratedSku.value = generated;
+        }
+    },
+);
 
 function submitForm() {
     const data = {

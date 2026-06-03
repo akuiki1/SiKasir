@@ -2,7 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import {
     Search,
-    Filter,
+    Barcode,
     ShoppingCart,
     Plus,
     Minus,
@@ -30,6 +30,7 @@ interface Produk {
     kategori: string | null;
     harga_jual: number;
     stok: number;
+    barcode: string;
 }
 
 interface CartItem {
@@ -46,6 +47,8 @@ const props = defineProps<{
 }>();
 
 const searchQuery = ref('');
+const barcodeScan = ref('');
+const scanError = ref('');
 const selectedCategory = ref('');
 const cartItems = ref<CartItem[]>([]);
 
@@ -80,6 +83,7 @@ function formatRupiah(value: number): string {
 }
 
 function addToCart(product: Produk) {
+    scanError.value = '';
     const existing = cartItems.value.find((item) => item.id_produk === product.id_produk);
 
     if (existing) {
@@ -131,6 +135,28 @@ const kembalian = computed(() => {
     return Math.max(0, bayar - totalHarga.value);
 });
 
+function scanBarcode() {
+    const barcode = barcodeScan.value.trim();
+
+    if (!barcode) {
+        scanError.value = 'Masukkan barcode terlebih dahulu.';
+
+        return;
+    }
+
+    const produk = props.produks.find((item) => item.barcode === barcode);
+
+    if (!produk) {
+        scanError.value = `Produk dengan barcode ${barcode} tidak ditemukan.`;
+        barcodeScan.value = '';
+
+        return;
+    }
+
+    addToCart(produk);
+    barcodeScan.value = '';
+}
+
 function submitTransaction() {
     if (cartItems.value.length === 0) {
         return;
@@ -165,27 +191,37 @@ function submitTransaction() {
                 </div>
             </div>
 
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="relative flex-1">
+            <div class="grid gap-4 lg:grid-cols-[1fr_auto]">
+                <div class="relative">
                     <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
                         v-model="searchQuery"
                         type="text"
-                        placeholder="Cari produk berdasarkan nama atau scan barcode..."
+                        placeholder="Cari produk..."
                         class="w-full rounded-lg border border-sidebar-border/70 bg-background pl-9 pr-4 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                     />
                 </div>
-
-                <div class="flex gap-2">
+                <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <div class="relative">
+                        <Barcode class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            v-model="barcodeScan"
+                            @keyup.enter.prevent="scanBarcode"
+                            type="text"
+                            placeholder="Scan barcode produk"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background pl-9 pr-4 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                        />
+                    </div>
                     <button
                         type="button"
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-zinc-800/40 dark:border-sidebar-border"
+                        class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-zinc-800/40 dark:border-sidebar-border"
+                        @click="scanBarcode"
                     >
-                        <Filter class="h-4 w-4" />
-                        Semua Kategori
+                        Scan
                     </button>
                 </div>
             </div>
+            <p v-if="scanError" class="text-sm text-rose-600">{{ scanError }}</p>
 
             <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 <div
@@ -303,14 +339,10 @@ function submitTransaction() {
                         <span class="flex items-center gap-1">Diskon Promo <Percent class="h-3 w-3 text-emerald-500" /></span>
                         <span class="text-emerald-500">-Rp 0</span>
                     </div>
-                    <div class="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Pajak (PPN 11%)</span>
-                        <span>{{ formatRupiah(Math.round(totalHarga * 0.11)) }}</span>
-                    </div>
                     <div class="flex items-center justify-between border-t border-sidebar-border/70 pt-2 dark:border-sidebar-border">
                         <span class="font-bold text-sm">Total Tagihan</span>
                         <span class="font-extrabold text-lg text-indigo-600 dark:text-indigo-400">
-                            {{ formatRupiah(totalHarga + Math.round(totalHarga * 0.11)) }}
+                            {{ formatRupiah(totalHarga) }}
                         </span>
                     </div>
                 </div>
