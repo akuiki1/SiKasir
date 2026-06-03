@@ -79,6 +79,157 @@ function formatMetode(metode: string): string {
 
     return labels[metode] ?? metode;
 }
+
+function buildReceiptHtml(trx: Transaksi): string {
+    const rows = trx.details
+        .map(
+            (detail) => `
+                <tr>
+                    <td>${detail.nama_produk}</td>
+                    <td class="text-right">${detail.jumlah}</td>
+                    <td class="text-right">${formatRupiah(detail.harga)}</td>
+                    <td class="text-right">${formatRupiah(detail.subtotal)}</td>
+                </tr>
+            `,
+        )
+        .join('');
+
+    return `<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Struk ${trx.kode}</title>
+<style>
+    body { font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; margin: 0; padding: 12px; }
+    .receipt { width: 320px; }
+    .receipt h1, .receipt h2, .receipt p { margin: 0; }
+    .receipt h1 { font-size: 16px; margin-bottom: 8px; }
+    .receipt .center { text-align: center; }
+    .receipt .separator { border-top: 1px dashed #000; margin: 8px 0; }
+    .receipt table { width: 100%; border-collapse: collapse; }
+    .receipt td { padding: 2px 0; vertical-align: top; }
+    .receipt .text-right { text-align: right; }
+    .receipt .totals td { padding: 4px 0; }
+    .receipt .small { font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="receipt">
+    <h1 class="center">Toko SiKasir</h1>
+    <p class="center small">Struk Transaksi</p>
+    <div class="separator"></div>
+    <p>Kode: ${trx.kode}</p>
+    <p>${trx.tanggal} ${trx.waktu}</p>
+    <div class="separator"></div>
+    <table>
+        ${rows}
+    </table>
+    <div class="separator"></div>
+    <table class="totals">
+        <tr>
+            <td>Total</td>
+            <td class="text-right">${formatRupiah(trx.total_harga)}</td>
+        </tr>
+        <tr>
+            <td>Bayar</td>
+            <td class="text-right">${formatRupiah(trx.bayar)}</td>
+        </tr>
+        <tr>
+            <td>Kembalian</td>
+            <td class="text-right">${formatRupiah(trx.kembalian)}</td>
+        </tr>
+    </table>
+    <div class="separator"></div>
+    <p class="center small">Terima kasih atas kunjungan Anda.</p>
+</div>
+</body>
+</html>`;
+}
+
+function printTransaction(trx: Transaksi): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=400,height=700');
+
+    if (!printWindow) {
+        window.alert('Tidak dapat membuka jendela cetak. Pastikan pop-up tidak diblokir.');
+
+        return;
+    }
+
+    printWindow.document.write(buildReceiptHtml(trx));
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+}
+
+function printSessionReport(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const rows = filteredTransaksis.value
+        .map(
+            (trx) => `
+                <tr>
+                    <td>${trx.kode}</td>
+                    <td class="text-right">${trx.jumlah_item}</td>
+                    <td class="text-right">${formatRupiah(trx.total_harga)}</td>
+                    <td>${formatMetode(trx.metode_pembayaran)}</td>
+                    <td>${trx.tanggal} ${trx.waktu}</td>
+                </tr>
+            `,
+        )
+        .join('');
+
+    const html = `<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Laporan Transaksi</title>
+<style>
+    body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px 4px; border-bottom: 1px solid #ddd; }
+    th { text-align: left; }
+    .right { text-align: right; }
+</style>
+</head>
+<body>
+    <h1>Laporan Transaksi</h1>
+    <p>Total transaksi: ${filteredTransaksis.value.length}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Kode</th>
+                <th class="right">Item</th>
+                <th class="right">Total</th>
+                <th>Metode</th>
+                <th>Waktu</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows}
+        </tbody>
+    </table>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=900');
+
+    if (!printWindow) {
+        window.alert('Tidak dapat membuka jendela cetak. Pastikan pop-up tidak diblokir.');
+
+        return;
+    }
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+}
 </script>
 
 <template>
@@ -96,6 +247,7 @@ function formatMetode(metode: string): string {
             <button
                 type="button"
                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-sidebar-border/70 bg-background px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800/40 dark:border-sidebar-border"
+                @click="printSessionReport"
             >
                 <Printer class="h-4 w-4" />
                 Cetak Laporan Sesi
@@ -199,6 +351,7 @@ function formatMetode(metode: string): string {
                                     <button
                                         type="button"
                                         class="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800 text-muted-foreground hover:text-indigo-600 transition-colors"
+                                        @click="printTransaction(trx)"
                                     >
                                         <Printer class="h-4 w-4" />
                                     </button>
