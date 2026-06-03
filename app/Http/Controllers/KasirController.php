@@ -17,6 +17,73 @@ use Inertia\Response;
 
 class KasirController extends Controller
 {
+    public function dashboard(Request $request): Response
+    {
+        $userId = Auth::id();
+        $today = Carbon::today();
+
+        $defaultEnd = $today->toDateString();
+        $oldestCreatedAt = Transaksi::where('id_user', $userId)->min('created_at');
+        $defaultStart = $oldestCreatedAt ? Carbon::parse($oldestCreatedAt)->toDateString() : $today->toDateString();
+
+        $startDate = $request->query('start_date', $defaultStart);
+        $endDate = $request->query('end_date', $defaultEnd);
+
+        $from = Carbon::parse($startDate)->startOfDay();
+        $to = Carbon::parse($endDate)->endOfDay();
+
+        if ($from->greaterThan($to)) {
+            $to = $from->endOfDay();
+        }
+
+        $todaySales = Transaksi::where('id_user', $userId)
+            ->whereDate('created_at', $today->toDateString());
+
+        $rangeQuery = Transaksi::where('id_user', $userId);
+
+        if ($request->filled('start_date')) {
+            $rangeQuery->where('created_at', '>=', $from);
+        }
+
+        if ($request->filled('end_date')) {
+            $rangeQuery->where('created_at', '<=', $to);
+        }
+
+        $dateRangeLabel = $request->filled('start_date') || $request->filled('end_date')
+            ? sprintf('%s sampai %s', $startDate, $endDate)
+            : 'Semua Waktu';
+
+        $recentTransactions = Transaksi::where('id_user', $userId)
+            ->latest('created_at')
+            ->limit(5)
+            ->get()
+            ->map(fn (Transaksi $transaksi) => [
+                'id_transaksi' => $transaksi->id_transaksi,
+                'kode' => 'TRX-'.$transaksi->id_transaksi,
+                'waktu' => Carbon::parse($transaksi->created_at)->translatedFormat('H:i'),
+                'items' => $transaksi->detailTransaksis->sum('jumlah'),
+                'total_harga' => $transaksi->total_harga,
+                'status' => 'Selesai',
+            ]);
+
+        return Inertia::render('kasir/Dashboard', [
+            'today_sales' => [
+                'total_revenue' => $todaySales->sum('total_harga'),
+                'total_transactions' => $todaySales->count(),
+            ],
+            'range_sales' => [
+                'total_revenue' => $rangeQuery->sum('total_harga'),
+                'total_transactions' => $rangeQuery->count(),
+            ],
+            'date_range' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'label' => $dateRangeLabel,
+            ],
+            'recent_transactions' => $recentTransactions,
+        ]);
+    }
+
     public function transaksi(): Response
     {
         $produks = Produk::query()

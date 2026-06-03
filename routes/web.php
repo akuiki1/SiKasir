@@ -48,7 +48,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::middleware(['role:kasir'])->group(function () {
-        Route::inertia('kasir/dashboard', 'kasir/Dashboard')->name('kasir.dashboard');
+        Route::get('kasir/dashboard', [KasirController::class, 'dashboard'])->name('kasir.dashboard');
         Route::get('kasir/transaksi', [KasirController::class, 'transaksi'])->name('kasir.transaksi');
         Route::post('kasir/transaksi', [KasirController::class, 'store'])->name('kasir.transaksi.store');
         Route::get('kasir/riwayat', [KasirController::class, 'riwayat'])->name('kasir.riwayat');

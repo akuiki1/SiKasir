@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import { 
     PlusCircle, 
     Search, 
@@ -10,6 +10,7 @@ import {
     ShoppingBag,
     Wallet
 } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 defineOptions({
     layout: {
@@ -22,35 +23,81 @@ defineOptions({
     },
 });
 
-// Mock operational stats
-const stats = [
-    {
-        name: 'Penjualan Saya Hari Ini',
-        value: 'Rp 2.850.000',
-        icon: DollarSign,
-        color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-    },
-    {
-        name: 'Jumlah Transaksi',
-        value: '24 Transaksi',
-        icon: ShoppingBag,
-        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-    },
-    {
-        name: 'Saldo Laci Uang (Cash)',
-        value: 'Rp 500.000',
-        icon: Wallet,
-        color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-    }
-];
+interface TransactionItem {
+    id_transaksi: number;
+    kode: string;
+    waktu: string;
+    items: number;
+    total_harga: number;
+    status: string;
+}
 
-// Mock recent local transaction history
-const recentTransactions = [
-    { id: 1029, code: 'TRX-1029', time: '13:25', items: 3, total: 'Rp 450.000', status: 'Selesai' },
-    { id: 1028, code: 'TRX-1028', time: '12:50', items: 8, total: 'Rp 1.200.000', status: 'Selesai' },
-    { id: 1027, code: 'TRX-1027', time: '11:15', items: 2, total: 'Rp 180.000', status: 'Selesai' },
-    { id: 1026, code: 'TRX-1026', time: '10:02', items: 5, total: 'Rp 620.000', status: 'Selesai' },
-];
+const props = defineProps<{
+    today_sales: {
+        total_revenue: number;
+        total_transactions: number;
+    };
+    range_sales: {
+        total_revenue: number;
+        total_transactions: number;
+    };
+    date_range: {
+        start_date: string;
+        end_date: string;
+        label: string;
+    };
+    recent_transactions: TransactionItem[];
+}>();
+
+const form = useForm({
+    start_date: props.date_range.start_date,
+    end_date: props.date_range.end_date,
+});
+
+const stats = computed(() => [
+    {
+        name: 'Penjualan Hari Ini',
+        value: formatRupiah(props.today_sales.total_revenue),
+        icon: DollarSign,
+        color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    },
+    {
+        name: 'Transaksi Hari Ini',
+        value: `${props.today_sales.total_transactions} Transaksi`,
+        icon: ShoppingBag,
+        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    },
+    {
+        name: 'Penjualan Rentang',
+        value: formatRupiah(props.range_sales.total_revenue),
+        icon: Wallet,
+        color: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20',
+    },
+    {
+        name: 'Transaksi Rentang',
+        value: `${props.range_sales.total_transactions} Transaksi`,
+        icon: FileText,
+        color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+    },
+]);
+
+function formatRupiah(value: number): string {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+    }).format(value);
+}
+
+function applyRange(): void {
+    router.get('/kasir/dashboard', {
+        start_date: form.start_date,
+        end_date: form.end_date,
+    }, {
+        preserveState: true,
+        replace: true,
+    });
+}
 </script>
 
 <template>
@@ -104,8 +151,43 @@ const recentTransactions = [
             </button>
         </div>
 
+        <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h2 class="text-lg font-bold tracking-tight">Filter Rentang Waktu</h2>
+                    <p class="text-sm text-muted-foreground">{{ props.date_range.label }}</p>
+                </div>
+
+                <div class="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:w-auto">
+                    <label class="block">
+                        <span class="text-xs text-muted-foreground">Dari</span>
+                        <input
+                            v-model="form.start_date"
+                            type="date"
+                            class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                    </label>
+                    <label class="block">
+                        <span class="text-xs text-muted-foreground">Sampai</span>
+                        <input
+                            v-model="form.end_date"
+                            type="date"
+                            class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                    </label>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                        @click.prevent="applyRange"
+                    >
+                        Terapkan
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Stats Grid -->
-        <div class="grid gap-4 md:grid-cols-3">
+        <div class="grid gap-4 md:grid-cols-4">
             <div 
                 v-for="stat in stats" 
                 :key="stat.name"
@@ -139,8 +221,8 @@ const recentTransactions = [
 
                 <div class="space-y-4">
                     <div 
-                        v-for="trx in recentTransactions" 
-                        :key="trx.id"
+                        v-for="trx in props.recent_transactions" 
+                        :key="trx.id_transaksi"
                         class="flex items-center justify-between rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors"
                     >
                         <div class="flex items-center gap-3">
@@ -148,13 +230,13 @@ const recentTransactions = [
                                 <Clock class="h-4 w-4" />
                             </div>
                             <div>
-                                <p class="text-sm font-bold text-indigo-600 dark:text-indigo-400">#{{ trx.code }}</p>
-                                <p class="text-xs text-muted-foreground">{{ trx.items }} item • Pukul {{ trx.time }}</p>
+                                <p class="text-sm font-bold text-indigo-600 dark:text-indigo-400">#{{ trx.kode }}</p>
+                                <p class="text-xs text-muted-foreground">{{ trx.items }} item • Pukul {{ trx.waktu }}</p>
                             </div>
                         </div>
                         <div class="text-right flex items-center gap-4">
                             <div>
-                                <p class="text-sm font-bold text-slate-900 dark:text-slate-100">{{ trx.total }}</p>
+                                <p class="text-sm font-bold text-slate-900 dark:text-slate-100">{{ formatRupiah(trx.total_harga) }}</p>
                                 <span class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                                     {{ trx.status }}
                                 </span>
