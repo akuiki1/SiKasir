@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\KasirController;
 use App\Http\Controllers\KategoriController;
@@ -20,7 +21,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     Route::middleware(['role:admin'])->group(function () {
-        Route::inertia('admin/dashboard', 'admin/Dashboard')->name('admin.dashboard');
+        Route::get('admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
         // Users
         Route::get('admin/users', [UserController::class, 'index'])->name('admin.users');
         Route::post('admin/users', [UserController::class, 'store'])->name('admin.users.store');

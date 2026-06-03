@@ -1,15 +1,7 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { 
-    TrendingUp, 
-    Users, 
-    Package, 
-    ArrowUpRight, 
-    ArrowDownRight, 
-    Activity, 
-    DollarSign,
-    ShoppingCart
-} from 'lucide-vue-next';
+import { Head, useForm, router } from '@inertiajs/vue3';
+import { DollarSign, Printer } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 defineOptions({
     layout: {
@@ -22,155 +14,595 @@ defineOptions({
     },
 });
 
-// Mock statistics for standard UI demo
-const stats = [
-    {
-        name: 'Pendapatan Hari Ini',
-        value: 'Rp 8.420.000',
-        change: '+12.5%',
-        trend: 'up',
-        icon: DollarSign,
-        color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-    },
-    {
-        name: 'Kasir Aktif',
-        value: '4 Orang',
-        change: 'Sesi Aktif',
-        trend: 'neutral',
-        icon: Users,
-        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-    },
-    {
-        name: 'Produk Terjual',
-        value: '312 Items',
-        change: '+8.2%',
-        trend: 'up',
-        icon: ShoppingCart,
-        color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20'
-    },
-];
+interface ChartPoint {
+    label: string;
+    value: number;
+}
 
-// Mock recent activities
-const recentActivities = [
-    { id: 1, user: 'Kasir Ahmad', action: 'Melakukan transaksi #TRX-1029', time: '5 menit yang lalu', amount: 'Rp 450.000' },
-    { id: 2, user: 'Kasir Rina', action: 'Membuka sesi kasir baru', time: '12 menit yang lalu', amount: null },
-    { id: 3, user: 'Sistem', action: 'Stok menipis pada produk "Kopi Susu Gula Aren"', time: '30 menit yang lalu', amount: null },
-    { id: 4, user: 'Kasir Ahmad', action: 'Melakukan transaksi #TRX-1028', time: '45 menit yang lalu', amount: 'Rp 1.200.000' },
-];
+interface ProductItem {
+    nama: string;
+    qty: number;
+    revenue: number;
+}
+
+interface CashierItem {
+    nama: string;
+    transactions: number;
+    revenue: number;
+}
+
+interface ProfitProductItem {
+    nama: string;
+    profit: number;
+    transactions: number;
+}
+
+interface WorstProductItem {
+    nama: string;
+    qty: number;
+    revenue: number;
+}
+
+const props = defineProps<{
+    stats: {
+        total_revenue: number;
+        total_transactions: number;
+        average_order_value: number;
+        total_items_sold: number;
+    };
+    revenue_chart: ChartPoint[];
+    sales_trend: ChartPoint[];
+    top_sales_dates: ChartPoint[];
+    top_sales_hours: ChartPoint[];
+    best_selling_products: ProductItem[];
+    worst_selling_products: WorstProductItem[];
+    cashier_achievements: CashierItem[];
+    best_profit_products: ProfitProductItem[];
+    top_cashiers_by_transactions: CashierItem[];
+    top_cashiers_by_revenue: CashierItem[];
+    date_range: {
+        start_date: string;
+        end_date: string;
+    };
+}>();
+
+const form = useForm({
+    start_date: props.date_range.start_date,
+    end_date: props.date_range.end_date,
+});
+
+const maxRevenue = computed(() => Math.max(...props.revenue_chart.map((point) => point.value), 1));
+const maxSales = computed(() => Math.max(...props.sales_trend.map((point) => point.value), 1));
+const maxTopDates = computed(() => Math.max(...props.top_sales_dates.map((point) => point.value), 1));
+const maxTopHours = computed(() => Math.max(...props.top_sales_hours.map((point) => point.value), 1));
+const maxCashierTransactions = computed(() => Math.max(...props.cashier_achievements.map((cashier) => cashier.transactions), 1));
+const maxCashierRevenue = computed(() => Math.max(...props.cashier_achievements.map((cashier) => cashier.revenue), 1));
+const maxProfitMargin = computed(() => Math.max(...props.best_profit_products.map((product) => product.profit), 1));
+
+const trendGraph = computed(() => props.revenue_chart.map((point) => {
+    const salesPoint = props.sales_trend.find((item) => item.label === point.label);
+
+    return {
+        label: point.label,
+        revenue: point.value,
+        sales: salesPoint?.value ?? 0,
+        revenueWidth: `${Math.round((point.value / maxRevenue.value) * 100)}%`,
+        salesWidth: `${Math.round(((salesPoint?.value ?? 0) / maxSales.value) * 100)}%`,
+    };
+}));
+
+const bestSellingGraph = computed(() => {
+    const maxQty = Math.max(...props.best_selling_products.map((product) => product.qty), 1);
+
+    return props.best_selling_products.map((product) => ({
+        ...product,
+        width: `${Math.round((product.qty / maxQty) * 100)}%`,
+    }));
+});
+
+const worstSellingGraph = computed(() => {
+    const maxQty = Math.max(...props.worst_selling_products.map((product) => product.qty), 1);
+
+    return props.worst_selling_products.map((product) => ({
+        ...product,
+        width: `${Math.round((product.qty / maxQty) * 100)}%`,
+    }));
+});
+
+const profitGraph = computed(() => props.best_profit_products.map((product) => ({
+    ...product,
+    width: `${Math.round((product.profit / maxProfitMargin.value) * 100)}%`,
+})));
+
+function formatRupiah(value: number): string {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+    }).format(value);
+}
+
+function applyRange(): void {
+    router.get('/admin/dashboard', {
+        start_date: form.start_date,
+        end_date: form.end_date,
+    }, {
+        preserveState: true,
+        replace: true,
+    });
+}
+
+function buildTableHtml(title: string, columns: string[], rows: string[][]): string {
+    return `
+        <div class="section">
+            <h2>${title}</h2>
+            <table>
+                <thead>
+                    <tr>${columns.map((column) => `<th>${column}</th>`).join('')}</tr>
+                </thead>
+                <tbody>
+                    ${rows.map((row) => `<tr>${row.map((column) => `<td>${column}</td>`).join('')}</tr>`).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function openPrintWindow(html: string): void {
+    const win = window.open('', '_blank', 'width=900,height=700');
+
+    if (!win) {
+        window.alert('Tidak dapat membuka jendela cetak. Pastikan pop-up tidak diblokir.');
+
+        return;
+    }
+
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+}
+
+function printReport(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const sections = [
+        {
+            title: 'Produk Terlaris',
+            columns: ['Produk', 'Qty', 'Pendapatan'],
+            rows: props.best_selling_products.map((product) => [product.nama, `${product.qty}`, formatRupiah(product.revenue)]),
+        },
+        {
+            title: 'Produk Paling Tidak Laku',
+            columns: ['Produk', 'Qty', 'Pendapatan'],
+            rows: props.worst_selling_products.map((product) => [product.nama, `${product.qty}`, formatRupiah(product.revenue)]),
+        },
+        {
+            title: 'Tanggal Penjualan Terbanyak',
+            columns: ['Tanggal', 'Transaksi'],
+            rows: props.top_sales_dates.map((item) => [item.label, `${item.value}`]),
+        },
+        {
+            title: 'Waktu Penjualan Terbanyak',
+            columns: ['Jam', 'Transaksi'],
+            rows: props.top_sales_hours.map((item) => [item.label, `${item.value}`]),
+        },
+        {
+            title: 'Pencapaian Kasir',
+            columns: ['Kasir', 'Transaksi', 'Pendapatan'],
+            rows: props.cashier_achievements.map((cashier) => [cashier.nama, `${cashier.transactions}`, formatRupiah(cashier.revenue)]),
+        },
+        {
+            title: 'Profit Produk Teratas',
+            columns: ['Produk', 'Keuntungan', 'Transaksi'],
+            rows: props.best_profit_products.map((product) => [product.nama, formatRupiah(product.profit), `${product.transactions}`]),
+        },
+    ];
+
+    const html = `<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Laporan Dashboard Admin</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 24px; color: #111; }
+    h1, h2 { margin: 0 0 12px 0; }
+    .section { margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { padding: 8px 6px; border: 1px solid #ddd; text-align: left; }
+    .summary { display: flex; gap: 16px; flex-wrap: wrap; }
+    .card { padding: 12px; border: 1px solid #ddd; border-radius: 8px; flex: 1 1 200px; }
+</style>
+</head>
+<body>
+    <h1>Laporan Dashboard Admin</h1>
+    <p>Periode: ${form.start_date} — ${form.end_date}</p>
+    <div class="section summary">
+        <div class="card"><strong>Total Pendapatan</strong><div>${formatRupiah(props.stats.total_revenue)}</div></div>
+        <div class="card"><strong>Total Transaksi</strong><div>${props.stats.total_transactions}</div></div>
+        <div class="card"><strong>Rata-rata Penjualan</strong><div>${formatRupiah(props.stats.average_order_value)}</div></div>
+        <div class="card"><strong>Total Item Terjual</strong><div>${props.stats.total_items_sold}</div></div>
+    </div>
+    ${sections.map((section) => buildTableHtml(section.title, section.columns, section.rows)).join('')}
+</body>
+</html>`;
+
+    openPrintWindow(html);
+}
+
+function printSection(section: string): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    let title = '';
+    let columns: string[] = [];
+    let rows: string[][] = [];
+
+    switch (section) {
+        case 'best_sellers':
+            title = 'Produk Terlaris';
+            columns = ['Produk', 'Qty', 'Pendapatan'];
+            rows = props.best_selling_products.map((product) => [product.nama, `${product.qty}`, formatRupiah(product.revenue)]);
+            break;
+        case 'worst_sellers':
+            title = 'Produk Paling Tidak Laku';
+            columns = ['Produk', 'Qty', 'Pendapatan'];
+            rows = props.worst_selling_products.map((product) => [product.nama, `${product.qty}`, formatRupiah(product.revenue)]);
+            break;
+        case 'top_dates':
+            title = 'Tanggal Penjualan Terbanyak';
+            columns = ['Tanggal', 'Transaksi'];
+            rows = props.top_sales_dates.map((item) => [item.label, `${item.value}`]);
+            break;
+        case 'top_hours':
+            title = 'Waktu Penjualan Terbanyak';
+            columns = ['Jam', 'Transaksi'];
+            rows = props.top_sales_hours.map((item) => [item.label, `${item.value}`]);
+            break;
+        case 'cashier_achievements':
+            title = 'Pencapaian Kasir';
+            columns = ['Kasir', 'Transaksi', 'Pendapatan'];
+            rows = props.cashier_achievements.map((cashier) => [cashier.nama, `${cashier.transactions}`, formatRupiah(cashier.revenue)]);
+            break;
+        case 'profit_products':
+            title = 'Profit Produk Teratas';
+            columns = ['Produk', 'Keuntungan', 'Transaksi'];
+            rows = props.best_profit_products.map((product) => [product.nama, formatRupiah(product.profit), `${product.transactions}`]);
+            break;
+
+        default:
+
+            return;
+    }
+
+    const html = `<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>${title}</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 24px; color: #111; }
+    h1, h2 { margin: 0 0 12px 0; }
+    .section { margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { padding: 8px 6px; border: 1px solid #ddd; text-align: left; }
+</style>
+</head>
+<body>
+    <h1>${title}</h1>
+    <p>Periode: ${form.start_date} — ${form.end_date}</p>
+    ${buildTableHtml(title, columns, rows)}
+</body>
+</html>`;
+
+    openPrintWindow(html);
+}
+
+const topDatesGraph = computed(() => props.top_sales_dates.map((point) => ({
+    label: point.label,
+    value: point.value,
+    width: `${Math.round((point.value / maxTopDates.value) * 100)}%`,
+})));
+
+const topHoursGraph = computed(() => props.top_sales_hours.map((point) => ({
+    label: point.label,
+    value: point.value,
+    width: `${Math.round((point.value / maxTopHours.value) * 100)}%`,
+})));
 </script>
 
 <template>
     <Head title="Admin Dashboard" />
 
     <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-6">
-        <!-- Welcoming Section -->
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 p-6 text-white shadow-xl dark:from-zinc-950 dark:to-neutral-900 border border-white/10">
-            <div class="relative z-10 flex flex-col gap-2">
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-xs font-medium text-indigo-300 border border-indigo-500/30 w-fit">
-                    <Activity class="h-3.5 w-3.5 animate-pulse" />
-                    Admin Mode
-                </span>
-                <h1 class="text-3xl font-extrabold tracking-tight">Selamat Datang, Administrator!</h1>
-                <p class="text-slate-300 max-w-xl">
-                    Pantau kinerja kasir, kelola stok barang, dan analisa pendapatan harian toko Anda langsung dari panel kontrol utama.
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div class="space-y-2">
+                <p class="text-sm uppercase tracking-[0.2em] text-muted-foreground">Dashboard Admin</p>
+                <h1 class="text-3xl font-extrabold tracking-tight">Analitik Penjualan & Kinerja Bisnis</h1>
+                <p class="max-w-2xl text-sm text-muted-foreground">
+                    Gunakan filter rentang tanggal untuk melihat performa pendapatan, produk terlaris, tren penjualan, dan daftar kasir terbaik.
                 </p>
             </div>
-            <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl"></div>
-            <div class="absolute right-20 bottom-0 h-28 w-28 rounded-full bg-emerald-500/10 blur-2xl"></div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                    @click="printReport"
+                >
+                    <Printer class="h-4 w-4" />
+                    Cetak Laporan
+                </button>
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 bg-background px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 dark:bg-slate-900 dark:text-white dark:hover:bg-zinc-800"
+                    @click="applyRange"
+                >
+                    Terapkan Filter
+                </button>
+            </div>
         </div>
 
-        <!-- Stats Grid -->
-        <div class="grid gap-4 md:grid-cols-3">
-            <div 
-                v-for="stat in stats" 
-                :key="stat.name"
-                class="relative overflow-hidden rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:border-sidebar-border"
-            >
-                <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-muted-foreground">{{ stat.name }}</span>
-                    <div :class="['rounded-lg p-2 border', stat.color]">
-                        <component :is="stat.icon" class="h-5 w-5" />
-                    </div>
+        <div class="grid gap-4 lg:grid-cols-[280px_auto]">
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <h2 class="text-lg font-semibold">Rentang Tanggal</h2>
+                <div class="mt-4 space-y-4">
+                    <label class="block text-sm font-medium">Mulai</label>
+                    <input
+                        type="date"
+                        v-model="form.start_date"
+                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                    />
+                    <label class="block text-sm font-medium">Sampai</label>
+                    <input
+                        type="date"
+                        v-model="form.end_date"
+                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                    />
                 </div>
-                <div class="mt-4 flex items-baseline gap-2">
-                    <span class="text-2xl font-bold tracking-tight">{{ stat.value }}</span>
-                    <span 
-                        v-if="stat.trend === 'up'" 
-                        class="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
-                    >
-                        <ArrowUpRight class="h-3 w-3" />
-                        {{ stat.change }}
-                    </span>
-                    <span 
-                        v-else 
-                        class="text-xs font-medium text-muted-foreground"
-                    >
-                        {{ stat.change }}
-                    </span>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                    <p class="text-sm font-medium text-muted-foreground">Total Pendapatan</p>
+                    <p class="mt-4 text-3xl font-bold tracking-tight text-emerald-600">{{ formatRupiah(props.stats.total_revenue) }}</p>
+                </div>
+                <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                    <p class="text-sm font-medium text-muted-foreground">Total Transaksi</p>
+                    <p class="mt-4 text-3xl font-bold tracking-tight text-indigo-600">{{ props.stats.total_transactions }}</p>
+                </div>
+                <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                    <p class="text-sm font-medium text-muted-foreground">Rata-rata Order</p>
+                    <p class="mt-4 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{{ formatRupiah(props.stats.average_order_value) }}</p>
+                </div>
+                <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                    <p class="text-sm font-medium text-muted-foreground">Total Item Terjual</p>
+                    <p class="mt-4 text-3xl font-bold tracking-tight text-violet-600">{{ props.stats.total_items_sold }}</p>
                 </div>
             </div>
         </div>
 
-        <!-- Main Panel: Activity Log & Quick Access -->
-        <div class="grid gap-6 md:grid-cols-3">
-            <!-- Left Side: Recent Activity Log -->
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 md:col-span-2 dark:border-sidebar-border">
-                <div class="flex items-center justify-between border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">
-                    <div>
-                        <h2 class="text-lg font-bold tracking-tight">Log Aktivitas Kasir</h2>
-                        <p class="text-xs text-muted-foreground">Aktifitas terbaru yang terjadi hari ini</p>
-                    </div>
-                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5 text-xs font-medium">
-                        Live Update
-                    </span>
+        <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+            <div class="flex items-center justify-between gap-4 pb-4 border-b border-sidebar-border/70 dark:border-sidebar-border">
+                <div>
+                    <h2 class="text-lg font-semibold">Tren Pendapatan & Transaksi</h2>
+                    <p class="text-sm text-muted-foreground">Bandingkan pendapatan harian dan jumlah transaksi dalam satu tampilan ringkas.</p>
                 </div>
-
-                <div class="space-y-4">
-                    <div 
-                        v-for="activity in recentActivities" 
-                        :key="activity.id"
-                        class="flex items-center justify-between rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors"
-                    >
-                        <div class="flex items-center gap-3">
-                            <div class="h-2 w-2 rounded-full bg-indigo-500"></div>
-                            <div>
-                                <p class="text-sm font-semibold">{{ activity.user }}</p>
-                                <p class="text-xs text-muted-foreground">{{ activity.action }}</p>
+                <div class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-zinc-800 dark:text-slate-300">
+                    <DollarSign class="h-4 w-4" />
+                    Pendapatan & Transaksi
+                </div>
+            </div>
+            <div class="mt-6 space-y-4">
+                <div v-for="item in trendGraph" :key="item.label" class="rounded-2xl border border-sidebar-border/70 bg-slate-50 p-4 dark:bg-zinc-950/40 dark:border-zinc-800">
+                    <div class="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        <span>{{ item.label }}</span>
+                        <span>{{ formatRupiah(item.revenue) }} · {{ item.sales }} trx</span>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        <div>
+                            <div class="mb-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">Pendapatan</div>
+                            <div class="h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                                <div :style="{ width: item.revenueWidth }" class="h-full rounded-full bg-indigo-600"></div>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <p class="text-sm font-bold text-slate-900 dark:text-slate-100">{{ activity.amount }}</p>
-                            <p class="text-xs text-muted-foreground">{{ activity.time }}</p>
+                        <div>
+                            <div class="mb-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">Transaksi</div>
+                            <div class="h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                                <div :style="{ width: item.salesWidth }" class="h-full rounded-full bg-emerald-500"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <div class="flex items-center justify-between gap-4 pb-4 border-b border-sidebar-border/70 dark:border-sidebar-border">
+                    <div>
+                        <h2 class="text-lg font-semibold">Produk Terlaris</h2>
+                        <p class="text-sm text-muted-foreground">Item terlaris berdasarkan volume.</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-zinc-950 dark:text-slate-200 dark:hover:bg-zinc-800"
+                        @click="printSection('best_sellers')"
+                    >
+                        <Printer class="h-3.5 w-3.5" />
+                        Cetak
+                    </button>
+                </div>
+                <div class="mt-6 space-y-4">
+                    <div v-for="product in bestSellingGraph" :key="product.nama" class="space-y-2 rounded-2xl bg-slate-50 p-4 dark:bg-zinc-950/40">
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            <span>{{ product.nama }}</span>
+                            <span>{{ product.qty }} pcs</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                            <div :style="{ width: product.width }" class="h-full rounded-full bg-indigo-600"></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Side: Administrator Quick Actions -->
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border">
-                <h2 class="text-lg font-bold tracking-tight border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">Aksi Cepat</h2>
-                <div class="space-y-3">
-                    <button class="w-full flex items-center justify-between rounded-lg border border-sidebar-border/70 p-3 text-left hover:bg-indigo-500/5 hover:border-indigo-500/30 transition-all">
-                        <div>
-                            <p class="text-sm font-semibold">Kelola Produk</p>
-                            <p class="text-xs text-muted-foreground">Tambah, ubah, atau hapus produk</p>
-                        </div>
-                        <span class="text-xs font-bold text-indigo-500">Buka →</span>
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <div class="flex items-center justify-between gap-4 pb-4 border-b border-sidebar-border/70 dark:border-sidebar-border">
+                    <div>
+                        <h2 class="text-lg font-semibold">Produk Paling Tidak Laku</h2>
+                        <p class="text-sm text-muted-foreground">Item dengan penjualan paling rendah.</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-zinc-950 dark:text-slate-200 dark:hover:bg-zinc-800"
+                        @click="printSection('worst_sellers')"
+                    >
+                        <Printer class="h-3.5 w-3.5" />
+                        Cetak
                     </button>
-                    <button class="w-full flex items-center justify-between rounded-lg border border-sidebar-border/70 p-3 text-left hover:bg-indigo-500/5 hover:border-indigo-500/30 transition-all">
-                        <div>
-                            <p class="text-sm font-semibold">Laporan Penjualan</p>
-                            <p class="text-xs text-muted-foreground">Unduh laporan bulanan PDF / Excel</p>
+                </div>
+                <div class="mt-6 space-y-4">
+                    <div v-for="product in worstSellingGraph" :key="product.nama" class="space-y-2 rounded-2xl bg-slate-50 p-4 dark:bg-zinc-950/40">
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            <span>{{ product.nama }}</span>
+                            <span>{{ product.qty }} pcs</span>
                         </div>
-                        <span class="text-xs font-bold text-indigo-500">Unduh →</span>
-                    </button>
-                    <button class="w-full flex items-center justify-between rounded-lg border border-sidebar-border/70 p-3 text-left hover:bg-indigo-500/5 hover:border-indigo-500/30 transition-all">
-                        <div>
-                            <p class="text-sm font-semibold">Kelola Akun Kasir</p>
-                            <p class="text-xs text-muted-foreground">Atur hak akses staf kasir</p>
+                        <div class="h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                            <div :style="{ width: product.width }" class="h-full rounded-full bg-rose-500"></div>
                         </div>
-                        <span class="text-xs font-bold text-indigo-500">Kelola →</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <div class="flex items-center justify-between gap-4 pb-4 border-b border-sidebar-border/70 dark:border-sidebar-border">
+                    <div>
+                        <h2 class="text-lg font-semibold">Profit Produk Teratas</h2>
+                        <p class="text-sm text-muted-foreground">Margin keuntungan produk.</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-zinc-950 dark:text-slate-200 dark:hover:bg-zinc-800"
+                        @click="printSection('profit_products')"
+                    >
+                        <Printer class="h-3.5 w-3.5" />
+                        Cetak
                     </button>
+                </div>
+                <div class="mt-6 space-y-4">
+                    <div v-for="product in profitGraph" :key="product.nama" class="space-y-2 rounded-2xl bg-slate-50 p-4 dark:bg-zinc-950/40">
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            <span>{{ product.nama }}</span>
+                            <span>{{ formatRupiah(product.profit) }}</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                            <div :style="{ width: product.width }" class="h-full rounded-full bg-fuchsia-500"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <div class="flex items-center justify-between gap-4 pb-4 border-b border-sidebar-border/70 dark:border-sidebar-border">
+                    <div>
+                        <h2 class="text-lg font-semibold">Tanggal Penjualan Terbanyak</h2>
+                        <p class="text-sm text-muted-foreground">Hari paling sibuk berdasarkan transaksi.</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-zinc-950 dark:text-slate-200 dark:hover:bg-zinc-800"
+                        @click="printSection('top_dates')"
+                    >
+                        <Printer class="h-3.5 w-3.5" />
+                        Cetak
+                    </button>
+                </div>
+                <div class="mt-6 space-y-4">
+                    <div v-for="item in topDatesGraph" :key="item.label" class="space-y-2 rounded-2xl bg-slate-50 p-4 dark:bg-zinc-950/40">
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            <span>{{ item.label }}</span>
+                            <span>{{ item.value }} trx</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                            <div :style="{ width: item.width }" class="h-full rounded-full bg-indigo-600"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <div class="flex items-center justify-between gap-4 pb-4 border-b border-sidebar-border/70 dark:border-sidebar-border">
+                    <div>
+                        <h2 class="text-lg font-semibold">Jam Penjualan Terbanyak</h2>
+                        <p class="text-sm text-muted-foreground">Waktu paling sibuk berdasarkan transaksi.</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-zinc-950 dark:text-slate-200 dark:hover:bg-zinc-800"
+                        @click="printSection('top_hours')"
+                    >
+                        <Printer class="h-3.5 w-3.5" />
+                        Cetak
+                    </button>
+                </div>
+                <div class="mt-6 space-y-4">
+                    <div v-for="item in topHoursGraph" :key="item.label" class="space-y-2 rounded-2xl bg-slate-50 p-4 dark:bg-zinc-950/40">
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            <span>{{ item.label }}</span>
+                            <span>{{ item.value }} trx</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                            <div :style="{ width: item.width }" class="h-full rounded-full bg-emerald-500"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+            <div class="flex items-center justify-between gap-4 pb-4 border-b border-sidebar-border/70 dark:border-sidebar-border">
+                <div>
+                    <h2 class="text-lg font-semibold">Pencapaian Kasir</h2>
+                    <p class="text-sm text-muted-foreground">Bandingkan transaksi dan omzet kasir terbaik.</p>
+                </div>
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-zinc-950 dark:text-slate-200 dark:hover:bg-zinc-800"
+                    @click="printSection('cashier_achievements')"
+                >
+                    <Printer class="h-3.5 w-3.5" />
+                    Cetak
+                </button>
+            </div>
+            <div class="mt-6 grid gap-4 lg:grid-cols-2">
+                <div class="space-y-4">
+                    <h3 class="text-sm font-semibold text-muted-foreground">Top Transaksi</h3>
+                    <div v-for="cashier in props.top_cashiers_by_transactions" :key="cashier.nama" class="rounded-2xl bg-slate-50 p-4 dark:bg-zinc-950/40">
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            <span>{{ cashier.nama }}</span>
+                            <span>{{ cashier.transactions }} trx</span>
+                        </div>
+                        <div class="mt-2 h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                            <div :style="{ width: `${Math.round((cashier.transactions / maxCashierTransactions.value) * 100)}%` }" class="h-full rounded-full bg-indigo-600"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <h3 class="text-sm font-semibold text-muted-foreground">Top Omzet</h3>
+                    <div v-for="cashier in props.top_cashiers_by_revenue" :key="cashier.nama" class="rounded-2xl bg-slate-50 p-4 dark:bg-zinc-950/40">
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            <span>{{ cashier.nama }}</span>
+                            <span>{{ formatRupiah(cashier.revenue) }}</span>
+                        </div>
+                        <div class="mt-2 h-2 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                            <div :style="{ width: `${Math.round((cashier.revenue / maxCashierRevenue.value) * 100)}%` }" class="h-full rounded-full bg-emerald-500"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
