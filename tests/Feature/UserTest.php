@@ -82,6 +82,66 @@ test('kasir cannot access admin users page', function () {
     $this->actingAs($kasir)->get(route('admin.users'))->assertForbidden();
 });
 
+test('kasir can view transaksi page with product list', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    Produk::factory()->create(['harga_jual' => 12500, 'stok' => 10]);
+
+    $response = $this->actingAs($kasir)->get(route('kasir.transaksi'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page->component('kasir/Transaksi')->has('produks', 1)
+    );
+});
+
+test('kasir can store a new transaksi and decrement stock', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 5]);
+
+    $response = $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
+        'metode_pembayaran' => 'cash',
+        'bayar' => 50000,
+        'items' => [
+            ['id_produk' => $produk->id_produk, 'jumlah' => 2],
+        ],
+    ]);
+
+    $response->assertRedirect(route('kasir.riwayat'));
+    $this->assertDatabaseHas('transaksis', [
+        'id_user' => $kasir->id,
+        'total_harga' => 20000,
+        'kembalian' => 30000,
+    ]);
+    $this->assertDatabaseHas('detail_transaksis', [
+        'id_produk' => $produk->id_produk,
+        'jumlah' => 2,
+        'subtotal' => 20000,
+    ]);
+    expect($produk->fresh()->stok)->toBe(3);
+});
+
+test('kasir can view riwayat page with stats', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $transaksi = Transaksi::factory()->create([
+        'id_user' => $kasir->id,
+        'total_harga' => 15000,
+        'bayar' => 20000,
+        'kembalian' => 5000,
+    ]);
+    DetailTransaksi::factory()->create([
+        'id_transaksi' => $transaksi->id_transaksi,
+        'jumlah' => 1,
+    ]);
+
+    $response = $this->actingAs($kasir)->get(route('kasir.riwayat'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page->component('kasir/Riwayat')
+        ->has('transaksis', 1)
+        ->where('stats.total_penjualan', 15000)
+        ->where('stats.total_transaksi', 1)
+    );
+});
+
 test('admin can create a transaction and decrement stock', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $kasir = User::factory()->create(['role' => 'kasir']);
