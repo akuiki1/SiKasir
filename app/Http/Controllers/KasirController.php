@@ -19,7 +19,8 @@ class KasirController extends Controller
 {
     public function transaksi(): Response
     {
-        $produks = Produk::orderBy('nama')
+        $produks = Produk::query()
+            ->orderBy('nama')
             ->get()
             ->map(fn (Produk $produk) => [
                 'id_produk' => $produk->id_produk,

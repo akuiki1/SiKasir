@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
 import {
     Search,
     Filter,
@@ -8,11 +7,10 @@ import {
     Plus,
     Minus,
     Trash2,
-    DollarSign,
-    CreditCard,
     ArrowRight,
     Percent,
 } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 
 defineOptions({
@@ -115,6 +113,7 @@ function updateItemQuantity(item: CartItem, delta: number) {
     const nextQty = item.qty + delta;
 
     if (nextQty < 1 || nextQty > item.stock) {
+
         return;
     }
 
@@ -128,6 +127,7 @@ const totalHarga = computed(() => {
 
 const kembalian = computed(() => {
     const bayar = Number(form.bayar) || 0;
+
     return Math.max(0, bayar - totalHarga.value);
 });
 

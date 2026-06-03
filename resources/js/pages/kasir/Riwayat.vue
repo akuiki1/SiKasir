@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
 import {
     Search,
     Filter,
@@ -9,6 +8,7 @@ import {
     Printer,
     FileText,
 } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 
 defineOptions({
     layout: {
@@ -48,12 +48,15 @@ const props = defineProps<{
 
 const searchQuery = ref('');
 
+
 const filteredTransaksis = computed(() => {
     if (!searchQuery.value) {
+
         return props.transaksis;
     }
 
     const q = searchQuery.value.toLowerCase();
+
     return props.transaksis.filter(
         (trx) => trx.kode.toLowerCase().includes(q) || trx.metode_pembayaran.toLowerCase().includes(q),
     );
