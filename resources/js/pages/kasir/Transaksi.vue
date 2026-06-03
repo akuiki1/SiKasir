@@ -10,7 +10,7 @@ import {
     ArrowRight,
     Percent,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 
 defineOptions({
@@ -51,6 +51,10 @@ const barcodeScan = ref('');
 const scanError = ref('');
 const selectedCategory = ref('');
 const cartItems = ref<CartItem[]>([]);
+const scannerBuffer = ref('');
+const lastScannerTime = ref(0);
+const SCANNER_TIMEOUT_MS = 150;
+const SCANNER_MIN_LENGTH = 3;
 
 const form = useForm({
     metode_pembayaran: 'cash',
@@ -135,19 +139,60 @@ const kembalian = computed(() => {
     return Math.max(0, bayar - totalHarga.value);
 });
 
-function scanBarcode() {
-    const barcode = barcodeScan.value.trim();
+function handleScannerKeydown(event: KeyboardEvent) {
+    if (event.defaultPrevented) {
+        return;
+    }
 
-    if (!barcode) {
+    const now = performance.now();
+
+    if (now - lastScannerTime.value > SCANNER_TIMEOUT_MS) {
+        scannerBuffer.value = '';
+    }
+
+    lastScannerTime.value = now;
+
+    if (event.key === 'Enter') {
+        const barcode = scannerBuffer.value.trim();
+
+        if (barcode.length >= SCANNER_MIN_LENGTH) {
+            event.preventDefault();
+            scanBarcode(barcode);
+        }
+
+        scannerBuffer.value = '';
+
+        return;
+    }
+
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        scannerBuffer.value += event.key;
+    }
+}
+
+onMounted(() => {
+    document.addEventListener('keydown', handleScannerKeydown);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('keydown', handleScannerKeydown);
+});
+
+function scanBarcode(barcode?: string) {
+    const code = String(barcode ?? barcodeScan.value).trim();
+
+    barcodeScan.value = code;
+
+    if (!code) {
         scanError.value = 'Masukkan barcode terlebih dahulu.';
 
         return;
     }
 
-    const produk = props.produks.find((item) => item.barcode === barcode);
+    const produk = props.produks.find((item) => item.barcode === code);
 
     if (!produk) {
-        scanError.value = `Produk dengan barcode ${barcode} tidak ditemukan.`;
+        scanError.value = `Produk dengan barcode ${code} tidak ditemukan.`;
         barcodeScan.value = '';
 
         return;
