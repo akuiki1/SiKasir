@@ -7,6 +7,7 @@ import {
     Flame,
     Sparkles,
     MessageCircle,
+    PhoneCall,
     CheckCircle2,
     Star,
     Moon,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { BookOpen, FolderGit2, LayoutGrid, Users, Package, ShoppingCart, History } from 'lucide-vue-next';
+import { BookOpen, FolderGit2, LayoutGrid, Users, Package, ShoppingCart, History, DollarSign } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -48,6 +48,11 @@ const mainNavItems = computed<NavItem[]>(() => {
                 title: 'Data Transaksi',
                 href: '/admin/transactions',
                 icon: ShoppingCart,
+            },
+            {
+                title: 'Pengeluaran',
+                href: '/admin/pengeluarans',
+                icon: DollarSign,
             },
         ];
     }
