@@ -6,6 +6,7 @@ use App\Http\Controllers\KasirController;
 use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\ProdukController;
+use App\Http\Controllers\PromoController;
 use App\Http\Controllers\TransaksiController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -52,6 +53,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('admin/pengeluarans', [PengeluaranController::class, 'store'])->name('admin.pengeluarans.store');
         Route::put('admin/pengeluarans/{pengeluaran}', [PengeluaranController::class, 'update'])->name('admin.pengeluarans.update');
         Route::delete('admin/pengeluarans/{pengeluaran}', [PengeluaranController::class, 'destroy'])->name('admin.pengeluarans.destroy');
+
+        // Promo
+        Route::get('admin/promos', [PromoController::class, 'index'])->name('admin.promos');
+        Route::post('admin/promos', [PromoController::class, 'store'])->name('admin.promos.store');
+        Route::put('admin/promos/{promo}', [PromoController::class, 'update'])->name('admin.promos.update');
+        Route::delete('admin/promos/{promo}', [PromoController::class, 'destroy'])->name('admin.promos.destroy');
     });
 
     Route::middleware(['role:kasir'])->group(function () {

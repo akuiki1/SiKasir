@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DetailTransaksi;
 use App\Models\Produk;
+use App\Models\Promo;
 use App\Models\Transaksi;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -98,8 +99,25 @@ class KasirController extends Controller
                 'barcode' => $produk->barcode,
             ]);
 
+        $now = now();
+        $promos = Promo::with('produk')
+            ->where('aktif', true)
+            ->where('tanggal_mulai', '<=', $now)
+            ->where('tanggal_selesai', '>=', $now)
+            ->get()
+            ->map(fn (Promo $promo) => [
+                'id_promo' => $promo->id_promo,
+                'nama' => $promo->nama,
+                'deskripsi' => $promo->deskripsi,
+                'tipe' => $promo->tipe,
+                'nilai' => (float) $promo->nilai,
+                'id_produk' => $promo->id_produk,
+                'minimal_belanja' => $promo->minimal_belanja ? (float) $promo->minimal_belanja : null,
+            ]);
+
         return Inertia::render('kasir/Transaksi', [
             'produks' => $produks,
+            'promos' => $promos,
         ]);
     }
 
@@ -108,14 +126,21 @@ class KasirController extends Controller
         $validated = $request->validate([
             'metode_pembayaran' => ['required', Rule::in(['cash', 'qris', 'transfer'])],
             'bayar' => ['required', 'integer', 'min:0'],
+            'id_promo' => ['nullable', 'exists:promos,id_promo'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
             'items.*.jumlah' => ['required', 'integer', 'min:1'],
         ]);
 
         DB::transaction(function () use ($validated): void {
-            $totalHarga = 0;
+            $subtotal = 0;
             $details = [];
+            $now = now();
+
+            $activePromos = Promo::where('aktif', true)
+                ->where('tanggal_mulai', '<=', $now)
+                ->where('tanggal_selesai', '>=', $now)
+                ->get();
 
             foreach ($validated['items'] as $item) {
                 $produk = Produk::lockForUpdate()->findOrFail($item['id_produk']);
@@ -127,16 +152,54 @@ class KasirController extends Controller
                 }
 
                 $harga = $produk->harga_jual;
-                $subtotal = $harga * $item['jumlah'];
-                $totalHarga += $subtotal;
+                $itemSubtotal = $harga * $item['jumlah'];
+                $subtotal += $itemSubtotal;
+
+                // Cari promo spesifik produk
+                $prodPromo = $activePromos->where('id_produk', $produk->id_produk)->first();
+                $itemDiskon = 0;
+                if ($prodPromo) {
+                    if ($prodPromo->tipe === 'persen') {
+                        $itemDiskon = (int) ($itemSubtotal * ($prodPromo->nilai / 100));
+                    } else {
+                        $itemDiskon = (int) ($prodPromo->nilai * $item['jumlah']);
+                    }
+                }
 
                 $details[] = [
                     'produk' => $produk,
                     'jumlah' => $item['jumlah'],
                     'harga' => $harga,
-                    'subtotal' => $subtotal,
+                    'subtotal_after_promo' => max(0, $itemSubtotal - $itemDiskon),
+                    'item_diskon' => $itemDiskon,
                 ];
             }
+
+            $globalDiskon = 0;
+            $appliedPromoId = null;
+
+            if (! empty($validated['id_promo'])) {
+                $globalPromo = Promo::where('id_promo', $validated['id_promo'])
+                    ->where('aktif', true)
+                    ->whereNull('id_produk')
+                    ->where('tanggal_mulai', '<=', $now)
+                    ->where('tanggal_selesai', '>=', $now)
+                    ->first();
+
+                if ($globalPromo) {
+                    if (! $globalPromo->minimal_belanja || $subtotal >= $globalPromo->minimal_belanja) {
+                        $appliedPromoId = $globalPromo->id_promo;
+                        if ($globalPromo->tipe === 'persen') {
+                            $globalDiskon = (int) ($subtotal * ($globalPromo->nilai / 100));
+                        } else {
+                            $globalDiskon = (int) $globalPromo->nilai;
+                        }
+                    }
+                }
+            }
+
+            $totalDiskon = $globalDiskon + collect($details)->sum('item_diskon');
+            $totalHarga = max(0, $subtotal - $totalDiskon);
 
             if ($validated['bayar'] < $totalHarga) {
                 throw ValidationException::withMessages([
@@ -146,7 +209,9 @@ class KasirController extends Controller
 
             $transaksi = Transaksi::create([
                 'id_user' => Auth::id(),
+                'id_promo' => $appliedPromoId,
                 'total_harga' => $totalHarga,
+                'diskon' => $totalDiskon,
                 'metode_pembayaran' => $validated['metode_pembayaran'],
                 'bayar' => $validated['bayar'],
                 'kembalian' => $validated['bayar'] - $totalHarga,
@@ -158,7 +223,7 @@ class KasirController extends Controller
                     'id_produk' => $detail['produk']->id_produk,
                     'jumlah' => $detail['jumlah'],
                     'harga' => $detail['harga'],
-                    'subtotal' => $detail['subtotal'],
+                    'subtotal' => $detail['subtotal_after_promo'],
                 ]);
 
                 $detail['produk']->decrement('stok', $detail['jumlah']);
@@ -170,7 +235,7 @@ class KasirController extends Controller
 
     public function riwayat(): Response
     {
-        $transaksis = Transaksi::with(['detailTransaksis.produk'])
+        $transaksis = Transaksi::with(['detailTransaksis.produk', 'promo'])
             ->where('id_user', Auth::id())
             ->latest()
             ->get()
@@ -179,6 +244,8 @@ class KasirController extends Controller
                 'kode' => 'TRX-'.$transaksi->id_transaksi,
                 'jumlah_item' => $transaksi->detailTransaksis->sum('jumlah'),
                 'total_harga' => $transaksi->total_harga,
+                'diskon' => $transaksi->diskon,
+                'promo_nama' => $transaksi->promo?->nama,
                 'metode_pembayaran' => $transaksi->metode_pembayaran,
                 'bayar' => $transaksi->bayar,
                 'kembalian' => $transaksi->kembalian,

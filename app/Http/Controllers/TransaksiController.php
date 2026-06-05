@@ -22,7 +22,7 @@ class TransaksiController extends Controller
      */
     public function index(): Response
     {
-        $transaksis = Transaksi::with(['user', 'detailTransaksis.produk'])
+        $transaksis = Transaksi::with(['user', 'detailTransaksis.produk', 'promo'])
             ->latest()
             ->get()
             ->map(fn (Transaksi $transaksi) => $this->formatTransaksi($transaksi));
@@ -194,6 +194,8 @@ class TransaksiController extends Controller
             'kasir' => $transaksi->user?->name ?? '-',
             'jumlah_item' => $transaksi->detailTransaksis->sum('jumlah'),
             'total_harga' => $transaksi->total_harga,
+            'diskon' => $transaksi->diskon,
+            'promo_nama' => $transaksi->promo?->nama,
             'metode_pembayaran' => $transaksi->metode_pembayaran,
             'bayar' => $transaksi->bayar,
             'kembalian' => $transaksi->kembalian,

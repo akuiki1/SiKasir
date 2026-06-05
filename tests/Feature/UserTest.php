@@ -2,6 +2,7 @@
 
 use App\Models\DetailTransaksi;
 use App\Models\Produk;
+use App\Models\Promo;
 use App\Models\Transaksi;
 use App\Models\User;
 
@@ -95,6 +96,16 @@ test('kasir can view transaksi page with product list', function () {
     );
 });
 
+test('kasir can view transaksi page with promo list', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    Promo::factory()->create(['nama' => 'Diskon Hari Ini', 'tipe' => 'persen', 'nilai' => 10, 'aktif' => true, 'tanggal_mulai' => now()->subDay(), 'tanggal_selesai' => now()->addDay()]);
+
+    $response = $this->actingAs($kasir)->get(route('kasir.transaksi'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page->component('kasir/Transaksi')->has('produks')->has('promos', 1));
+});
+
 test('kasir can store a new transaksi and decrement stock', function () {
     $kasir = User::factory()->create(['role' => 'kasir']);
     $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 5]);
@@ -119,6 +130,38 @@ test('kasir can store a new transaksi and decrement stock', function () {
         'subtotal' => 20000,
     ]);
     expect($produk->fresh()->stok)->toBe(3);
+});
+
+test('kasir can apply a global promo when storing transaksi', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 5]);
+    $promo = Promo::factory()->create([
+        'tipe' => 'persen',
+        'nilai' => 20,
+        'id_produk' => null,
+        'minimal_belanja' => 0,
+        'aktif' => true,
+        'tanggal_mulai' => now()->subDay(),
+        'tanggal_selesai' => now()->addDay(),
+    ]);
+
+    $response = $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
+        'metode_pembayaran' => 'cash',
+        'bayar' => 50000,
+        'id_promo' => $promo->id_promo,
+        'items' => [
+            ['id_produk' => $produk->id_produk, 'jumlah' => 2],
+        ],
+    ]);
+
+    $response->assertRedirect(route('kasir.riwayat'));
+    $this->assertDatabaseHas('transaksis', [
+        'id_user' => $kasir->id,
+        'id_promo' => $promo->id_promo,
+        'total_harga' => 16000,
+        'diskon' => 4000,
+        'kembalian' => 34000,
+    ]);
 });
 
 test('kasir can view riwayat page with stats', function () {

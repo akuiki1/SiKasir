@@ -33,6 +33,16 @@ interface Produk {
     barcode: string;
 }
 
+interface Promo {
+    id_promo: number;
+    nama: string;
+    deskripsi: string | null;
+    tipe: 'persen' | 'nominal' | 'fix';
+    nilai: number;
+    id_produk: number | null;
+    minimal_belanja: number | null;
+}
+
 interface CartItem {
     id_produk: number;
     nama: string;
@@ -44,6 +54,7 @@ interface CartItem {
 
 const props = defineProps<{
     produks: Produk[];
+    promos: Promo[];
 }>();
 
 const searchQuery = ref('');
@@ -59,6 +70,7 @@ const SCANNER_MIN_LENGTH = 3;
 const form = useForm({
     metode_pembayaran: 'cash',
     bayar: '',
+    id_promo: null as number | null,
     items: [] as Array<{ id_produk: number; jumlah: number }>,
 });
 
@@ -133,10 +145,61 @@ const totalHarga = computed(() => {
     return cartItems.value.reduce((sum, item) => sum + item.subtotal, 0);
 });
 
+const activeProductPromos = computed(() =>
+    new Map(props.promos
+        .filter((promo) => promo.id_produk !== null)
+        .map((promo) => [promo.id_produk as number, promo]),
+    ),
+);
+
+const globalPromos = computed(() => props.promos.filter((promo) => promo.id_produk === null));
+
+const selectedPromo = computed(() => {
+    return props.promos.find((promo) => promo.id_promo === form.id_promo) ?? null;
+});
+
+function calculateItemPromoDiscount(item: CartItem): number {
+    const promo = activeProductPromos.value.get(item.id_produk);
+
+    if (!promo) {
+        return 0;
+    }
+
+    if (promo.tipe === 'persen') {
+        return Math.floor(item.subtotal * (promo.nilai / 100));
+    }
+
+    return Math.floor(promo.nilai * item.qty);
+}
+
+const productPromoDiscount = computed(() => {
+    return cartItems.value.reduce((sum, item) => sum + calculateItemPromoDiscount(item), 0);
+});
+
+const globalPromoDiscount = computed(() => {
+    if (!selectedPromo.value) {
+        return 0;
+    }
+
+    if (selectedPromo.value.minimal_belanja && totalHarga.value < selectedPromo.value.minimal_belanja) {
+        return 0;
+    }
+
+    if (selectedPromo.value.tipe === 'persen') {
+        return Math.floor(totalHarga.value * (selectedPromo.value.nilai / 100));
+    }
+
+    return Math.floor(selectedPromo.value.nilai);
+});
+
+const totalDiscount = computed(() => Math.max(0, productPromoDiscount.value + globalPromoDiscount.value));
+
+const totalAfterDiscount = computed(() => Math.max(0, totalHarga.value - totalDiscount.value));
+
 const kembalian = computed(() => {
     const bayar = Number(form.bayar) || 0;
 
-    return Math.max(0, bayar - totalHarga.value);
+    return Math.max(0, bayar - totalAfterDiscount.value);
 });
 
 function handleScannerKeydown(event: KeyboardEvent) {
@@ -217,6 +280,7 @@ function submitTransaction() {
         onSuccess: () => {
             cartItems.value = [];
             form.bayar = '';
+            form.id_promo = null;
         },
     });
 }
@@ -280,9 +344,14 @@ function submitTransaction() {
                     ]"
                 >
                     <div>
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between gap-2">
                             <span class="inline-flex rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 text-xxs font-medium text-muted-foreground">
                                 {{ product.kategori ?? 'Umum' }}
+                            </span>
+                            <span v-if="activeProductPromos.get(product.id_produk)"
+                                class="inline-flex rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xxs font-semibold"
+                            >
+                                Promo {{ activeProductPromos.get(product.id_produk)?.tipe === 'persen' ? `${activeProductPromos.get(product.id_produk)?.nilai}%` : formatRupiah(activeProductPromos.get(product.id_produk)?.nilai || 0) }}
                             </span>
                             <span
                                 :class="[
@@ -381,19 +450,40 @@ function submitTransaction() {
                         <span>{{ formatRupiah(totalHarga) }}</span>
                     </div>
                     <div class="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Diskon Produk</span>
+                        <span class="text-emerald-500">-{{ formatRupiah(productPromoDiscount) }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-muted-foreground">
                         <span class="flex items-center gap-1">Diskon Promo <Percent class="h-3 w-3 text-emerald-500" /></span>
-                        <span class="text-emerald-500">-Rp 0</span>
+                        <span class="text-emerald-500">-{{ formatRupiah(globalPromoDiscount) }}</span>
                     </div>
                     <div class="flex items-center justify-between border-t border-sidebar-border/70 pt-2 dark:border-sidebar-border">
                         <span class="font-bold text-sm">Total Tagihan</span>
                         <span class="font-extrabold text-lg text-indigo-600 dark:text-indigo-400">
-                            {{ formatRupiah(totalHarga) }}
+                            {{ formatRupiah(totalAfterDiscount) }}
                         </span>
                     </div>
                 </div>
 
                 <div class="grid gap-3">
-                    <label class="block text-sm font-medium">Metode Pembayaran</label>
+                        <label class="block text-sm font-medium">Promo Tambahan</label>
+                        <select
+                            v-model.number="form.id_promo"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                        >
+                            <option :value="null">Tidak ada promo</option>
+                            <option
+                                v-for="promo in globalPromos"
+                                :key="promo.id_promo"
+                                :value="promo.id_promo"
+                            >
+                                {{ promo.nama }}
+                            </option>
+                        </select>
+                        <p v-if="selectedPromo && selectedPromo.minimal_belanja && totalHarga < selectedPromo.minimal_belanja" class="text-xs text-amber-600">
+                            Minimal belanja {{ formatRupiah(selectedPromo.minimal_belanja) }} untuk promo ini.
+                        </p>
+
                     <select
                         v-model="form.metode_pembayaran"
                         class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
