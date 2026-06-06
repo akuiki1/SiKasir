@@ -1,0 +1,315 @@
+import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
+/**
+* @see \App\Http\Controllers\TransaksiController::index
+ * @see app/Http/Controllers/TransaksiController.php:23
+ * @route '/admin/transactions'
+ */
+export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: index.url(options),
+    method: 'get',
+})
+
+index.definition = {
+    methods: ["get","head"],
+    url: '/admin/transactions',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\TransaksiController::index
+ * @see app/Http/Controllers/TransaksiController.php:23
+ * @route '/admin/transactions'
+ */
+index.url = (options?: RouteQueryOptions) => {
+    return index.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\TransaksiController::index
+ * @see app/Http/Controllers/TransaksiController.php:23
+ * @route '/admin/transactions'
+ */
+index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: index.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\TransaksiController::index
+ * @see app/Http/Controllers/TransaksiController.php:23
+ * @route '/admin/transactions'
+ */
+index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: index.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\TransaksiController::index
+ * @see app/Http/Controllers/TransaksiController.php:23
+ * @route '/admin/transactions'
+ */
+    const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: index.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\TransaksiController::index
+ * @see app/Http/Controllers/TransaksiController.php:23
+ * @route '/admin/transactions'
+ */
+        indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: index.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\TransaksiController::index
+ * @see app/Http/Controllers/TransaksiController.php:23
+ * @route '/admin/transactions'
+ */
+        indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: index.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    index.form = indexForm
+/**
+* @see \App\Http\Controllers\TransaksiController::store
+ * @see app/Http/Controllers/TransaksiController.php:59
+ * @route '/admin/transactions'
+ */
+export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(options),
+    method: 'post',
+})
+
+store.definition = {
+    methods: ["post"],
+    url: '/admin/transactions',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\TransaksiController::store
+ * @see app/Http/Controllers/TransaksiController.php:59
+ * @route '/admin/transactions'
+ */
+store.url = (options?: RouteQueryOptions) => {
+    return store.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\TransaksiController::store
+ * @see app/Http/Controllers/TransaksiController.php:59
+ * @route '/admin/transactions'
+ */
+store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\TransaksiController::store
+ * @see app/Http/Controllers/TransaksiController.php:59
+ * @route '/admin/transactions'
+ */
+    const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: store.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\TransaksiController::store
+ * @see app/Http/Controllers/TransaksiController.php:59
+ * @route '/admin/transactions'
+ */
+        storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: store.url(options),
+            method: 'post',
+        })
+    
+    store.form = storeForm
+/**
+* @see \App\Http\Controllers\TransaksiController::update
+ * @see app/Http/Controllers/TransaksiController.php:80
+ * @route '/admin/transactions/{transaksi}'
+ */
+export const update = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+    url: update.url(args, options),
+    method: 'put',
+})
+
+update.definition = {
+    methods: ["put"],
+    url: '/admin/transactions/{transaksi}',
+} satisfies RouteDefinition<["put"]>
+
+/**
+* @see \App\Http\Controllers\TransaksiController::update
+ * @see app/Http/Controllers/TransaksiController.php:80
+ * @route '/admin/transactions/{transaksi}'
+ */
+update.url = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { transaksi: args }
+    }
+
+            if (typeof args === 'object' && !Array.isArray(args) && 'id_transaksi' in args) {
+            args = { transaksi: args.id_transaksi }
+        }
+    
+    if (Array.isArray(args)) {
+        args = {
+                    transaksi: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        transaksi: typeof args.transaksi === 'object'
+                ? args.transaksi.id_transaksi
+                : args.transaksi,
+                }
+
+    return update.definition.url
+            .replace('{transaksi}', parsedArgs.transaksi.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\TransaksiController::update
+ * @see app/Http/Controllers/TransaksiController.php:80
+ * @route '/admin/transactions/{transaksi}'
+ */
+update.put = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
+    url: update.url(args, options),
+    method: 'put',
+})
+
+    /**
+* @see \App\Http\Controllers\TransaksiController::update
+ * @see app/Http/Controllers/TransaksiController.php:80
+ * @route '/admin/transactions/{transaksi}'
+ */
+    const updateForm = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: update.url(args, {
+                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                        _method: 'PUT',
+                        ...(options?.query ?? options?.mergeQuery ?? {}),
+                    }
+                }),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\TransaksiController::update
+ * @see app/Http/Controllers/TransaksiController.php:80
+ * @route '/admin/transactions/{transaksi}'
+ */
+        updateForm.put = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: update.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'PUT',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'post',
+        })
+    
+    update.form = updateForm
+/**
+* @see \App\Http\Controllers\TransaksiController::destroy
+ * @see app/Http/Controllers/TransaksiController.php:103
+ * @route '/admin/transactions/{transaksi}'
+ */
+export const destroy = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+    url: destroy.url(args, options),
+    method: 'delete',
+})
+
+destroy.definition = {
+    methods: ["delete"],
+    url: '/admin/transactions/{transaksi}',
+} satisfies RouteDefinition<["delete"]>
+
+/**
+* @see \App\Http\Controllers\TransaksiController::destroy
+ * @see app/Http/Controllers/TransaksiController.php:103
+ * @route '/admin/transactions/{transaksi}'
+ */
+destroy.url = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { transaksi: args }
+    }
+
+            if (typeof args === 'object' && !Array.isArray(args) && 'id_transaksi' in args) {
+            args = { transaksi: args.id_transaksi }
+        }
+    
+    if (Array.isArray(args)) {
+        args = {
+                    transaksi: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        transaksi: typeof args.transaksi === 'object'
+                ? args.transaksi.id_transaksi
+                : args.transaksi,
+                }
+
+    return destroy.definition.url
+            .replace('{transaksi}', parsedArgs.transaksi.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\TransaksiController::destroy
+ * @see app/Http/Controllers/TransaksiController.php:103
+ * @route '/admin/transactions/{transaksi}'
+ */
+destroy.delete = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+    url: destroy.url(args, options),
+    method: 'delete',
+})
+
+    /**
+* @see \App\Http\Controllers\TransaksiController::destroy
+ * @see app/Http/Controllers/TransaksiController.php:103
+ * @route '/admin/transactions/{transaksi}'
+ */
+    const destroyForm = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: destroy.url(args, {
+                    [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                        _method: 'DELETE',
+                        ...(options?.query ?? options?.mergeQuery ?? {}),
+                    }
+                }),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\TransaksiController::destroy
+ * @see app/Http/Controllers/TransaksiController.php:103
+ * @route '/admin/transactions/{transaksi}'
+ */
+        destroyForm.delete = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: destroy.url(args, {
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'DELETE',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'post',
+        })
+    
+    destroy.form = destroyForm
+const TransaksiController = { index, store, update, destroy }
+
+export default TransaksiController
