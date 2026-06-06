@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
 import {
     Plus,
     Search,
@@ -14,6 +13,7 @@ import {
     Save,
     AlertCircle,
 } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 import { store as userStore, update as userUpdate, destroy as userDestroy } from '@/routes/admin/users';
 
 defineOptions({
@@ -59,6 +59,7 @@ const filteredUsers = computed(() => {
             user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
             user.email.toLowerCase().includes(searchQuery.value.toLowerCase());
         const matchRole = !filterRole.value || user.role === filterRole.value;
+
         return matchSearch && matchRole;
     });
 });
@@ -112,6 +113,7 @@ function submitForm() {
 function hapusUser(user: UserItem) {
     if (user.id === currentUserId.value) {
         alert('Anda tidak dapat menghapus akun sendiri.');
+
         return;
     }
 

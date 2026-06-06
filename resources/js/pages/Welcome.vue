@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { dashboard, login } from '@/routes';
 import {
     Cookie,
     Flame,
@@ -25,7 +23,9 @@ import {
     Clock,
     ThumbsUp,
 } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 import { useAppearance } from '@/composables/useAppearance';
+import { dashboard, login } from '@/routes';
 
 const { appearance, updateAppearance } = useAppearance();
 
@@ -119,7 +119,10 @@ const quizOptions = [
 ];
 
 const matchedProduct = computed(() => {
-    if (!selectedFlavor.value) return null;
+    if (!selectedFlavor.value) {
+return null;
+}
+
     return (
         products.find((p) => p.flavorType === selectedFlavor.value) ||
         products[0]
@@ -141,6 +144,7 @@ const getWhatsAppLink = (productName: string) => {
     const message = encodeURIComponent(
         `Halo Kak! Saya tertarik untuk memesan produk Cemilan "${productName}" dari KriukKita. Bagaimana cara memesannya ya?`,
     );
+
     return `https://wa.me/6281234567890?text=${message}`;
 };
 
@@ -148,6 +152,7 @@ const getGeneralWhatsAppLink = () => {
     const message = encodeURIComponent(
         'Halo KriukKita! Saya ingin tahu lebih lanjut tentang menu cemilan premium dan ingin memesan paket hemat.',
     );
+
     return `https://wa.me/6281234567890?text=${message}`;
 };
 
