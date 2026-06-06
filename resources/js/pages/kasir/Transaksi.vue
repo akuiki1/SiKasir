@@ -31,6 +31,7 @@ interface Produk {
     harga_jual: number;
     stok: number;
     barcode: string;
+    foto: string | null;
 }
 
 interface Promo {
@@ -50,6 +51,7 @@ interface CartItem {
     qty: number;
     subtotal: number;
     stock: number;
+    foto: string | null;
 }
 
 const props = defineProps<{
@@ -98,6 +100,18 @@ function formatRupiah(value: number): string {
     }).format(value);
 }
 
+function resolveFoto(foto: string | null): string | null {
+    if (!foto) {
+        return null;
+    }
+
+    if (foto.startsWith('http://') || foto.startsWith('https://') || foto.startsWith('/')) {
+        return foto;
+    }
+
+    return `/storage/${foto}`;
+}
+
 function addToCart(product: Produk) {
     scanError.value = '';
     const existing = cartItems.value.find((item) => item.id_produk === product.id_produk);
@@ -122,6 +136,7 @@ function addToCart(product: Produk) {
         qty: 1,
         subtotal: product.harga_jual,
         stock: product.stok,
+        foto: product.foto,
     });
 }
 
@@ -315,7 +330,7 @@ function submitTransaction() {
                         <Barcode class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                             v-model="barcodeScan"
-                            @keyup.enter.prevent="scanBarcode"
+                            @keyup.enter.prevent="() => scanBarcode()"
                             type="text"
                             placeholder="Scan barcode produk"
                             class="w-full rounded-lg border border-sidebar-border/70 bg-background pl-9 pr-4 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
@@ -324,7 +339,7 @@ function submitTransaction() {
                     <button
                         type="button"
                         class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-zinc-800/40 dark:border-sidebar-border"
-                        @click="scanBarcode"
+                        @click="() => scanBarcode()"
                     >
                         Scan
                     </button>
@@ -344,6 +359,20 @@ function submitTransaction() {
                     ]"
                 >
                     <div>
+                        <div class="mb-3 overflow-hidden rounded-lg border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-800">
+                            <img
+                                v-if="resolveFoto(product.foto)"
+                                :src="resolveFoto(product.foto) ?? undefined"
+                                :alt="product.nama"
+                                class="h-32 w-full object-cover"
+                            />
+                            <div
+                                v-else
+                                class="flex h-32 w-full items-center justify-center text-sm font-medium text-muted-foreground"
+                            >
+                                Foto produk
+                            </div>
+                        </div>
                         <div class="flex items-center justify-between gap-2">
                             <span class="inline-flex rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 text-xxs font-medium text-muted-foreground">
                                 {{ product.kategori ?? 'Umum' }}
@@ -411,9 +440,23 @@ function submitTransaction() {
                         :key="item.id_produk"
                         class="p-4 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-zinc-800/10 transition-colors"
                     >
-                        <div class="flex-1 min-w-0 pr-3">
-                            <h4 class="font-semibold text-sm truncate text-foreground">{{ item.nama }}</h4>
-                            <p class="text-xs text-muted-foreground mt-0.5">{{ formatRupiah(item.harga) }} / item</p>
+                        <div class="flex min-w-0 flex-1 items-center gap-3 pr-3">
+                            <img
+                                v-if="resolveFoto(item.foto)"
+                                :src="resolveFoto(item.foto) ?? undefined"
+                                :alt="item.nama"
+                                class="h-11 w-11 shrink-0 rounded-lg border border-sidebar-border/70 object-cover dark:border-sidebar-border"
+                            />
+                            <div
+                                v-else
+                                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-sidebar-border/70 bg-slate-100 text-[10px] font-medium text-muted-foreground dark:border-sidebar-border dark:bg-zinc-800"
+                            >
+                                Foto
+                            </div>
+                            <div class="min-w-0">
+                                <h4 class="font-semibold text-sm truncate text-foreground">{{ item.nama }}</h4>
+                                <p class="text-xs text-muted-foreground mt-0.5">{{ formatRupiah(item.harga) }} / item</p>
+                            </div>
                         </div>
                         <div class="flex items-center gap-3">
                             <button

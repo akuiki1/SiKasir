@@ -65,7 +65,10 @@ class ProdukController extends Controller
             'stok' => ['required', 'integer', 'min:0'],
             'barcode' => ['required', 'string', 'max:255', 'unique:produks,barcode'],
             'sku' => ['required', 'string', 'max:255', 'unique:produks,sku'],
+            'foto' => ['nullable', 'string', 'max:2048'],
         ]);
+
+        $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
 
         Produk::create($validated);
 
@@ -85,7 +88,10 @@ class ProdukController extends Controller
             'stok' => ['required', 'integer', 'min:0'],
             'barcode' => ['required', 'string', 'max:255', 'unique:produks,barcode,'.$produk->id_produk.',id_produk'],
             'sku' => ['required', 'string', 'max:255', 'unique:produks,sku,'.$produk->id_produk.',id_produk'],
+            'foto' => ['nullable', 'string', 'max:2048'],
         ]);
+
+        $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
 
         $produk->update($validated);
 

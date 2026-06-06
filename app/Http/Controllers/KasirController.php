@@ -97,6 +97,7 @@ class KasirController extends Controller
                 'harga_jual' => $produk->harga_jual,
                 'stok' => $produk->stok,
                 'barcode' => $produk->barcode,
+                'foto' => $produk->foto,
             ]);
 
         $now = now();

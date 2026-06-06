@@ -87,12 +87,15 @@ test('kasir cannot access admin users page', function () {
 
 test('kasir can view transaksi page with product list', function () {
     $kasir = User::factory()->create(['role' => 'kasir']);
-    Produk::factory()->create(['harga_jual' => 12500, 'stok' => 10]);
+    Produk::factory()->create(['harga_jual' => 12500, 'stok' => 10, 'foto' => '/images/produk/kopi.jpg']);
 
     $response = $this->actingAs($kasir)->get(route('kasir.transaksi'));
 
     $response->assertOk();
-    $response->assertInertia(fn ($page) => $page->component('kasir/Transaksi')->has('produks', 1)
+    $response->assertInertia(fn ($page) => $page
+        ->component('kasir/Transaksi')
+        ->has('produks', 1)
+        ->where('produks.0.foto', '/images/produk/kopi.jpg')
     );
 });
 

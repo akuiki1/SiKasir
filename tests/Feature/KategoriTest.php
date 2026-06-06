@@ -117,10 +117,14 @@ test('admin can create a new produk', function () {
         'stok' => 50,
         'barcode' => '1234567890123',
         'sku' => 'SKU-001',
+        'foto' => '/images/produk/kopi-susu.jpg',
     ]);
 
     $response->assertRedirect(route('admin.products'));
-    $this->assertDatabaseHas('produks', ['nama' => 'Kopi Susu']);
+    $this->assertDatabaseHas('produks', [
+        'nama' => 'Kopi Susu',
+        'foto' => '/images/produk/kopi-susu.jpg',
+    ]);
 });
 
 test('admin can delete a produk', function () {

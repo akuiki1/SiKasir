@@ -11,6 +11,7 @@ import {
     X,
     Save,
     AlertCircle,
+    ImageIcon,
 } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
 import { store as productStore, update as productUpdate, destroy as productDestroy } from '@/routes/admin/products';
@@ -79,6 +80,18 @@ function formatRupiah(value: number): string {
     }).format(value);
 }
 
+function resolveFoto(foto: string | null): string | null {
+    if (!foto) {
+        return null;
+    }
+
+    if (foto.startsWith('http://') || foto.startsWith('https://') || foto.startsWith('/')) {
+        return foto;
+    }
+
+    return `/storage/${foto}`;
+}
+
 // Modal
 const showModal = ref(false);
 const editingProduk = ref<Produk | null>(null);
@@ -86,6 +99,7 @@ const editingProduk = ref<Produk | null>(null);
 const form = useForm({
     id_kategori: '',
     nama: '',
+    foto: '',
     harga_beli: '',
     harga_jual: '',
     stok: '',
@@ -103,6 +117,7 @@ function openEdit(produk: Produk) {
     editingProduk.value = produk;
     form.id_kategori = String(produk.id_kategori);
     form.nama = produk.nama;
+    form.foto = produk.foto ?? '';
     form.harga_beli = String(produk.harga_beli);
     form.harga_jual = String(produk.harga_jual);
     form.stok = String(produk.stok);
@@ -152,6 +167,7 @@ function submitForm() {
     const data = {
         ...form.data(),
         id_kategori: Number(form.id_kategori),
+        foto: form.foto || null,
         harga_beli: Number(form.harga_beli),
         harga_jual: Number(form.harga_jual),
         stok: Number(form.stok),
@@ -336,9 +352,23 @@ const statusClass: Record<string, string> = {
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
                             <td class="px-6 py-4">
-                                <div>
-                                    <p class="font-semibold text-foreground">{{ produk.nama }}</p>
-                                    <p class="text-xs text-muted-foreground">SKU: {{ produk.sku }}</p>
+                                <div class="flex items-center gap-3">
+                                    <img
+                                        v-if="resolveFoto(produk.foto)"
+                                        :src="resolveFoto(produk.foto) ?? undefined"
+                                        :alt="produk.nama"
+                                        class="h-12 w-12 rounded-lg border border-sidebar-border/70 object-cover dark:border-sidebar-border"
+                                    />
+                                    <div
+                                        v-else
+                                        class="flex h-12 w-12 items-center justify-center rounded-lg border border-sidebar-border/70 bg-slate-100 text-muted-foreground dark:border-sidebar-border dark:bg-zinc-800"
+                                    >
+                                        <ImageIcon class="h-5 w-5" />
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-foreground">{{ produk.nama }}</p>
+                                        <p class="text-xs text-muted-foreground">SKU: {{ produk.sku }}</p>
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-muted-foreground">
@@ -422,6 +452,24 @@ const statusClass: Record<string, string> = {
                         />
                         <p v-if="form.errors.nama" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
                             <AlertCircle class="h-3 w-3" />{{ form.errors.nama }}
+                        </p>
+                    </div>
+
+                    <!-- Foto -->
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" for="prod-foto">
+                            Foto Produk
+                        </label>
+                        <input
+                            id="prod-foto"
+                            v-model="form.foto"
+                            type="text"
+                            placeholder="/images/produk/kopi.jpg atau https://..."
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            :class="{ 'border-rose-500': form.errors.foto }"
+                        />
+                        <p v-if="form.errors.foto" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                            <AlertCircle class="h-3 w-3" />{{ form.errors.foto }}
                         </p>
                     </div>
 
