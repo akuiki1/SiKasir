@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
 import {
     Plus,
     Search,
@@ -15,6 +14,7 @@ import {
     Trash2,
     Minus,
 } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 import { store as transaksiStore, update as transaksiUpdate, destroy as transaksiDestroy } from '@/routes/admin/transactions';
 
 defineOptions({
@@ -97,6 +97,7 @@ function formatMetode(metode: string): string {
         qris: 'QRIS',
         transfer: 'Transfer',
     };
+
     return labels[metode] ?? metode;
 }
 
@@ -107,6 +108,7 @@ const filteredTransaksis = computed(() => {
     }
 
     const q = searchQuery.value.toLowerCase();
+
     return props.transaksis.filter(
         (t) => t.kode.toLowerCase().includes(q) || t.kasir.toLowerCase().includes(q),
     );
@@ -142,6 +144,7 @@ const computedTotal = computed(() => {
         }
 
         const produk = props.produks.find((p) => p.id_produk === Number(item.id_produk));
+
         if (!produk) {
             return total;
         }
@@ -152,6 +155,7 @@ const computedTotal = computed(() => {
 
 const computedKembalian = computed(() => {
     const bayar = Number(form.bayar) || 0;
+
     return Math.max(0, bayar - computedTotal.value);
 });
 
@@ -194,11 +198,13 @@ function removeItem(index: number) {
 
 function getProdukHarga(idProduk: string): number {
     const produk = props.produks.find((p) => p.id_produk === Number(idProduk));
+
     return produk?.harga_jual ?? 0;
 }
 
 function getProdukStok(idProduk: string): number {
     const produk = props.produks.find((p) => p.id_produk === Number(idProduk));
+
     return produk?.stok ?? 0;
 }
 

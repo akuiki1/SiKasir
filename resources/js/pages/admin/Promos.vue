@@ -68,6 +68,7 @@ const filteredPromos = computed(() => {
     return props.promos.filter((p) => {
         const matchSearch = !searchQuery.value || p.nama.toLowerCase().includes(searchQuery.value.toLowerCase());
         let matchStatus = true;
+
         if (filterStatus.value === 'aktif') {
             matchStatus = p.aktif;
         } else if (filterStatus.value === 'non-aktif') {

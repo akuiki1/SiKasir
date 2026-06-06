@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { DollarSign, Printer } from 'lucide-vue-next';
+import { DollarSign, Printer, TrendingUp, Wallet, Receipt, Percent } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 defineOptions({
@@ -49,6 +49,10 @@ const props = defineProps<{
         total_transactions: number;
         average_order_value: number;
         total_items_sold: number;
+        total_expenses: number;
+        sales_margin: number;
+        gross_profit: number;
+        net_profit: number;
     };
     revenue_chart: ChartPoint[];
     sales_trend: ChartPoint[];
@@ -221,9 +225,9 @@ function printReport(): void {
     <p>Periode: ${form.start_date} — ${form.end_date}</p>
     <div class="section summary">
         <div class="card"><strong>Total Pendapatan</strong><div>${formatRupiah(props.stats.total_revenue)}</div></div>
+        <div class="card"><strong>Total Pengeluaran</strong><div>${formatRupiah(props.stats.total_expenses)}</div></div>
+        <div class="card"><strong>Sales Margin</strong><div>${props.stats.sales_margin.toFixed(2)}%</div></div>
         <div class="card"><strong>Total Transaksi</strong><div>${props.stats.total_transactions}</div></div>
-        <div class="card"><strong>Rata-rata Penjualan</strong><div>${formatRupiah(props.stats.average_order_value)}</div></div>
-        <div class="card"><strong>Total Item Terjual</strong><div>${props.stats.total_items_sold}</div></div>
     </div>
     ${sections.map((section) => buildTableHtml(section.title, section.columns, section.rows)).join('')}
 </body>
@@ -365,22 +369,72 @@ const topHoursGraph = computed(() => props.top_sales_hours.map((point) => ({
                 </div>
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
-                    <p class="text-sm font-medium text-muted-foreground">Total Pendapatan</p>
-                    <p class="mt-4 text-3xl font-bold tracking-tight text-emerald-600">{{ formatRupiah(props.stats.total_revenue) }}</p>
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="group relative overflow-hidden rounded-2xl border border-sidebar-border/70 bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 shadow-lg transition-all duration-300 hover:shadow-xl dark:border-sidebar-border">
+                    <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-emerald-100">Total Pendapatan</p>
+                            <p class="mt-2 text-2xl font-bold tracking-tight text-white">{{ formatRupiah(props.stats.total_revenue) }}</p>
+                        </div>
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                            <Wallet class="h-6 w-6 text-white" />
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-2">
+                        <TrendingUp class="h-4 w-4 text-emerald-100" />
+                        <span class="text-xs font-medium text-emerald-100">Revenue</span>
+                    </div>
                 </div>
-                <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
-                    <p class="text-sm font-medium text-muted-foreground">Total Transaksi</p>
-                    <p class="mt-4 text-3xl font-bold tracking-tight text-indigo-600">{{ props.stats.total_transactions }}</p>
+
+                <div class="group relative overflow-hidden rounded-2xl border border-sidebar-border/70 bg-gradient-to-br from-rose-500 to-rose-600 p-6 shadow-lg transition-all duration-300 hover:shadow-xl dark:border-sidebar-border">
+                    <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-rose-100">Total Pengeluaran</p>
+                            <p class="mt-2 text-2xl font-bold tracking-tight text-white">{{ formatRupiah(props.stats.total_expenses) }}</p>
+                        </div>
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                            <Receipt class="h-6 w-6 text-white" />
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-2">
+                        <span class="text-xs font-medium text-rose-100">Expenses</span>
+                    </div>
                 </div>
-                <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
-                    <p class="text-sm font-medium text-muted-foreground">Rata-rata Order</p>
-                    <p class="mt-4 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{{ formatRupiah(props.stats.average_order_value) }}</p>
+
+                <div class="group relative overflow-hidden rounded-2xl border border-sidebar-border/70 bg-gradient-to-br from-violet-500 to-violet-600 p-6 shadow-lg transition-all duration-300 hover:shadow-xl dark:border-sidebar-border">
+                    <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-violet-100">Sales Margin</p>
+                            <p class="mt-2 text-2xl font-bold tracking-tight text-white">{{ props.stats.sales_margin.toFixed(2) }}%</p>
+                        </div>
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                            <Percent class="h-6 w-6 text-white" />
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-2">
+                        <span :class="['text-xs font-medium', props.stats.sales_margin >= 0 ? 'text-violet-100' : 'text-red-200']">
+                            {{ props.stats.sales_margin >= 0 ? 'Profitable' : 'Loss' }}
+                        </span>
+                    </div>
                 </div>
-                <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
-                    <p class="text-sm font-medium text-muted-foreground">Total Item Terjual</p>
-                    <p class="mt-4 text-3xl font-bold tracking-tight text-violet-600">{{ props.stats.total_items_sold }}</p>
+
+                <div class="group relative overflow-hidden rounded-2xl border border-sidebar-border/70 bg-gradient-to-br from-indigo-500 to-indigo-600 p-6 shadow-lg transition-all duration-300 hover:shadow-xl dark:border-sidebar-border">
+                    <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-indigo-100">Total Transaksi</p>
+                            <p class="mt-2 text-2xl font-bold tracking-tight text-white">{{ props.stats.total_transactions }}</p>
+                        </div>
+                        <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                            <DollarSign class="h-6 w-6 text-white" />
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-2">
+                        <span class="text-xs font-medium text-indigo-100">Transactions</span>
+                    </div>
                 </div>
             </div>
         </div>

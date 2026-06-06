@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DetailTransaksi;
+use App\Models\Pengeluaran;
 use App\Models\Transaksi;
 use DateInterval;
 use DatePeriod;
@@ -136,12 +137,33 @@ class DashboardController extends Controller
         $totalItemsSold = $details->sum('jumlah');
         $averageOrderValue = $totalTransactions > 0 ? (int) floor($totalRevenue / $totalTransactions) : 0;
 
+        // Calculate total cost of goods sold (COGS)
+        $totalCogs = $details->sum(function ($detail) {
+            return $detail->jumlah * ($detail->produk?->harga_beli ?? 0);
+        });
+
+        // Calculate expenses from Pengeluaran model
+        $totalExpenses = Pengeluaran::whereBetween('created_at', [$startDate, $endDate])->sum('nominal');
+
+        // Calculate gross profit (Revenue - COGS)
+        $grossProfit = $totalRevenue - $totalCogs;
+
+        // Calculate net profit (Gross Profit - Expenses)
+        $netProfit = $grossProfit - $totalExpenses;
+
+        // Calculate sales margin percentage (Net Profit / Revenue * 100)
+        $salesMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0;
+
         return Inertia::render('admin/Dashboard', [
             'stats' => [
                 'total_revenue' => $totalRevenue,
                 'total_transactions' => $totalTransactions,
                 'average_order_value' => $averageOrderValue,
                 'total_items_sold' => $totalItemsSold,
+                'total_expenses' => $totalExpenses,
+                'sales_margin' => $salesMargin,
+                'gross_profit' => $grossProfit,
+                'net_profit' => $netProfit,
             ],
             'revenue_chart' => $revenueChart,
             'sales_trend' => $salesTrend,

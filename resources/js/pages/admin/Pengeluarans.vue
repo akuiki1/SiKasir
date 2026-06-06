@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
 import {
     Plus,
     Search,
@@ -11,6 +10,7 @@ import {
     X,
     Save,
 } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 import {
     store as pengeluaransStore,
     update as pengeluaransUpdate,

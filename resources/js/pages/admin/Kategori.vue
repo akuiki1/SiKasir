@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
 import {
     Plus,
     Search,
@@ -12,6 +11,7 @@ import {
     Save,
     AlertCircle,
 } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 import { store as kategoriStore, update as kategoriUpdate, destroy as kategoriDestroy } from '@/routes/admin/kategori';
 
 defineOptions({
@@ -44,7 +44,10 @@ const props = defineProps<{
 // Search
 const searchQuery = ref('');
 const filteredKategoris = computed(() => {
-    if (!searchQuery.value) return props.kategoris;
+    if (!searchQuery.value) {
+return props.kategoris;
+}
+
     return props.kategoris.filter((k) =>
         k.nama_kategori.toLowerCase().includes(searchQuery.value.toLowerCase()),
     );
