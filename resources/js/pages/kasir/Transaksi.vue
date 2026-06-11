@@ -347,76 +347,84 @@ function submitTransaction() {
             </div>
             <p v-if="scanError" class="text-sm text-rose-600">{{ scanError }}</p>
 
-            <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 <div
                     v-for="product in filteredProduks"
                     :key="product.id_produk"
                     :class="[
-                        'relative overflow-hidden rounded-xl border p-4 flex flex-col justify-between transition-all duration-200 select-none shadow-sm',
+                        'group overflow-hidden rounded-3xl border p-4 transition-all duration-200 shadow-sm',
                         product.stok > 0
-                            ? 'border-sidebar-border/70 bg-card hover:-translate-y-1 hover:shadow-md cursor-pointer hover:border-indigo-500/30'
-                            : 'border-sidebar-border/40 bg-slate-50/50 dark:bg-zinc-900/10 opacity-60',
+                            ? 'border-sidebar-border/70 bg-card hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/30 cursor-pointer'
+                            : 'border-sidebar-border/40 bg-slate-50/50 dark:bg-zinc-950/30 opacity-70',
                     ]"
                 >
-                    <div>
-                        <div class="mb-3 overflow-hidden rounded-lg border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-800">
+                    <div class="flex flex-col h-full">
+                        <div class="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900">
                             <img
                                 v-if="resolveFoto(product.foto)"
                                 :src="resolveFoto(product.foto) ?? undefined"
                                 :alt="product.nama"
-                                class="h-32 w-full object-cover"
+                                class="h-40 w-full object-cover"
                             />
                             <div
                                 v-else
-                                class="flex h-32 w-full items-center justify-center text-sm font-medium text-muted-foreground"
+                                class="flex h-40 w-full items-center justify-center text-sm font-medium text-muted-foreground"
                             >
                                 Foto produk
                             </div>
                         </div>
-                        <div class="flex items-center justify-between gap-2">
-                            <span class="inline-flex rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 text-xxs font-medium text-muted-foreground">
-                                {{ product.kategori ?? 'Umum' }}
-                            </span>
-                            <span v-if="activeProductPromos.get(product.id_produk)"
-                                class="inline-flex rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xxs font-semibold"
+
+                        <div class="mt-4 flex flex-1 flex-col justify-between">
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="inline-flex rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        {{ product.kategori ?? 'Umum' }}
+                                    </span>
+                                    <span v-if="activeProductPromos.get(product.id_produk)"
+                                        class="inline-flex rounded-full bg-emerald-100 text-emerald-700 px-2 py-1 text-[10px] font-semibold"
+                                    >
+                                        Promo {{ activeProductPromos.get(product.id_produk)?.tipe === 'persen' ? `${activeProductPromos.get(product.id_produk)?.nilai}%` : formatRupiah(activeProductPromos.get(product.id_produk)?.nilai || 0) }}
+                                    </span>
+                                    <span
+                                        :class="[
+                                            'inline-flex rounded-full px-2 py-1 text-[10px] font-semibold',
+                                            product.stok > 10
+                                                ? 'bg-emerald-100 text-emerald-700 dark:text-emerald-400'
+                                                : product.stok > 0
+                                                ? 'bg-amber-100 text-amber-700 dark:text-amber-400'
+                                                : 'bg-rose-100 text-rose-700 dark:text-rose-400',
+                                        ]"
+                                    >
+                                        {{ product.stok > 0 ? `Stok ${product.stok}` : 'Habis' }}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <h3 class="font-semibold text-base text-foreground leading-tight line-clamp-2">
+                                        {{ product.nama }}
+                                    </h3>
+                                    <p class="mt-2 text-sm text-muted-foreground line-clamp-2">
+                                        {{ formatRupiah(product.harga_jual) }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                :disabled="product.stok === 0"
+                                @click="addToCart(product)"
                             >
-                                Promo {{ activeProductPromos.get(product.id_produk)?.tipe === 'persen' ? `${activeProductPromos.get(product.id_produk)?.nilai}%` : formatRupiah(activeProductPromos.get(product.id_produk)?.nilai || 0) }}
-                            </span>
-                            <span
-                                :class="[
-                                    'text-xxs font-semibold',
-                                    product.stok > 10
-                                        ? 'text-emerald-600 dark:text-emerald-400'
-                                        : product.stok > 0
-                                        ? 'text-amber-600 dark:text-amber-400'
-                                        : 'text-rose-600 dark:text-rose-400',
-                                ]"
-                            >
-                                {{ product.stok > 0 ? `Stok: ${product.stok}` : 'Habis' }}
-                            </span>
+                                <Plus class="h-4 w-4" />
+                                Tambah
+                            </button>
                         </div>
-                        <h3 class="font-bold text-foreground mt-3 leading-tight text-sm line-clamp-2 h-10">
-                            {{ product.nama }}
-                        </h3>
-                    </div>
-                    <div class="mt-4 flex items-center justify-between">
-                        <span class="font-extrabold text-indigo-600 dark:text-indigo-400">
-                            {{ formatRupiah(product.harga_jual) }}
-                        </span>
-                        <button
-                            type="button"
-                            class="rounded-lg bg-indigo-50 dark:bg-indigo-950/40 p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            :disabled="product.stok === 0"
-                            @click="addToCart(product)"
-                        >
-                            <Plus class="h-4 w-4" />
-                        </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="w-full lg:w-[380px] rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border flex flex-col justify-between shadow-sm overflow-hidden h-[calc(100vh-120px)] lg:sticky lg:top-6">
+        <div class="w-full lg:w-[380px] rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border flex flex-col justify-between shadow-sm overflow-hidden lg:sticky lg:top-6 lg:h-[calc(100vh-120px)]">
             <div>
                 <div class="flex items-center justify-between border-b border-sidebar-border/70 p-4 dark:border-sidebar-border">
                     <div class="flex items-center gap-2">
