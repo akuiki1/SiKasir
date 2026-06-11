@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\ProdukController::index
- * @see app/Http/Controllers/ProdukController.php:18
+ * @see app/Http/Controllers/ProdukController.php:17
  * @route '/admin/products'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\ProdukController::index
- * @see app/Http/Controllers/ProdukController.php:18
+ * @see app/Http/Controllers/ProdukController.php:17
  * @route '/admin/products'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ProdukController::index
- * @see app/Http/Controllers/ProdukController.php:18
+ * @see app/Http/Controllers/ProdukController.php:17
  * @route '/admin/products'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\ProdukController::index
- * @see app/Http/Controllers/ProdukController.php:18
+ * @see app/Http/Controllers/ProdukController.php:17
  * @route '/admin/products'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\ProdukController::index
- * @see app/Http/Controllers/ProdukController.php:18
+ * @see app/Http/Controllers/ProdukController.php:17
  * @route '/admin/products'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\ProdukController::index
- * @see app/Http/Controllers/ProdukController.php:18
+ * @see app/Http/Controllers/ProdukController.php:17
  * @route '/admin/products'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\ProdukController::index
- * @see app/Http/Controllers/ProdukController.php:18
+ * @see app/Http/Controllers/ProdukController.php:17
  * @route '/admin/products'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

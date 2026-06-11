@@ -32,6 +32,7 @@ interface Produk {
     stok: number;
     barcode: string;
     foto: string | null;
+    foto_url?: string | null;
 }
 
 interface Promo {
@@ -52,6 +53,7 @@ interface CartItem {
     subtotal: number;
     stock: number;
     foto: string | null;
+    foto_url?: string | null;
 }
 
 const props = defineProps<{
@@ -137,6 +139,7 @@ function addToCart(product: Produk) {
         subtotal: product.harga_jual,
         stock: product.stok,
         foto: product.foto,
+        foto_url: product.foto_url ?? null,
     });
 }
 
@@ -361,8 +364,8 @@ function submitTransaction() {
                     <div class="flex flex-col h-full">
                         <div class="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900">
                             <img
-                                v-if="resolveFoto(product.foto)"
-                                :src="resolveFoto(product.foto) ?? undefined"
+                                v-if="resolveFoto(product.foto_url ?? product.foto)"
+                                :src="resolveFoto(product.foto_url ?? product.foto) ?? undefined"
                                 :alt="product.nama"
                                 class="h-40 w-full object-cover"
                             />
@@ -450,8 +453,8 @@ function submitTransaction() {
                     >
                         <div class="flex min-w-0 flex-1 items-center gap-3 pr-3">
                             <img
-                                v-if="resolveFoto(item.foto)"
-                                :src="resolveFoto(item.foto) ?? undefined"
+                                v-if="resolveFoto(item.foto_url ?? item.foto)"
+                                :src="resolveFoto(item.foto_url ?? item.foto) ?? undefined"
                                 :alt="item.nama"
                                 class="h-11 w-11 shrink-0 rounded-lg border border-sidebar-border/70 object-cover dark:border-sidebar-border"
                             />

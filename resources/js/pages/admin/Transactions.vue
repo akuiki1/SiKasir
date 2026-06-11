@@ -34,6 +34,8 @@ interface DetailItem {
     jumlah: number;
     harga: number;
     subtotal: number;
+    foto: string | null;
+    foto_url?: string | null;
 }
 
 interface Transaksi {
@@ -478,7 +480,21 @@ function hapusTransaksi(trx: Transaksi) {
                         </thead>
                         <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
                             <tr v-for="(detail, idx) in selectedTrx.details" :key="idx">
-                                <td class="px-4 py-2">{{ detail.nama_produk }}</td>
+                                <td class="px-4 py-2 flex items-center gap-3">
+                                    <img
+                                        v-if="detail.foto_url"
+                                        :src="detail.foto_url"
+                                        :alt="detail.nama_produk"
+                                        class="h-10 w-10 shrink-0 rounded-lg border border-sidebar-border/70 object-cover dark:border-sidebar-border"
+                                    />
+                                    <div
+                                        v-else
+                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-sidebar-border/70 bg-slate-100 text-[10px] font-medium text-muted-foreground dark:border-sidebar-border dark:bg-zinc-800"
+                                    >
+                                        Foto
+                                    </div>
+                                    <span>{{ detail.nama_produk }}</span>
+                                </td>
                                 <td class="px-4 py-2 text-right">{{ detail.jumlah }}</td>
                                 <td class="px-4 py-2 text-right font-medium">
                                     {{ formatRupiah(detail.subtotal) }}

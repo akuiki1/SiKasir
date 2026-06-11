@@ -32,7 +32,14 @@ interface Transaksi {
     created_at: string;
     waktu: string;
     tanggal: string;
-    details: Array<{ nama_produk: string; jumlah: number; harga: number; subtotal: number }>;
+    details: Array<{ 
+        nama_produk: string; 
+        jumlah: number; 
+        harga: number; 
+        subtotal: number;
+        foto: string | null;
+        foto_url?: string | null;
+    }>;
 }
 
 interface Stats {
@@ -85,7 +92,7 @@ function buildReceiptHtml(trx: Transaksi): string {
         .map(
             (detail) => `
                 <tr>
-                    <td>${detail.nama_produk}</td>
+                    <td>${detail.foto ? '[FOTO] ' : ''}${detail.nama_produk}</td>
                     <td class="text-right">${detail.jumlah}</td>
                     <td class="text-right">${formatRupiah(detail.harga)}</td>
                     <td class="text-right">${formatRupiah(detail.subtotal)}</td>

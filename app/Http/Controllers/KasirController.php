@@ -98,6 +98,7 @@ class KasirController extends Controller
                 'stok' => $produk->stok,
                 'barcode' => $produk->barcode,
                 'foto' => $produk->foto,
+                'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
             ]);
 
         $now = now();
@@ -258,6 +259,8 @@ class KasirController extends Controller
                     'jumlah' => $detail->jumlah,
                     'harga' => $detail->harga,
                     'subtotal' => $detail->subtotal,
+                    'foto' => $detail->produk?->foto ?? null,
+                    'foto_url' => $detail->produk?->foto ? asset('storage/'.$detail->produk->foto) : null,
                 ])->values(),
             ]);
 

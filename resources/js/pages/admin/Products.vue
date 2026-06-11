@@ -43,6 +43,7 @@ interface Produk {
     barcode: string;
     sku: string;
     foto: string | null;
+    foto_url?: string | null;
     status_stok: 'in-stock' | 'low-stock' | 'out-of-stock';
 }
 
@@ -371,8 +372,8 @@ const statusClass: Record<string, string> = {
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <img
-                                        v-if="resolveFoto(produk.foto)"
-                                        :src="resolveFoto(produk.foto) ?? undefined"
+                                        v-if="resolveFoto(produk.foto_url ?? produk.foto)"
+                                        :src="resolveFoto(produk.foto_url ?? produk.foto) ?? undefined"
                                         :alt="produk.nama"
                                         class="h-12 w-12 rounded-lg border border-sidebar-border/70 object-cover dark:border-sidebar-border"
                                     />

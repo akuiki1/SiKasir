@@ -6,7 +6,6 @@ use App\Models\Kategori;
 use App\Models\Produk;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,6 +31,7 @@ class ProdukController extends Controller
                     'barcode' => $produk->barcode,
                     'sku' => $produk->sku,
                     'foto' => $produk->foto,
+                    'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
                     'status_stok' => $produk->status_stok,
                 ];
             });
