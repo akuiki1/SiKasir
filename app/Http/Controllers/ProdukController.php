@@ -6,6 +6,7 @@ use App\Models\Kategori;
 use App\Models\Produk;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -66,9 +67,14 @@ class ProdukController extends Controller
             'barcode' => ['required', 'string', 'max:255', 'unique:produks,barcode'],
             'sku' => ['required', 'string', 'max:255', 'unique:produks,sku'],
             'foto' => ['nullable', 'string', 'max:2048'],
+            'foto_upload' => ['nullable', 'image', 'max:2048'],
         ]);
 
-        $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
+        if ($request->hasFile('foto_upload')) {
+            $validated['foto'] = $request->file('foto_upload')->store('produk', 'public');
+        } else {
+            $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
+        }
 
         Produk::create($validated);
 
@@ -89,9 +95,14 @@ class ProdukController extends Controller
             'barcode' => ['required', 'string', 'max:255', 'unique:produks,barcode,'.$produk->id_produk.',id_produk'],
             'sku' => ['required', 'string', 'max:255', 'unique:produks,sku,'.$produk->id_produk.',id_produk'],
             'foto' => ['nullable', 'string', 'max:2048'],
+            'foto_upload' => ['nullable', 'image', 'max:2048'],
         ]);
 
-        $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
+        if ($request->hasFile('foto_upload')) {
+            $validated['foto'] = $request->file('foto_upload')->store('produk', 'public');
+        } else {
+            $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
+        }
 
         $produk->update($validated);
 

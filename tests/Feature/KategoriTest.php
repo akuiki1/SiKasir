@@ -3,6 +3,8 @@
 use App\Models\Kategori;
 use App\Models\Produk;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 // ─── Kategori ────────────────────────────────────────────────────────────────
 
@@ -125,6 +127,32 @@ test('admin can create a new produk', function () {
         'nama' => 'Kopi Susu',
         'foto' => '/images/produk/kopi-susu.jpg',
     ]);
+});
+
+test('admin can upload produk foto file', function () {
+    Storage::fake('public');
+
+    $admin = User::factory()->create(['role' => 'admin']);
+    $kategori = Kategori::factory()->create();
+
+    $response = $this->actingAs($admin)->post(route('admin.products.store'), [
+        'id_kategori' => $kategori->id_kategori,
+        'nama' => 'Kopi Latte',
+        'harga_beli' => 10000,
+        'harga_jual' => 20000,
+        'stok' => 20,
+        'barcode' => '9876543210987',
+        'sku' => 'SKU-002',
+        'foto_upload' => UploadedFile::fake()->image('kopi-latte.jpg'),
+    ]);
+
+    $response->assertRedirect(route('admin.products'));
+
+    $produk = Produk::where('nama', 'Kopi Latte')->first();
+
+    expect($produk)->not->toBeNull();
+    expect($produk->foto)->not->toBeNull();
+    Storage::disk('public')->assertExists($produk->foto);
 });
 
 test('admin can delete a produk', function () {

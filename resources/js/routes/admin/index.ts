@@ -241,7 +241,7 @@ kategori.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     kategori.form = kategoriForm
 /**
 * @see \App\Http\Controllers\ProdukController::products
- * @see app/Http/Controllers/ProdukController.php:17
+ * @see app/Http/Controllers/ProdukController.php:18
  * @route '/admin/products'
  */
 export const products = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -256,7 +256,7 @@ products.definition = {
 
 /**
 * @see \App\Http\Controllers\ProdukController::products
- * @see app/Http/Controllers/ProdukController.php:17
+ * @see app/Http/Controllers/ProdukController.php:18
  * @route '/admin/products'
  */
 products.url = (options?: RouteQueryOptions) => {
@@ -265,7 +265,7 @@ products.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ProdukController::products
- * @see app/Http/Controllers/ProdukController.php:17
+ * @see app/Http/Controllers/ProdukController.php:18
  * @route '/admin/products'
  */
 products.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -274,7 +274,7 @@ products.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\ProdukController::products
- * @see app/Http/Controllers/ProdukController.php:17
+ * @see app/Http/Controllers/ProdukController.php:18
  * @route '/admin/products'
  */
 products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -284,7 +284,7 @@ products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\ProdukController::products
- * @see app/Http/Controllers/ProdukController.php:17
+ * @see app/Http/Controllers/ProdukController.php:18
  * @route '/admin/products'
  */
     const productsForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -294,7 +294,7 @@ products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\ProdukController::products
- * @see app/Http/Controllers/ProdukController.php:17
+ * @see app/Http/Controllers/ProdukController.php:18
  * @route '/admin/products'
  */
         productsForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -303,7 +303,7 @@ products.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\ProdukController::products
- * @see app/Http/Controllers/ProdukController.php:17
+ * @see app/Http/Controllers/ProdukController.php:18
  * @route '/admin/products'
  */
         productsForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

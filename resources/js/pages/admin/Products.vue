@@ -100,6 +100,7 @@ const form = useForm({
     id_kategori: '',
     nama: '',
     foto: '',
+    foto_upload: null as File | null,
     harga_beli: '',
     harga_jual: '',
     stok: '',
@@ -107,9 +108,12 @@ const form = useForm({
     sku: '',
 });
 
+const fotoUploadName = computed(() => form.foto_upload?.name ?? '');
+
 function openTambah() {
     editingProduk.value = null;
     form.reset();
+    form.foto_upload = null;
     showModal.value = true;
 }
 
@@ -118,6 +122,7 @@ function openEdit(produk: Produk) {
     form.id_kategori = String(produk.id_kategori);
     form.nama = produk.nama;
     form.foto = produk.foto ?? '';
+    form.foto_upload = null;
     form.harga_beli = String(produk.harga_beli);
     form.harga_jual = String(produk.harga_jual);
     form.stok = String(produk.stok);
@@ -129,7 +134,19 @@ function openEdit(produk: Produk) {
 function closeModal() {
     showModal.value = false;
     form.reset();
+    form.foto_upload = null;
     form.clearErrors();
+}
+
+function handleFileUpload(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+
+    form.foto_upload = file;
+
+    if (file) {
+        form.foto = '';
+    }
 }
 
 
@@ -460,14 +477,34 @@ const statusClass: Record<string, string> = {
                         <label class="mb-1.5 block text-sm font-medium" for="prod-foto">
                             Foto Produk
                         </label>
-                        <input
-                            id="prod-foto"
-                            v-model="form.foto"
-                            type="text"
-                            placeholder="/images/produk/kopi.jpg atau https://..."
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                            :class="{ 'border-rose-500': form.errors.foto }"
-                        />
+                        <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
+                            <input
+                                id="prod-foto"
+                                v-model="form.foto"
+                                type="text"
+                                placeholder="/images/produk/kopi.jpg atau https://..."
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                :class="{ 'border-rose-500': form.errors.foto }"
+                            />
+                            <label
+                                class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900 dark:text-slate-200 dark:hover:bg-zinc-800"
+                            >
+                                <ImageIcon class="h-4 w-4" />
+                                Upload
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    class="hidden"
+                                    @change="handleFileUpload"
+                                />
+                            </label>
+                        </div>
+                        <p class="mt-2 text-xs text-muted-foreground">
+                            Unggah gambar produk atau masukkan URL jika sudah tersedia.
+                        </p>
+                        <p v-if="fotoUploadName" class="text-xs text-slate-600">
+                            File dipilih: {{ fotoUploadName }}
+                        </p>
                         <p v-if="form.errors.foto" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
                             <AlertCircle class="h-3 w-3" />{{ form.errors.foto }}
                         </p>
