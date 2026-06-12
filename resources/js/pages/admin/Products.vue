@@ -12,8 +12,9 @@ import {
     Save,
     AlertCircle,
     ImageIcon,
+    Barcode,
 } from 'lucide-vue-next';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue';
 import { store as productStore, update as productUpdate, destroy as productDestroy } from '@/routes/admin/products';
 
 defineOptions({
@@ -96,6 +97,13 @@ function resolveFoto(foto: string | null): string | null {
 // Modal
 const showModal = ref(false);
 const editingProduk = ref<Produk | null>(null);
+const barcodeInput = ref<HTMLInputElement | null>(null);
+const isScanningBarcode = ref(false);
+const barcodeScanMessage = ref('');
+const barcodeScannerBuffer = ref('');
+const barcodeScannerLastInputAt = ref(0);
+const BARCODE_SCANNER_TIMEOUT_MS = 150;
+const BARCODE_SCANNER_MIN_LENGTH = 3;
 
 const form = useForm({
     id_kategori: '',
@@ -113,6 +121,7 @@ const fotoUploadName = computed(() => form.foto_upload?.name ?? '');
 
 function openTambah() {
     editingProduk.value = null;
+    stopBarcodeScan();
     form.reset();
     form.foto_upload = null;
     showModal.value = true;
@@ -120,6 +129,7 @@ function openTambah() {
 
 function openEdit(produk: Produk) {
     editingProduk.value = produk;
+    stopBarcodeScan();
     form.id_kategori = String(produk.id_kategori);
     form.nama = produk.nama;
     form.foto = produk.foto ?? '';
@@ -134,6 +144,7 @@ function openEdit(produk: Produk) {
 
 function closeModal() {
     showModal.value = false;
+    stopBarcodeScan();
     form.reset();
     form.foto_upload = null;
     form.clearErrors();
@@ -149,6 +160,65 @@ function handleFileUpload(event: Event) {
         form.foto = '';
     }
 }
+
+function handleBarcodeScannerKeydown(event: KeyboardEvent): void {
+    if (!isScanningBarcode.value || event.defaultPrevented) {
+        return;
+    }
+
+    const now = performance.now();
+
+    if (now - barcodeScannerLastInputAt.value > BARCODE_SCANNER_TIMEOUT_MS) {
+        barcodeScannerBuffer.value = '';
+    }
+
+    barcodeScannerLastInputAt.value = now;
+
+    if (event.key === 'Enter') {
+        const barcode = barcodeScannerBuffer.value.trim() || form.barcode.trim();
+
+        if (barcode.length >= BARCODE_SCANNER_MIN_LENGTH) {
+            event.preventDefault();
+            form.barcode = barcode;
+            barcodeScanMessage.value = `Barcode ${barcode} berhasil discan.`;
+            stopBarcodeScan(false);
+        }
+
+        barcodeScannerBuffer.value = '';
+
+        return;
+    }
+
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        barcodeScannerBuffer.value += event.key;
+    }
+}
+
+function stopBarcodeScan(clearMessage = true): void {
+    document.removeEventListener('keydown', handleBarcodeScannerKeydown);
+    isScanningBarcode.value = false;
+    barcodeScannerBuffer.value = '';
+
+    if (clearMessage) {
+        barcodeScanMessage.value = '';
+    }
+}
+
+async function startBarcodeScan(): Promise<void> {
+    stopBarcodeScan();
+    form.barcode = '';
+    barcodeScanMessage.value = 'Mode scan aktif. Arahkan scanner ke barcode produk.';
+    isScanningBarcode.value = true;
+    barcodeScannerLastInputAt.value = 0;
+    document.addEventListener('keydown', handleBarcodeScannerKeydown);
+
+    await nextTick();
+    barcodeInput.value?.focus();
+}
+
+onBeforeUnmount(() => {
+    stopBarcodeScan();
+});
 
 
 const lastGeneratedSku = ref('');
@@ -597,14 +667,39 @@ const statusClass: Record<string, string> = {
                             <label class="mb-1.5 block text-sm font-medium" for="prod-barcode">
                                 Barcode
                             </label>
-                            <input
-                                id="prod-barcode"
-                                v-model="form.barcode"
-                                type="text"
-                                placeholder="Barcode unik"
-                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                :class="{ 'border-rose-500': form.errors.barcode }"
-                            />
+                            <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+                                <input
+                                    id="prod-barcode"
+                                    ref="barcodeInput"
+                                    v-model="form.barcode"
+                                    type="text"
+                                    placeholder="Barcode unik"
+                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                    :class="{ 'border-rose-500': form.errors.barcode }"
+                                />
+                                <button
+                                    type="button"
+                                    :class="[
+                                        'inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors',
+                                        isScanningBarcode
+                                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                            : 'border-sidebar-border/70 bg-background text-slate-700 hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40',
+                                    ]"
+                                    @click="startBarcodeScan"
+                                >
+                                    <Barcode class="h-4 w-4" />
+                                    Scan
+                                </button>
+                            </div>
+                            <p
+                                v-if="barcodeScanMessage"
+                                :class="[
+                                    'mt-1 text-xs',
+                                    isScanningBarcode ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
+                                ]"
+                            >
+                                {{ barcodeScanMessage }}
+                            </p>
                             <p v-if="form.errors.barcode" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
                                 <AlertCircle class="h-3 w-3" />{{ form.errors.barcode }}
                             </p>

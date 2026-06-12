@@ -12,6 +12,7 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
+import { toast } from 'vue-sonner';
 
 defineOptions({
     layout: {
@@ -62,14 +63,28 @@ const props = defineProps<{
 }>();
 
 const searchQuery = ref('');
-const barcodeScan = ref('');
-const scanError = ref('');
+const isScannerDetected = ref(false);
+const scannerStatusText = ref('Scanner tidak terdeteksi');
 const selectedCategory = ref('');
 const cartItems = ref<CartItem[]>([]);
 const scannerBuffer = ref('');
 const lastScannerTime = ref(0);
 const SCANNER_TIMEOUT_MS = 150;
 const SCANNER_MIN_LENGTH = 3;
+
+interface HidDeviceInfo {
+    productName?: string;
+    collections?: Array<{
+        usage?: number;
+        usagePage?: number;
+    }>;
+}
+
+interface HidDeviceApi {
+    addEventListener: (type: string, listener: EventListener) => void;
+    getDevices: () => Promise<HidDeviceInfo[]>;
+    removeEventListener: (type: string, listener: EventListener) => void;
+}
 
 const form = useForm({
     metode_pembayaran: 'cash',
@@ -114,8 +129,67 @@ function resolveFoto(foto: string | null): string | null {
     return `/storage/${foto}`;
 }
 
+function getHidApi(): HidDeviceApi | null {
+    if (typeof navigator === 'undefined') {
+        return null;
+    }
+
+    return (navigator as Navigator & { hid?: HidDeviceApi }).hid ?? null;
+}
+
+function looksLikeBarcodeScanner(device: HidDeviceInfo): boolean {
+    const productName = device.productName?.toLowerCase() ?? '';
+    const productNameLooksLikeScanner =
+        productName.includes('barcode') ||
+        productName.includes('scanner') ||
+        productName.includes('scan') ||
+        productName.includes('qr');
+
+    const hasBarcodeUsagePage = device.collections?.some((collection) => collection.usagePage === 0x8c) ?? false;
+
+    return productNameLooksLikeScanner || hasBarcodeUsagePage;
+}
+
+function markScannerDetected(message = 'Scanner terhubung'): void {
+    isScannerDetected.value = true;
+    scannerStatusText.value = message;
+}
+
+function markScannerNotDetected(): void {
+    isScannerDetected.value = false;
+    scannerStatusText.value = 'Scanner tidak terdeteksi';
+}
+
+async function detectScannerDevice(): Promise<void> {
+    const hid = getHidApi();
+
+    if (!hid) {
+        markScannerNotDetected();
+
+        return;
+    }
+
+    try {
+        const devices = await hid.getDevices();
+        const scanner = devices.find((device) => looksLikeBarcodeScanner(device));
+
+        if (scanner) {
+            markScannerDetected('Scanner terhubung');
+
+            return;
+        }
+
+        markScannerNotDetected();
+    } catch {
+        markScannerNotDetected();
+    }
+}
+
+const handleScannerDeviceConnectionChange = (): void => {
+    void detectScannerDevice();
+};
+
 function addToCart(product: Produk) {
-    scanError.value = '';
     const existing = cartItems.value.find((item) => item.id_produk === product.id_produk);
 
     if (existing) {
@@ -238,6 +312,7 @@ function handleScannerKeydown(event: KeyboardEvent) {
 
         if (barcode.length >= SCANNER_MIN_LENGTH) {
             event.preventDefault();
+            markScannerDetected('Scanner terhubung');
             scanBarcode(barcode);
         }
 
@@ -253,34 +328,55 @@ function handleScannerKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
     document.addEventListener('keydown', handleScannerKeydown);
+    void detectScannerDevice();
+
+    const hid = getHidApi();
+
+    hid?.addEventListener('connect', handleScannerDeviceConnectionChange);
+    hid?.addEventListener('disconnect', handleScannerDeviceConnectionChange);
 });
 
 onBeforeUnmount(() => {
     document.removeEventListener('keydown', handleScannerKeydown);
+
+    const hid = getHidApi();
+
+    hid?.removeEventListener('connect', handleScannerDeviceConnectionChange);
+    hid?.removeEventListener('disconnect', handleScannerDeviceConnectionChange);
 });
 
-function scanBarcode(barcode?: string) {
-    const code = String(barcode ?? barcodeScan.value).trim();
-
-    barcodeScan.value = code;
+function scanBarcode(barcode: string): void {
+    const code = barcode.trim();
 
     if (!code) {
-        scanError.value = 'Masukkan barcode terlebih dahulu.';
-
         return;
     }
 
     const produk = props.produks.find((item) => item.barcode === code);
 
     if (!produk) {
-        scanError.value = `Produk dengan barcode ${code} tidak ditemukan.`;
-        barcodeScan.value = '';
+        toast.error('Produk tidak ditemukan', {
+            description: `Barcode "${code}" tidak cocok dengan produk manapun.`,
+            duration: 5000,
+        });
+
+        return;
+    }
+
+    if (produk.stok <= 0) {
+        toast.warning('Stok habis', {
+            description: `Produk "${produk.nama}" sedang tidak tersedia.`,
+            duration: 4000,
+        });
 
         return;
     }
 
     addToCart(produk);
-    barcodeScan.value = '';
+    toast.success('Produk ditambahkan', {
+        description: `"${produk.nama}" masuk ke keranjang.`,
+        duration: 3000,
+    });
 }
 
 function submitTransaction() {
@@ -328,27 +424,32 @@ function submitTransaction() {
                         class="w-full rounded-lg border border-sidebar-border/70 bg-background pl-9 pr-4 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                     />
                 </div>
-                <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
-                    <div class="relative">
-                        <Barcode class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                            v-model="barcodeScan"
-                            @keyup.enter.prevent="() => scanBarcode()"
-                            type="text"
-                            placeholder="Scan barcode produk"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background pl-9 pr-4 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                        />
-                    </div>
-                    <button
-                        type="button"
-                        class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-zinc-800/40 dark:border-sidebar-border"
-                        @click="() => scanBarcode()"
+                <div
+                    role="status"
+                    :class="[
+                        'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold',
+                        isScannerDetected
+                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                            : 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-400',
+                    ]"
+                >
+                    <Barcode class="h-4 w-4" />
+                    <span
+                        :class="[
+                            'h-2 w-2 rounded-full',
+                            isScannerDetected ? 'bg-emerald-500' : 'bg-rose-500',
+                        ]"
+                    ></span>
+                    <span>{{ scannerStatusText }}</span>
+                    <span
+                        v-if="isScannerDetected"
+                        class="hidden text-xs font-medium opacity-80 xl:inline"
                     >
-                        Scan
-                    </button>
+                        Scan langsung masuk keranjang
+                    </span>
                 </div>
             </div>
-            <p v-if="scanError" class="text-sm text-rose-600">{{ scanError }}</p>
+
 
             <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 <div
