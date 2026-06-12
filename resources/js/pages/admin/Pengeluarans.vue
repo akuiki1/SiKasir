@@ -10,7 +10,7 @@ import {
     X,
     Save,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import {
     store as pengeluaransStore,
     update as pengeluaransUpdate,
@@ -71,6 +71,41 @@ const form = useForm({
     judul: '',
     keterangan: '',
     nominal: 0,
+});
+
+const nominalDisplay = ref('');
+
+function formatNominalDisplay(value: number): string {
+    if (!value && value !== 0) {
+        return '';
+    }
+
+    return value === 0 ? '' : value.toLocaleString('id-ID');
+}
+
+function handleNominalInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value.replace(/\D/g, '');
+    const numeric = Number(raw) || 0;
+
+    form.nominal = numeric;
+    nominalDisplay.value = numeric === 0 ? '' : numeric.toLocaleString('id-ID');
+
+    const cursorPos = input.selectionStart ?? 0;
+    const oldLength = input.value.length;
+
+    input.value = nominalDisplay.value;
+
+    const newLength = input.value.length;
+    const newCursor = Math.max(0, cursorPos + (newLength - oldLength));
+
+    input.setSelectionRange(newCursor, newCursor);
+}
+
+watch(showModal, (isOpen) => {
+    if (isOpen) {
+        nominalDisplay.value = formatNominalDisplay(form.nominal);
+    }
 });
 
 function openTambah() {
@@ -267,12 +302,17 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                     </div>
                     <div>
                         <label class="mb-2 block text-sm font-medium">Nominal</label>
-                        <input
-                            type="number"
-                            min="0"
-                            v-model.number="form.nominal"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 px-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                        />
+                        <div class="relative">
+                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">Rp</span>
+                            <input
+                                type="text"
+                                inputmode="numeric"
+                                :value="nominalDisplay"
+                                placeholder="0"
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                @input="handleNominalInput"
+                            />
+                        </div>
                         <p v-if="form.errors.nominal" class="mt-2 text-sm text-rose-600">{{ form.errors.nominal }}</p>
                     </div>
                     <div>
