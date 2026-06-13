@@ -235,10 +235,20 @@ class KasirController extends Controller
         return redirect()->route('kasir.riwayat')->with('success', 'Transaksi berhasil disimpan.');
     }
 
-    public function riwayat(): Response
+    public function riwayat(Request $request): Response
     {
-        $transaksis = Transaksi::with(['detailTransaksis.produk', 'promo'])
-            ->where('id_user', Auth::id())
+        $query = Transaksi::with(['detailTransaksis.produk', 'promo'])
+            ->where('id_user', Auth::id());
+
+        if ($request->filled('start_date')) {
+            $query->where('created_at', '>=', Carbon::parse($request->query('start_date'))->startOfDay());
+        }
+
+        if ($request->filled('end_date')) {
+            $query->where('created_at', '<=', Carbon::parse($request->query('end_date'))->endOfDay());
+        }
+
+        $transaksis = $query
             ->latest()
             ->get()
             ->map(fn (Transaksi $transaksi) => [
@@ -273,6 +283,10 @@ class KasirController extends Controller
                 'total_penjualan' => $totalPenjualan,
                 'total_transaksi' => $totalTransaksi,
                 'total_struk' => $totalTransaksi,
+            ],
+            'filters' => [
+                'start_date' => $request->query('start_date', ''),
+                'end_date' => $request->query('end_date', ''),
             ],
         ]);
     }
