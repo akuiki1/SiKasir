@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Pengeluaran;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -13,9 +14,14 @@ class PengeluaranController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $pengeluarans = Pengeluaran::orderByDesc('created_at')
+        $startDate = $request->input('start_date') ?: Carbon::today()->toDateString();
+        $endDate = $request->input('end_date') ?: Carbon::today()->toDateString();
+
+        $pengeluarans = Pengeluaran::whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate)
+            ->orderByDesc('created_at')
             ->get()
             ->map(function (Pengeluaran $pengeluaran) {
                 return [
@@ -33,6 +39,10 @@ class PengeluaranController extends Controller
             'stats' => [
                 'total_pengeluaran' => $pengeluarans->count(),
                 'total_nominal' => $pengeluarans->sum('nominal'),
+            ],
+            'date_range' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
             ],
         ]);
     }

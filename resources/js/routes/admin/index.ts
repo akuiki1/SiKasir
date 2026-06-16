@@ -397,7 +397,7 @@ transactions.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     transactions.form = transactionsForm
 /**
 * @see \App\Http\Controllers\PengeluaranController::pengeluarans
- * @see app/Http/Controllers/PengeluaranController.php:16
+ * @see app/Http/Controllers/PengeluaranController.php:17
  * @route '/admin/pengeluarans'
  */
 export const pengeluarans = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -412,7 +412,7 @@ pengeluarans.definition = {
 
 /**
 * @see \App\Http\Controllers\PengeluaranController::pengeluarans
- * @see app/Http/Controllers/PengeluaranController.php:16
+ * @see app/Http/Controllers/PengeluaranController.php:17
  * @route '/admin/pengeluarans'
  */
 pengeluarans.url = (options?: RouteQueryOptions) => {
@@ -421,7 +421,7 @@ pengeluarans.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PengeluaranController::pengeluarans
- * @see app/Http/Controllers/PengeluaranController.php:16
+ * @see app/Http/Controllers/PengeluaranController.php:17
  * @route '/admin/pengeluarans'
  */
 pengeluarans.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -430,7 +430,7 @@ pengeluarans.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\PengeluaranController::pengeluarans
- * @see app/Http/Controllers/PengeluaranController.php:16
+ * @see app/Http/Controllers/PengeluaranController.php:17
  * @route '/admin/pengeluarans'
  */
 pengeluarans.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -440,7 +440,7 @@ pengeluarans.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\PengeluaranController::pengeluarans
- * @see app/Http/Controllers/PengeluaranController.php:16
+ * @see app/Http/Controllers/PengeluaranController.php:17
  * @route '/admin/pengeluarans'
  */
     const pengeluaransForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -450,7 +450,7 @@ pengeluarans.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\PengeluaranController::pengeluarans
- * @see app/Http/Controllers/PengeluaranController.php:16
+ * @see app/Http/Controllers/PengeluaranController.php:17
  * @route '/admin/pengeluarans'
  */
         pengeluaransForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -459,7 +459,7 @@ pengeluarans.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\PengeluaranController::pengeluarans
- * @see app/Http/Controllers/PengeluaranController.php:16
+ * @see app/Http/Controllers/PengeluaranController.php:17
  * @route '/admin/pengeluarans'
  */
         pengeluaransForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
