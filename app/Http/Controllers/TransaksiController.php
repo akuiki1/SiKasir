@@ -20,20 +20,22 @@ class TransaksiController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $startDate = $request->input('start_date') ?: Carbon::now()->startOfMonth()->toDateString();
+        $endDate = $request->input('end_date') ?: Carbon::now()->endOfMonth()->toDateString();
+
         $transaksis = Transaksi::with(['user', 'detailTransaksis.produk', 'promo'])
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate)
             ->latest()
             ->get()
             ->map(fn (Transaksi $transaksi) => $this->formatTransaksi($transaksi));
 
-        $today = Carbon::today();
-        $transaksiHariIni = Transaksi::whereDate('created_at', $today)->get();
-
-        $totalPenjualanHariIni = $transaksiHariIni->sum('total_harga');
-        $totalTransaksiSukses = $transaksiHariIni->count();
-        $rataRata = $totalTransaksiSukses > 0
-            ? (int) ($totalPenjualanHariIni / $totalTransaksiSukses)
+        $totalPenjualan = $transaksis->sum('total_harga');
+        $totalTransaksi = $transaksis->count();
+        $rataRata = $totalTransaksi > 0
+            ? (int) ($totalPenjualan / $totalTransaksi)
             : 0;
 
         $kasirs = User::orderBy('name')->get(['id', 'name', 'role']);
@@ -46,9 +48,13 @@ class TransaksiController extends Controller
             'kasirs' => $kasirs,
             'produks' => $produks,
             'stats' => [
-                'total_penjualan_hari_ini' => $totalPenjualanHariIni,
-                'total_transaksi_sukses' => $totalTransaksiSukses,
+                'total_penjualan_hari_ini' => $totalPenjualan,
+                'total_transaksi_sukses' => $totalTransaksi,
                 'rata_rata' => $rataRata,
+            ],
+            'date_range' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
             ],
         ]);
     }
