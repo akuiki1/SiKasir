@@ -82,6 +82,8 @@ const form = useForm({
     end_date: props.date_range.end_date,
 });
 
+const showFilter = ref(false);
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
 function getMonthRange(year: number, month: number) {
@@ -369,102 +371,151 @@ function printSection(section: string): void {
     <Head title="Admin Dashboard" />
 
     <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-slate-50 p-6 text-slate-950 dark:bg-zinc-950 dark:text-slate-100">
-        <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <p class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Dashboard Admin</p>
                 <h1 class="mt-2 text-2xl font-bold tracking-tight md:text-3xl">Ringkasan Performa Bisnis</h1>
             </div>
 
-            <div class="w-full rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 xl:w-72">
-                <!-- Year navigator + Print -->
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-0.5">
-                        <button
-                            type="button"
-                            class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
-                            @click="prevYear"
-                        >
-                            <ChevronLeft class="h-4 w-4" />
-                        </button>
-                        <span class="w-11 text-center text-sm font-bold text-slate-800 dark:text-slate-100">{{ filterYear }}</span>
-                        <button
-                            type="button"
-                            class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
-                            @click="nextYear"
-                        >
-                            <ChevronRight class="h-4 w-4" />
-                        </button>
-                    </div>
+            <div class="flex shrink-0 items-center gap-2">
+                <!-- Filter button + dropdown -->
+                <div class="relative">
                     <button
                         type="button"
-                        class="inline-flex h-7 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 dark:border-zinc-700 dark:text-slate-400 dark:hover:bg-zinc-800"
-                        @click="printReport"
+                        class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition"
+                        :class="showFilter
+                            ? 'border-sky-500 bg-sky-50 text-sky-600 dark:border-sky-500 dark:bg-sky-500/10 dark:text-sky-400'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-slate-300 dark:hover:bg-zinc-800'"
+                        @click="showFilter = !showFilter"
                     >
-                        <Printer class="h-3 w-3" />
-                        Cetak
+                        <Filter class="h-4 w-4" />
+                        Filter
+                        <span
+                            v-if="selectedMode !== 'custom'"
+                            class="ml-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
+                        >
+                            {{ MONTHS[Number(selectedMode)] ?? '' }}{{ filterYear }}
+                        </span>
+                        <span
+                            v-else
+                            class="ml-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
+                        >
+                            Custom
+                        </span>
                     </button>
+
+                    <!-- Dropdown panel -->
+                    <Transition
+                        enter-active-class="transition ease-out duration-150"
+                        enter-from-class="opacity-0 translate-y-1"
+                        enter-to-class="opacity-100 translate-y-0"
+                        leave-active-class="transition ease-in duration-100"
+                        leave-from-class="opacity-100 translate-y-0"
+                        leave-to-class="opacity-0 translate-y-1"
+                    >
+                        <div
+                            v-if="showFilter"
+                            class="absolute right-0 top-11 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                        >
+                            <!-- Year navigator -->
+                            <div class="flex items-center gap-0.5">
+                                <button
+                                    type="button"
+                                    class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
+                                    @click="prevYear"
+                                >
+                                    <ChevronLeft class="h-4 w-4" />
+                                </button>
+                                <span class="flex-1 text-center text-sm font-bold text-slate-800 dark:text-slate-100">{{ filterYear }}</span>
+                                <button
+                                    type="button"
+                                    class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
+                                    @click="nextYear"
+                                >
+                                    <ChevronRight class="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            <!-- Month grid -->
+                            <div class="mt-3 grid grid-cols-4 gap-1">
+                                <button
+                                    v-for="(month, i) in MONTHS"
+                                    :key="i"
+                                    type="button"
+                                    class="rounded-lg py-2 text-xs font-semibold transition-all"
+                                    :class="selectedMode === String(i)
+                                        ? 'bg-sky-500 text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
+                                    @click="selectMonth(i); showFilter = false"
+                                >
+                                    {{ month }}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="col-span-4 rounded-lg py-2 text-xs font-semibold transition-all"
+                                    :class="selectedMode === 'custom'
+                                        ? 'bg-sky-500 text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
+                                    @click="selectCustom"
+                                >
+                                    Custom
+                                </button>
+                            </div>
+
+                            <!-- Custom date inputs -->
+                            <div
+                                v-if="selectedMode === 'custom'"
+                                class="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-zinc-800"
+                            >
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                        Mulai
+                                        <input
+                                            v-model="form.start_date"
+                                            type="date"
+                                            class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
+                                        />
+                                    </label>
+                                    <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                        Sampai
+                                        <input
+                                            v-model="form.end_date"
+                                            type="date"
+                                            class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
+                                        />
+                                    </label>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-sky-500 text-xs font-semibold text-white transition hover:bg-sky-600"
+                                    @click="applyRange(); showFilter = false"
+                                >
+                                    <Filter class="h-3 w-3" />
+                                    Terapkan
+                                </button>
+                            </div>
+                        </div>
+                    </Transition>
                 </div>
 
-                <!-- Month grid 4 cols -->
-                <div class="mt-3 grid grid-cols-4 gap-1">
-                    <button
-                        v-for="(month, i) in MONTHS"
-                        :key="i"
-                        type="button"
-                        class="rounded-lg py-2 text-xs font-semibold transition-all"
-                        :class="selectedMode === String(i)
-                            ? 'bg-sky-500 text-white'
-                            : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
-                        @click="selectMonth(i)"
-                    >
-                        {{ month }}
-                    </button>
-                    <button
-                        type="button"
-                        class="col-span-4 rounded-lg py-2 text-xs font-semibold transition-all"
-                        :class="selectedMode === 'custom'
-                            ? 'bg-sky-500 text-white'
-                            : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
-                        @click="selectCustom"
-                    >
-                        Custom
-                    </button>
-                </div>
-
-                <!-- Custom date inputs -->
-                <div
-                    v-if="selectedMode === 'custom'"
-                    class="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-zinc-800"
+                <!-- Print button -->
+                <button
+                    type="button"
+                    class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-slate-300 dark:hover:bg-zinc-800"
+                    @click="printReport"
                 >
-                    <div class="grid grid-cols-2 gap-2">
-                        <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                            Mulai
-                            <input
-                                v-model="form.start_date"
-                                type="date"
-                                class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
-                            />
-                        </label>
-                        <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                            Sampai
-                            <input
-                                v-model="form.end_date"
-                                type="date"
-                                class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
-                            />
-                        </label>
-                    </div>
-                    <button
-                        type="button"
-                        class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-sky-500 text-xs font-semibold text-white transition hover:bg-sky-600"
-                        @click="applyRange"
-                    >
-                        <Filter class="h-3 w-3" />
-                        Terapkan
-                    </button>
-                </div>
+                    <Printer class="h-4 w-4" />
+                    Cetak
+                </button>
             </div>
         </div>
+
+        <!-- Backdrop to close filter -->
+        <div
+            v-if="showFilter"
+            class="fixed inset-0 z-40"
+            @click="showFilter = false"
+        />
 
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
