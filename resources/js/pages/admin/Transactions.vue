@@ -173,6 +173,10 @@ const dateStartDate = ref(props.date_range.start_date);
 const dateEndDate = ref(props.date_range.end_date);
 
 function detectDateMode(): string {
+    const today = new Date().toISOString().slice(0, 10);
+    if (props.date_range.start_date === today && props.date_range.end_date === today) {
+        return 'today';
+    }
     for (let m = 0; m < 12; m++) {
         const range = getMonthRange(filterYear.value, m);
         if (range.start === props.date_range.start_date && range.end === props.date_range.end_date) {
@@ -185,6 +189,7 @@ function detectDateMode(): string {
 const selectedDateMode = ref(detectDateMode());
 
 const periodLabel = computed(() => {
+    if (selectedDateMode.value === 'today') return 'Hari Ini';
     if (selectedDateMode.value !== 'custom') {
         return `${MONTHS[Number(selectedDateMode.value)]} ${filterYear.value}`;
     }
@@ -202,16 +207,25 @@ function selectMonth(monthIndex: number): void {
     }, { preserveState: true, replace: true });
 }
 
+function selectToday(): void {
+    selectedDateMode.value = 'today';
+    const today = new Date().toISOString().slice(0, 10);
+    router.get('/admin/transactions', {
+        start_date: today,
+        end_date: today,
+    }, { preserveState: true, replace: true });
+}
+
 function prevFilterYear(): void {
     filterYear.value--;
-    if (selectedDateMode.value !== 'custom') {
+    if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
         selectMonth(Number(selectedDateMode.value));
     }
 }
 
 function nextFilterYear(): void {
     filterYear.value++;
-    if (selectedDateMode.value !== 'custom') {
+    if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
         selectMonth(Number(selectedDateMode.value));
     }
 }
@@ -410,6 +424,18 @@ function hapusTransaksi(trx: Transaksi) {
                             v-if="showDateFilter"
                             class="absolute right-0 top-11 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
                         >
+                            <!-- Hari Ini preset -->
+                            <button
+                                type="button"
+                                class="mb-3 w-full rounded-lg py-2 text-xs font-semibold transition-all"
+                                :class="selectedDateMode === 'today'
+                                    ? 'bg-indigo-500 text-white'
+                                    : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
+                                @click="selectToday(); showDateFilter = false"
+                            >
+                                Hari Ini
+                            </button>
+
                             <!-- Year navigator -->
                             <div class="flex items-center gap-0.5">
                                 <button

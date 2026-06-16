@@ -102,6 +102,10 @@ function detectInitialYear(): number {
 const filterYear = ref(detectInitialYear());
 
 function detectInitialMode(): string {
+    const today = new Date().toISOString().slice(0, 10);
+    if (props.date_range.start_date === today && props.date_range.end_date === today) {
+        return 'today';
+    }
     for (let m = 0; m < 12; m++) {
         const range = getMonthRange(filterYear.value, m);
         if (range.start === props.date_range.start_date && range.end === props.date_range.end_date) {
@@ -112,6 +116,12 @@ function detectInitialMode(): string {
 }
 
 const selectedMode = ref(detectInitialMode());
+
+const filterBadgeLabel = computed(() => {
+    if (selectedMode.value === 'today') return 'Hari Ini';
+    if (selectedMode.value !== 'custom') return `${MONTHS[Number(selectedMode.value)]} ${filterYear.value}`;
+    return 'Custom';
+});
 
 function selectMonth(monthIndex: number): void {
     selectedMode.value = String(monthIndex);
@@ -126,16 +136,25 @@ function selectCustom(): void {
     selectedMode.value = 'custom';
 }
 
+function selectToday(): void {
+    selectedMode.value = 'today';
+    const today = new Date().toISOString().slice(0, 10);
+    router.get('/admin/dashboard', {
+        start_date: today,
+        end_date: today,
+    }, { preserveState: true, replace: true });
+}
+
 function prevYear(): void {
     filterYear.value--;
-    if (selectedMode.value !== 'custom') {
+    if (selectedMode.value !== 'custom' && selectedMode.value !== 'today') {
         selectMonth(Number(selectedMode.value));
     }
 }
 
 function nextYear(): void {
     filterYear.value++;
-    if (selectedMode.value !== 'custom') {
+    if (selectedMode.value !== 'custom' && selectedMode.value !== 'today') {
         selectMonth(Number(selectedMode.value));
     }
 }
@@ -390,17 +409,8 @@ function printSection(section: string): void {
                     >
                         <Filter class="h-4 w-4" />
                         Filter
-                        <span
-                            v-if="selectedMode !== 'custom'"
-                            class="ml-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
-                        >
-                            {{ MONTHS[Number(selectedMode)] ?? '' }}{{ filterYear }}
-                        </span>
-                        <span
-                            v-else
-                            class="ml-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
-                        >
-                            Custom
+                        <span class="ml-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300">
+                            {{ filterBadgeLabel }}
                         </span>
                     </button>
 
@@ -417,6 +427,18 @@ function printSection(section: string): void {
                             v-if="showFilter"
                             class="absolute right-0 top-11 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
                         >
+                            <!-- Hari Ini preset -->
+                            <button
+                                type="button"
+                                class="mb-3 w-full rounded-lg py-2 text-xs font-semibold transition-all"
+                                :class="selectedMode === 'today'
+                                    ? 'bg-sky-500 text-white'
+                                    : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
+                                @click="selectToday(); showFilter = false"
+                            >
+                                Hari Ini
+                            </button>
+
                             <!-- Year navigator -->
                             <div class="flex items-center gap-0.5">
                                 <button

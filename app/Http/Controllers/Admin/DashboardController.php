@@ -24,7 +24,7 @@ class DashboardController extends Controller
 
         $startDate = isset($validated['start_date'])
             ? Carbon::parse($validated['start_date'])->startOfDay()
-            : Carbon::today()->subDays(29)->startOfDay();
+            : Carbon::today()->startOfDay();
 
         $endDate = isset($validated['end_date'])
             ? Carbon::parse($validated['end_date'])->endOfDay()

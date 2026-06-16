@@ -22,8 +22,8 @@ class TransaksiController extends Controller
      */
     public function index(Request $request): Response
     {
-        $startDate = $request->input('start_date') ?: Carbon::now()->startOfMonth()->toDateString();
-        $endDate = $request->input('end_date') ?: Carbon::now()->endOfMonth()->toDateString();
+        $startDate = $request->input('start_date') ?: Carbon::today()->toDateString();
+        $endDate = $request->input('end_date') ?: Carbon::today()->toDateString();
 
         $transaksis = Transaksi::with(['user', 'detailTransaksis.produk', 'promo'])
             ->whereDate('created_at', '>=', $startDate)
