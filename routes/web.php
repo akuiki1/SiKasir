@@ -6,6 +6,7 @@ use App\Http\Controllers\KasirController;
 use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\ProdukController;
+use App\Http\Controllers\ProduksiController;
 use App\Http\Controllers\PromoController;
 use App\Http\Controllers\TransaksiController;
 use App\Models\Produk;
@@ -41,11 +42,11 @@ Route::get('/', function () {
             : 'Diskon Rp'.number_format($promo->nilai, 0, ',', '.');
 
         return [
-            'nama'            => $promo->nama,
-            'label'           => $label,
-            'tipe'            => $promo->tipe,
-            'nilai'           => (float) $promo->nilai,
-            'sisa_hari'       => max(0, $sisaHari),
+            'nama' => $promo->nama,
+            'label' => $label,
+            'tipe' => $promo->tipe,
+            'nilai' => (float) $promo->nilai,
+            'sisa_hari' => max(0, $sisaHari),
             'tanggal_selesai' => $promo->tanggal_selesai->format('Y-m-d'),
         ];
     };
@@ -63,25 +64,25 @@ Route::get('/', function () {
         ->take(5)
         ->get()
         ->map(fn ($p) => [
-            'id_produk'     => $p->id_produk,
-            'nama'          => $p->nama,
-            'harga_jual'    => $p->harga_jual,
-            'foto_url'      => $p->foto ? asset("storage/{$p->foto}") : null,
+            'id_produk' => $p->id_produk,
+            'nama' => $p->nama,
+            'harga_jual' => $p->harga_jual,
+            'foto_url' => $p->foto ? asset("storage/{$p->foto}") : null,
             'total_terjual' => (int) $p->total_terjual,
-            'promo'         => $promoFor($p->id_produk),
+            'promo' => $promoFor($p->id_produk),
         ]);
 
     $allProducts = Produk::with('kategori')
         ->orderBy('nama')
         ->get()
         ->map(fn (Produk $p) => [
-            'id_produk'  => $p->id_produk,
-            'nama'       => $p->nama,
-            'kategori'   => $p->kategori?->nama_kategori,
+            'id_produk' => $p->id_produk,
+            'nama' => $p->nama,
+            'kategori' => $p->kategori?->nama_kategori,
             'harga_jual' => $p->harga_jual,
-            'stok'       => $p->stok,
-            'foto_url'   => $p->foto ? asset("storage/{$p->foto}") : null,
-            'promo'      => $promoFor($p->id_produk),
+            'stok' => $p->stok,
+            'foto_url' => $p->foto ? asset("storage/{$p->foto}") : null,
+            'promo' => $promoFor($p->id_produk),
         ])
         // Produk yang sedang promo tampil paling atas (urutan nama tetap dalam tiap grup).
         ->sortBy(fn ($p) => $p['promo'] === null ? 1 : 0)
@@ -133,6 +134,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('admin/pengeluarans', [PengeluaranController::class, 'store'])->name('admin.pengeluarans.store');
         Route::put('admin/pengeluarans/{pengeluaran}', [PengeluaranController::class, 'update'])->name('admin.pengeluarans.update');
         Route::delete('admin/pengeluarans/{pengeluaran}', [PengeluaranController::class, 'destroy'])->name('admin.pengeluarans.destroy');
+
+        // Produksi (batch costing produk buatan sendiri)
+        Route::get('admin/produksi', [ProduksiController::class, 'index'])->name('admin.produksi');
+        Route::post('admin/produksi', [ProduksiController::class, 'store'])->name('admin.produksi.store');
+        Route::delete('admin/produksi/{produksi}', [ProduksiController::class, 'destroy'])->name('admin.produksi.destroy');
 
         // Promo
         Route::get('admin/promos', [PromoController::class, 'index'])->name('admin.promos');

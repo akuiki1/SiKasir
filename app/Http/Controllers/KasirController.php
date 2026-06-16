@@ -172,6 +172,7 @@ class KasirController extends Controller
                     'produk' => $produk,
                     'jumlah' => $item['jumlah'],
                     'harga' => $harga,
+                    'modal' => $produk->harga_modal, // snapshot HPP/unit saat terjual
                     'subtotal_after_promo' => max(0, $itemSubtotal - $itemDiskon),
                     'item_diskon' => $itemDiskon,
                 ];
@@ -225,6 +226,7 @@ class KasirController extends Controller
                     'id_produk' => $detail['produk']->id_produk,
                     'jumlah' => $detail['jumlah'],
                     'harga' => $detail['harga'],
+                    'modal' => $detail['modal'],
                     'subtotal' => $detail['subtotal_after_promo'],
                 ]);
 

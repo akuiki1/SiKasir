@@ -90,6 +90,33 @@ test('kasir can store a transaction, decrement stock and compute change', functi
     expect($produkB->fresh()->stok)->toBe(4);
 });
 
+test('selling snapshots the product modal into the transaction detail', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'harga_modal' => 6500, 'stok' => 10]);
+
+    $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
+        'metode_pembayaran' => 'cash',
+        'bayar' => 20000,
+        'items' => [
+            ['id_produk' => $produk->id_produk, 'jumlah' => 2],
+        ],
+    ])->assertRedirect(route('kasir.riwayat'));
+
+    // modal/unit di-snapshot dari produk saat transaksi terjadi
+    $this->assertDatabaseHas('detail_transaksis', [
+        'id_produk' => $produk->id_produk,
+        'jumlah' => 2,
+        'modal' => 6500,
+    ]);
+
+    // Jika modal produk berubah setelahnya, snapshot lama tidak ikut berubah
+    $produk->update(['harga_modal' => 9000]);
+    $this->assertDatabaseHas('detail_transaksis', [
+        'id_produk' => $produk->id_produk,
+        'modal' => 6500,
+    ]);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Validasi stok & pembayaran (transaksi harus rollback)

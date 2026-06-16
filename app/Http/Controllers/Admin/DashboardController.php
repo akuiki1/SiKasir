@@ -68,6 +68,8 @@ class DashboardController extends Controller
                 'nama' => $name,
                 'qty' => $group->sum('jumlah'),
                 'revenue' => $group->sum('subtotal'),
+                'cogs' => $group->sum(fn (DetailTransaksi $detail) => $detail->modal * $detail->jumlah),
+                'profit' => $group->sum(fn (DetailTransaksi $detail) => $detail->subtotal - ($detail->modal * $detail->jumlah)),
                 'transactions' => $group->pluck('id_transaksi')->unique()->count(),
             ]);
 
@@ -78,6 +80,11 @@ class DashboardController extends Controller
 
         $worstSellingProducts = $productGroups
             ->sortBy(fn ($item) => $item['qty'])
+            ->values()
+            ->take(5);
+
+        $bestProfitProducts = $productGroups
+            ->sortByDesc(fn ($item) => $item['profit'])
             ->values()
             ->take(5);
 
@@ -129,9 +136,17 @@ class DashboardController extends Controller
         $totalItemsSold = $details->sum('jumlah');
         $averageOrderValue = $totalTransactions > 0 ? (int) floor($totalRevenue / $totalTransactions) : 0;
 
-        $totalExpenses = Pengeluaran::whereBetween('created_at', [$startDate, $endDate])->sum('nominal');
+        // Harga Pokok Penjualan (HPP/COGS) dari snapshot modal per item terjual.
+        $totalCogs = $details->sum(fn (DetailTransaksi $detail) => $detail->modal * $detail->jumlah);
+        $grossProfit = $totalRevenue - $totalCogs;
 
-        $netProfit = $totalRevenue - $totalExpenses;
+        // Biaya operasional saja. Tipe 'bahan_baku' & 'kemasan' dikecualikan karena modal
+        // produk buatan sendiri sudah dihitung lewat batch produksi (mencegah double-count).
+        $operationalExpenses = Pengeluaran::whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotIn('tipe', ['bahan_baku', 'kemasan'])
+            ->sum('nominal');
+
+        $netProfit = $grossProfit - $operationalExpenses;
         $salesMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0;
 
         return Inertia::render('admin/Dashboard', [
@@ -140,7 +155,9 @@ class DashboardController extends Controller
                 'total_transactions' => $totalTransactions,
                 'average_order_value' => $averageOrderValue,
                 'total_items_sold' => $totalItemsSold,
-                'total_expenses' => $totalExpenses,
+                'total_cogs' => $totalCogs,
+                'gross_profit' => $grossProfit,
+                'total_expenses' => $operationalExpenses,
                 'sales_margin' => $salesMargin,
                 'net_profit' => $netProfit,
             ],
@@ -148,6 +165,7 @@ class DashboardController extends Controller
             'sales_trend' => $salesTrend,
             'best_selling_products' => $bestSellingProducts,
             'worst_selling_products' => $worstSellingProducts,
+            'best_profit_products' => $bestProfitProducts,
             'top_sales_dates' => $topSalesDates,
             'top_sales_hours' => $topSalesHours,
             'cashier_achievements' => $cashierAchievements,

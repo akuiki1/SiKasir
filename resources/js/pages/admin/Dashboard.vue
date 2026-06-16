@@ -40,6 +40,14 @@ interface ProductItem {
     revenue: number;
 }
 
+interface ProfitProductItem {
+    nama: string;
+    qty: number;
+    revenue: number;
+    cogs: number;
+    profit: number;
+}
+
 interface CashierItem {
     nama: string;
     transactions: number;
@@ -58,6 +66,8 @@ const props = defineProps<{
         total_transactions: number;
         average_order_value: number;
         total_items_sold: number;
+        total_cogs: number;
+        gross_profit: number;
         total_expenses: number;
         sales_margin: number;
         net_profit: number;
@@ -68,6 +78,7 @@ const props = defineProps<{
     top_sales_hours: ChartPoint[];
     best_selling_products: ProductItem[];
     worst_selling_products: WorstProductItem[];
+    best_profit_products: ProfitProductItem[];
     cashier_achievements: CashierItem[];
     top_cashiers_by_transactions: CashierItem[];
     top_cashiers_by_revenue: CashierItem[];
@@ -208,6 +219,7 @@ const topCashierRevenueGraph = computed(() => props.top_cashiers_by_revenue.map(
 })));
 
 const bestProduct = computed(() => props.best_selling_products[0]);
+const bestProfitProduct = computed(() => props.best_profit_products[0]);
 const bestCashierByRevenue = computed(() => props.top_cashiers_by_revenue[0]);
 const bestCashierByTransactions = computed(() => props.top_cashiers_by_transactions[0]);
 const busiestDate = computed(() => props.top_sales_dates[0]);
@@ -550,13 +562,13 @@ function printSection(section: string): void {
                         <Wallet class="h-5 w-5" />
                     </div>
                 </div>
-                <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">AOV {{ formatRupiah(props.stats.average_order_value) }}</p>
+                <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">HPP {{ formatRupiah(props.stats.total_cogs) }} · Laba kotor {{ formatRupiah(props.stats.gross_profit) }}</p>
             </div>
 
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                 <div class="flex items-center justify-between gap-4">
                     <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Pengeluaran</p>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Biaya Operasional</p>
                         <p class="mt-2 text-2xl font-bold">{{ formatRupiah(props.stats.total_expenses) }}</p>
                     </div>
                     <div class="flex h-11 w-11 items-center justify-center rounded-md bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
@@ -637,6 +649,16 @@ function printSection(section: string): void {
                                 <p class="text-sm font-semibold">Produk paling laku</p>
                                 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ bestProduct?.nama ?? 'Belum ada data' }}</p>
                                 <p v-if="bestProduct" class="mt-2 text-lg font-bold">{{ bestProduct.qty }} pcs</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-md border border-slate-200 p-4 dark:border-zinc-800">
+                        <div class="flex items-start gap-3">
+                            <Wallet class="mt-0.5 h-5 w-5 text-emerald-600 dark:text-emerald-300" />
+                            <div>
+                                <p class="text-sm font-semibold">Produk paling untung</p>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ bestProfitProduct?.nama ?? 'Belum ada data' }}</p>
+                                <p v-if="bestProfitProduct" class="mt-2 text-lg font-bold">{{ formatRupiah(bestProfitProduct.profit) }} laba</p>
                             </div>
                         </div>
                     </div>

@@ -15,9 +15,11 @@ class Produk extends Model
 
     protected $fillable = [
         'id_kategori',
+        'jenis',
         'nama',
         'foto',
         'harga_jual',
+        'harga_modal',
         'stok',
         'barcode',
         'sku',
@@ -25,6 +27,7 @@ class Produk extends Model
 
     protected $casts = [
         'harga_jual' => 'integer',
+        'harga_modal' => 'integer',
         'stok' => 'integer',
     ];
 
@@ -38,6 +41,11 @@ class Produk extends Model
     public function detailTransaksis(): HasMany
     {
         return $this->hasMany(DetailTransaksi::class, 'id_produk', 'id_produk');
+    }
+
+    public function produksis(): HasMany
+    {
+        return $this->hasMany(Produksi::class, 'id_produk', 'id_produk');
     }
 
     public function getStatusStokAttribute(): string

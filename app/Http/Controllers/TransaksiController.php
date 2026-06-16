@@ -141,6 +141,7 @@ class TransaksiController extends Controller
                 'produk' => $produk,
                 'jumlah' => $item['jumlah'],
                 'harga' => $harga,
+                'modal' => $produk->harga_modal, // snapshot HPP/unit saat terjual
                 'subtotal' => $subtotal,
             ];
         }
@@ -171,6 +172,7 @@ class TransaksiController extends Controller
                 'id_produk' => $detail['produk']->id_produk,
                 'jumlah' => $detail['jumlah'],
                 'harga' => $detail['harga'],
+                'modal' => $detail['modal'],
                 'subtotal' => $detail['subtotal'],
             ]);
 

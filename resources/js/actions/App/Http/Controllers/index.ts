@@ -3,6 +3,7 @@ import KategoriController from './KategoriController'
 import ProdukController from './ProdukController'
 import TransaksiController from './TransaksiController'
 import PengeluaranController from './PengeluaranController'
+import ProduksiController from './ProduksiController'
 import PromoController from './PromoController'
 import KasirController from './KasirController'
 import Settings from './Settings'
@@ -12,6 +13,7 @@ KategoriController: Object.assign(KategoriController, KategoriController),
 ProdukController: Object.assign(ProdukController, ProdukController),
 TransaksiController: Object.assign(TransaksiController, TransaksiController),
 PengeluaranController: Object.assign(PengeluaranController, PengeluaranController),
+ProduksiController: Object.assign(ProduksiController, ProduksiController),
 PromoController: Object.assign(PromoController, PromoController),
 KasirController: Object.assign(KasirController, KasirController),
 Settings: Object.assign(Settings, Settings),

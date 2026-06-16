@@ -49,9 +49,11 @@ interface Kategori {
 interface Produk {
     id_produk: number;
     nama: string;
+    jenis: 'beli' | 'produksi';
     kategori: string | null;
     id_kategori: number;
     harga_jual: number;
+    harga_modal: number;
     stok: number;
     barcode: string | null;
     sku: string | null;
@@ -163,10 +165,12 @@ const BARCODE_SCANNER_MIN_LENGTH = 3;
 
 const form = useForm({
     id_kategori: '',
+    jenis: 'beli',
     nama: '',
     foto: '',
     foto_upload: null as File | null,
     harga_jual: '',
+    harga_modal: '',
     stok: '',
     barcode: '',
     sku: '',
@@ -186,10 +190,12 @@ function openEdit(produk: Produk) {
     editingProduk.value = produk;
     stopBarcodeScan();
     form.id_kategori = String(produk.id_kategori);
+    form.jenis = produk.jenis;
     form.nama = produk.nama;
     form.foto = produk.foto ?? '';
     form.foto_upload = null;
     form.harga_jual = String(produk.harga_jual);
+    form.harga_modal = String(produk.harga_modal);
     form.stok = String(produk.stok);
     form.barcode = produk.barcode ?? '';
     form.sku = produk.sku ?? '';
@@ -312,6 +318,7 @@ function submitForm() {
         id_kategori: Number(form.id_kategori),
         foto: form.foto || null,
         harga_jual: Number(form.harga_jual),
+        harga_modal: form.jenis === 'produksi' ? 0 : Number(form.harga_modal || 0),
         stok: Number(form.stok),
     };
 
@@ -1007,6 +1014,29 @@ const statusClass: Record<string, string> = {
                         </p>
                     </div>
 
+                    <!-- Jenis Produk -->
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" for="prod-jenis">
+                            Jenis Produk
+                        </label>
+                        <select
+                            id="prod-jenis"
+                            v-model="form.jenis"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                        >
+                            <option value="beli">Beli Jadi (dari agen)</option>
+                            <option value="produksi">Buatan Sendiri (produksi)</option>
+                        </select>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            <template v-if="form.jenis === 'produksi'">
+                                Modal dihitung otomatis dari batch produksi, bukan diisi manual.
+                            </template>
+                            <template v-else>
+                                Modal = harga beli dari agen (isi di bawah).
+                            </template>
+                        </p>
+                    </div>
+
                     <!-- Harga Jual -->
                     <div>
                         <label class="mb-1.5 block text-sm font-medium" for="prod-harga-jual">
@@ -1024,6 +1054,28 @@ const statusClass: Record<string, string> = {
                         <p v-if="form.errors.harga_jual" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
                             <AlertCircle class="h-3 w-3" />{{ form.errors.harga_jual }}
                         </p>
+                    </div>
+
+                    <!-- Harga Modal (hanya untuk produk beli-jadi) -->
+                    <div v-if="form.jenis === 'beli'">
+                        <label class="mb-1.5 block text-sm font-medium" for="prod-harga-modal">
+                            Harga Modal / Beli (Rp)
+                        </label>
+                        <input
+                            id="prod-harga-modal"
+                            v-model="form.harga_modal"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            :class="{ 'border-rose-500': form.errors.harga_modal }"
+                        />
+                        <p v-if="form.errors.harga_modal" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                            <AlertCircle class="h-3 w-3" />{{ form.errors.harga_modal }}
+                        </p>
+                    </div>
+                    <div v-else class="rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-4 py-2.5 text-xs text-muted-foreground">
+                        Modal produk ini dikelola lewat menu <strong>Produksi</strong>.
                     </div>
 
                     <!-- Stok -->

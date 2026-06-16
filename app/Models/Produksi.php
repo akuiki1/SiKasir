@@ -2,43 +2,42 @@
 
 namespace App\Models;
 
-use Database\Factories\DetailTransaksiFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class DetailTransaksi extends Model
+class Produksi extends Model
 {
-    /** @use HasFactory<DetailTransaksiFactory> */
     use HasFactory;
 
-    protected $primaryKey = 'id_detail_transaksi';
+    protected $table = 'produksis';
+
+    protected $primaryKey = 'id_produksi';
 
     protected $fillable = [
-        'id_transaksi',
         'id_produk',
         'jumlah',
-        'harga',
-        'modal',
-        'subtotal',
+        'total_biaya',
+        'modal_per_unit',
+        'catatan',
     ];
 
     protected $casts = [
         'jumlah' => 'integer',
-        'harga' => 'integer',
-        'modal' => 'integer',
-        'subtotal' => 'integer',
+        'total_biaya' => 'integer',
+        'modal_per_unit' => 'integer',
     ];
-
-    public function transaksi(): BelongsTo
-    {
-        return $this->belongsTo(Transaksi::class, 'id_transaksi', 'id_transaksi');
-    }
 
     public function produk(): BelongsTo
     {
         return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withDefault([
             'nama' => 'Produk Terhapus',
         ]);
+    }
+
+    public function biayas(): HasMany
+    {
+        return $this->hasMany(ProduksiBiaya::class, 'id_produksi', 'id_produksi');
     }
 }

@@ -4,6 +4,7 @@ import kategori627be3 from './kategori'
 import products237d17 from './products'
 import transactionsBbd80d from './transactions'
 import pengeluaransC7d7ce from './pengeluarans'
+import produksi22b192 from './produksi'
 import promosFc23d1 from './promos'
 /**
 * @see \App\Http\Controllers\Admin\DashboardController::dashboard
@@ -474,6 +475,84 @@ pengeluarans.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     pengeluarans.form = pengeluaransForm
 /**
+* @see \App\Http\Controllers\ProduksiController::produksi
+ * @see app/Http/Controllers/ProduksiController.php:21
+ * @route '/admin/produksi'
+ */
+export const produksi = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: produksi.url(options),
+    method: 'get',
+})
+
+produksi.definition = {
+    methods: ["get","head"],
+    url: '/admin/produksi',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\ProduksiController::produksi
+ * @see app/Http/Controllers/ProduksiController.php:21
+ * @route '/admin/produksi'
+ */
+produksi.url = (options?: RouteQueryOptions) => {
+    return produksi.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\ProduksiController::produksi
+ * @see app/Http/Controllers/ProduksiController.php:21
+ * @route '/admin/produksi'
+ */
+produksi.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: produksi.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\ProduksiController::produksi
+ * @see app/Http/Controllers/ProduksiController.php:21
+ * @route '/admin/produksi'
+ */
+produksi.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: produksi.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\ProduksiController::produksi
+ * @see app/Http/Controllers/ProduksiController.php:21
+ * @route '/admin/produksi'
+ */
+    const produksiForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: produksi.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\ProduksiController::produksi
+ * @see app/Http/Controllers/ProduksiController.php:21
+ * @route '/admin/produksi'
+ */
+        produksiForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: produksi.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\ProduksiController::produksi
+ * @see app/Http/Controllers/ProduksiController.php:21
+ * @route '/admin/produksi'
+ */
+        produksiForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: produksi.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    produksi.form = produksiForm
+/**
 * @see \App\Http\Controllers\PromoController::promos
  * @see app/Http/Controllers/PromoController.php:17
  * @route '/admin/promos'
@@ -558,6 +637,7 @@ kategori: Object.assign(kategori, kategori627be3),
 products: Object.assign(products, products237d17),
 transactions: Object.assign(transactions, transactionsBbd80d),
 pengeluarans: Object.assign(pengeluarans, pengeluaransC7d7ce),
+produksi: Object.assign(produksi, produksi22b192),
 promos: Object.assign(promos, promosFc23d1),
 }
 
