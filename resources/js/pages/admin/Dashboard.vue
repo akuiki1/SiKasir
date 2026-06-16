@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import {
+    AlertTriangle,
+    ArrowDownRight,
+    ArrowUpRight,
     BarChart3,
     CalendarDays,
     ChevronLeft,
@@ -60,6 +63,27 @@ interface WorstProductItem {
     revenue: number;
 }
 
+interface WaterfallStep {
+    label: string;
+    type: 'income' | 'deduction' | 'subtotal' | 'result';
+    amount: number;
+    start: number;
+    end: number;
+}
+
+interface ComparisonCard {
+    label: string;
+    current: number;
+    previous: number;
+    delta_pct: number | null;
+    higher_is_better: boolean;
+}
+
+interface Insight {
+    tone: 'success' | 'danger';
+    message: string;
+}
+
 const props = defineProps<{
     stats: {
         total_revenue: number;
@@ -82,6 +106,11 @@ const props = defineProps<{
     cashier_achievements: CashierItem[];
     top_cashiers_by_transactions: CashierItem[];
     top_cashiers_by_revenue: CashierItem[];
+    waterfall: WaterfallStep[];
+    comparison: ComparisonCard[];
+    insight: Insight;
+    monthly_cost_warning: boolean;
+    period_days: number;
     date_range: {
         start_date: string;
         end_date: string;
@@ -224,6 +253,61 @@ const bestCashierByRevenue = computed(() => props.top_cashiers_by_revenue[0]);
 const bestCashierByTransactions = computed(() => props.top_cashiers_by_transactions[0]);
 const busiestDate = computed(() => props.top_sales_dates[0]);
 const busiestHour = computed(() => props.top_sales_hours[0]);
+
+const waterfallView = computed(() => {
+    const steps = props.waterfall;
+    if (!steps || steps.length === 0) {
+        return { bars: [], zeroTop: 100 };
+    }
+
+    const values = steps.flatMap((step) => [step.start, step.end]);
+    values.push(0);
+    const maxV = Math.max(...values);
+    const minV = Math.min(...values);
+    const range = maxV - minV || 1;
+
+    const bars = steps.map((step) => {
+        const hi = Math.max(step.start, step.end);
+        const lo = Math.min(step.start, step.end);
+
+        let colorClass = 'bg-rose-400';
+        if (step.type === 'income') colorClass = 'bg-emerald-500';
+        else if (step.type === 'subtotal') colorClass = 'bg-sky-500';
+        else if (step.type === 'result') colorClass = step.end >= 0 ? 'bg-emerald-600' : 'bg-rose-600';
+
+        return {
+            label: step.label,
+            amountText: `${step.amount < 0 ? '−' : ''}Rp${formatCompactRupiah(Math.abs(step.amount))}`,
+            colorClass,
+            topPct: `${((maxV - hi) / range) * 100}%`,
+            heightPct: `${Math.max(((hi - lo) / range) * 100, step.amount !== 0 ? 1.5 : 0.5)}%`,
+        };
+    });
+
+    return { bars, zeroTop: `${((maxV - 0) / range) * 100}%` };
+});
+
+const comparisonCards = computed(() =>
+    props.comparison.map((card) => {
+        const signFlip = (card.current < 0) !== (card.previous < 0);
+        let good: boolean | null = null;
+        if (card.delta_pct !== null) {
+            const increased = card.delta_pct > 0;
+            good = card.higher_is_better ? increased : !increased;
+        }
+
+        return {
+            label: card.label,
+            valueText: formatRupiah(card.current),
+            isNegative: card.current < 0,
+            showPct: card.delta_pct !== null && !signFlip,
+            up: (card.delta_pct ?? 0) > 0,
+            pctText: card.delta_pct !== null ? `${Math.abs(Math.round(card.delta_pct))}% vs sebelumnya` : 'baru periode ini',
+            prevText: `dari ${formatRupiah(card.previous)}`,
+            good,
+        };
+    }),
+);
 
 function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', {
@@ -604,6 +688,84 @@ function printSection(section: string): void {
                 <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">{{ props.stats.total_items_sold }} produk terjual</p>
             </div>
         </div>
+
+        <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-zinc-800 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold">Analisis Laba &amp; Rugi</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Dari mana laba bocor &amp; perubahan vs periode setara sebelumnya</p>
+                </div>
+                <div class="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-emerald-500"></span>Pemasukan</span>
+                    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-rose-400"></span>Pengurang</span>
+                    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-sky-500"></span>Subtotal</span>
+                </div>
+            </div>
+
+            <div
+                v-if="props.monthly_cost_warning"
+                class="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+            >
+                <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" />
+                <p>Rentang waktu pendek ({{ props.period_days }} hari) memuat biaya bulanan (gaji/sewa/pajak). Laba bersih bisa terlihat "rugi semu" karena biaya satu bulan jatuh di rentang ini.</p>
+            </div>
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div v-for="card in comparisonCards" :key="card.label" class="rounded-md border border-slate-200 p-4 dark:border-zinc-800">
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ card.label }}</p>
+                    <p class="mt-2 text-xl font-bold" :class="card.isNegative ? 'text-rose-600 dark:text-rose-400' : ''">{{ card.valueText }}</p>
+                    <p
+                        class="mt-2 inline-flex items-center gap-1 text-xs font-medium"
+                        :class="card.good === null
+                            ? 'text-slate-500 dark:text-slate-400'
+                            : card.good
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-rose-600 dark:text-rose-400'"
+                    >
+                        <template v-if="card.showPct">
+                            <ArrowUpRight v-if="card.up" class="h-3.5 w-3.5" />
+                            <ArrowDownRight v-else class="h-3.5 w-3.5" />
+                            {{ card.pctText }}
+                        </template>
+                        <template v-else>{{ card.prevText }}</template>
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 overflow-x-auto">
+                <div class="min-w-[640px]">
+                    <div class="relative h-72">
+                        <div class="absolute inset-x-0 border-t border-dashed border-slate-300 dark:border-zinc-600" :style="{ top: waterfallView.zeroTop }"></div>
+                        <div class="flex h-full items-stretch gap-2">
+                            <div v-for="bar in waterfallView.bars" :key="bar.label" class="relative flex-1">
+                                <div
+                                    class="absolute left-1/2 w-6 -translate-x-1/2 rounded-sm transition-all duration-300"
+                                    :class="bar.colorClass"
+                                    :style="{ top: bar.topPct, height: bar.heightPct }"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex gap-2">
+                        <div v-for="bar in waterfallView.bars" :key="bar.label" class="min-w-0 flex-1 text-center">
+                            <p class="truncate text-[11px] font-semibold text-slate-600 dark:text-slate-300">{{ bar.label }}</p>
+                            <p class="truncate text-[10px] font-medium text-slate-400 dark:text-slate-500">{{ bar.amountText }}</p>
+                        </div>
+                    </div>
+                    <p v-if="waterfallView.bars.length === 0" class="text-sm text-slate-500 dark:text-slate-400">Belum ada data untuk periode ini.</p>
+                </div>
+            </div>
+
+            <div
+                class="mt-6 flex items-start gap-3 rounded-md p-4"
+                :class="props.insight.tone === 'success'
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                    : 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'"
+            >
+                <AlertTriangle class="mt-0.5 h-5 w-5 shrink-0" />
+                <p class="text-sm leading-relaxed">{{ props.insight.message }}</p>
+            </div>
+        </section>
 
         <div class="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]">
             <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
