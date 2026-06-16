@@ -17,6 +17,8 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import { store as promoStore, update as promoUpdate, destroy as promoDestroy } from '@/routes/admin/promos';
+import { usePagination } from '@/composables/usePagination';
+import Pagination from '@/components/Pagination.vue';
 
 defineOptions({
     layout: {
@@ -78,6 +80,8 @@ const filteredPromos = computed(() => {
         return matchSearch && matchStatus;
     });
 });
+
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedPromos, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredPromos.value);
 
 // Format rupiah
 function formatRupiah(value: number): string {
@@ -291,7 +295,7 @@ function hapusPromo(promo: Promo) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="filteredPromos.length === 0">
+                        <tr v-if="paginatedPromos.length === 0">
                             <td
                                 colspan="7"
                                 class="px-6 py-12 text-center text-muted-foreground"
@@ -307,7 +311,7 @@ function hapusPromo(promo: Promo) {
                             </td>
                         </tr>
                         <tr
-                            v-for="promo in filteredPromos"
+                            v-for="promo in paginatedPromos"
                             :key="promo.id_promo"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -375,6 +379,17 @@ function hapusPromo(promo: Promo) {
                     </tbody>
                 </table>
             </div>
+            <Pagination
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :start-index="startIndex"
+                :end-index="endIndex"
+                :per-page="perPage"
+                :visible-pages="visiblePages"
+                @update:current-page="goToPage"
+                @update:per-page="perPage = $event"
+            />
         </div>
     </div>
 

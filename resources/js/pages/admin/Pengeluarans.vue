@@ -16,6 +16,8 @@ import {
     update as pengeluaransUpdate,
     destroy as pengeluaransDestroy,
 } from '@/routes/admin/pengeluarans';
+import { usePagination } from '@/composables/usePagination';
+import Pagination from '@/components/Pagination.vue';
 
 interface Pengeluaran {
     id_pengeluaran: number;
@@ -62,6 +64,8 @@ const filteredPengeluarans = computed(() => {
             .includes(searchQuery.value.toLowerCase()),
     );
 });
+
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedPengeluarans, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredPengeluarans.value);
 
 const showModal = ref(false);
 const editingPengeluaran = ref<Pengeluaran | null>(null);
@@ -220,18 +224,18 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="filteredPengeluarans.length === 0">
+                        <tr v-if="paginatedPengeluarans.length === 0">
                             <td colspan="6" class="px-6 py-12 text-center text-muted-foreground">
                                 <DollarSign class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">Tidak ada pengeluaran yang cocok.</p>
                             </td>
                         </tr>
                         <tr
-                            v-for="(item, index) in filteredPengeluarans"
+                            v-for="(item, index) in paginatedPengeluarans"
                             :key="item.id_pengeluaran"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
-                            <td class="px-6 py-4 text-muted-foreground">{{ index + 1 }}</td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ startIndex + index }}</td>
                             <td class="px-6 py-4">{{ item.judul }}</td>
                             <td class="px-6 py-4 capitalize">{{ item.tipe.replace('_', ' ') }}</td>
                             <td class="px-6 py-4">Rp {{ item.nominal.toLocaleString('id-ID') }}</td>
@@ -258,6 +262,17 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                     </tbody>
                 </table>
             </div>
+            <Pagination
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :start-index="startIndex"
+                :end-index="endIndex"
+                :per-page="perPage"
+                :visible-pages="visiblePages"
+                @update:current-page="goToPage"
+                @update:per-page="perPage = $event"
+            />
         </div>
     </div>
 

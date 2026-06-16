@@ -13,6 +13,8 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import { store as kategoriStore, update as kategoriUpdate, destroy as kategoriDestroy } from '@/routes/admin/kategori';
+import { usePagination } from '@/composables/usePagination';
+import Pagination from '@/components/Pagination.vue';
 
 defineOptions({
     layout: {
@@ -52,6 +54,8 @@ return props.kategoris;
         k.nama_kategori.toLowerCase().includes(searchQuery.value.toLowerCase()),
     );
 });
+
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedKategoris, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredKategoris.value);
 
 // Modal state
 const showModal = ref(false);
@@ -192,7 +196,7 @@ function hapusKategori(kategori: Kategori) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="filteredKategoris.length === 0">
+                        <tr v-if="paginatedKategoris.length === 0">
                             <td
                                 colspan="4"
                                 class="px-6 py-12 text-center text-muted-foreground"
@@ -208,11 +212,11 @@ function hapusKategori(kategori: Kategori) {
                             </td>
                         </tr>
                         <tr
-                            v-for="(kategori, index) in filteredKategoris"
+                            v-for="(kategori, index) in paginatedKategoris"
                             :key="kategori.id_kategori"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
-                            <td class="px-6 py-4 text-muted-foreground">{{ index + 1 }}</td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ startIndex + index }}</td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <div
@@ -256,6 +260,17 @@ function hapusKategori(kategori: Kategori) {
                     </tbody>
                 </table>
             </div>
+            <Pagination
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :start-index="startIndex"
+                :end-index="endIndex"
+                :per-page="perPage"
+                :visible-pages="visiblePages"
+                @update:current-page="goToPage"
+                @update:per-page="perPage = $event"
+            />
         </div>
     </div>
 

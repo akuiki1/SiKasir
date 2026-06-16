@@ -16,6 +16,8 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import { store as transaksiStore, update as transaksiUpdate, destroy as transaksiDestroy } from '@/routes/admin/transactions';
+import { usePagination } from '@/composables/usePagination';
+import Pagination from '@/components/Pagination.vue';
 
 defineOptions({
     layout: {
@@ -115,6 +117,8 @@ const filteredTransaksis = computed(() => {
         (t) => t.kode.toLowerCase().includes(q) || t.kasir.toLowerCase().includes(q),
     );
 });
+
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedTransaksis, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredTransaksis.value);
 
 const showDetail = ref(false);
 const selectedTrx = ref<Transaksi | null>(null);
@@ -355,7 +359,7 @@ function hapusTransaksi(trx: Transaksi) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="filteredTransaksis.length === 0">
+                        <tr v-if="paginatedTransaksis.length === 0">
                             <td colspan="7" class="px-6 py-12 text-center text-muted-foreground">
                                 <ShoppingCart class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">
@@ -368,7 +372,7 @@ function hapusTransaksi(trx: Transaksi) {
                             </td>
                         </tr>
                         <tr
-                            v-for="trx in filteredTransaksis"
+                            v-for="trx in paginatedTransaksis"
                             :key="trx.id_transaksi"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -428,6 +432,17 @@ function hapusTransaksi(trx: Transaksi) {
                     </tbody>
                 </table>
             </div>
+            <Pagination
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :start-index="startIndex"
+                :end-index="endIndex"
+                :per-page="perPage"
+                :visible-pages="visiblePages"
+                @update:current-page="goToPage"
+                @update:per-page="perPage = $event"
+            />
         </div>
     </div>
 

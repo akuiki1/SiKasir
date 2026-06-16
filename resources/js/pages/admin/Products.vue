@@ -18,6 +18,8 @@ import {
 import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue';
 import JsBarcode from 'jsbarcode';
 import { store as productStore, update as productUpdate, destroy as productDestroy } from '@/routes/admin/products';
+import { usePagination } from '@/composables/usePagination';
+import Pagination from '@/components/Pagination.vue';
 
 defineOptions({
     layout: {
@@ -73,6 +75,8 @@ const filteredProduks = computed(() => {
         return matchSearch && matchKategori;
     });
 });
+
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedProduks, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredProduks.value);
 
 // Format rupiah
 function formatRupiah(value: number): string {
@@ -534,7 +538,7 @@ const statusClass: Record<string, string> = {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="filteredProduks.length === 0">
+                        <tr v-if="paginatedProduks.length === 0">
                             <td
                                 colspan="6"
                                 class="px-6 py-12 text-center text-muted-foreground"
@@ -550,7 +554,7 @@ const statusClass: Record<string, string> = {
                             </td>
                         </tr>
                         <tr
-                            v-for="produk in filteredProduks"
+                            v-for="produk in paginatedProduks"
                             :key="produk.id_produk"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -621,6 +625,17 @@ const statusClass: Record<string, string> = {
                     </tbody>
                 </table>
             </div>
+            <Pagination
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :start-index="startIndex"
+                :end-index="endIndex"
+                :per-page="perPage"
+                :visible-pages="visiblePages"
+                @update:current-page="goToPage"
+                @update:per-page="perPage = $event"
+            />
         </div>
     </div>
 

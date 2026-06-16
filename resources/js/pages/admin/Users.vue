@@ -15,6 +15,8 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import { store as userStore, update as userUpdate, destroy as userDestroy } from '@/routes/admin/users';
+import { usePagination } from '@/composables/usePagination';
+import Pagination from '@/components/Pagination.vue';
 
 defineOptions({
     layout: {
@@ -63,6 +65,8 @@ const filteredUsers = computed(() => {
         return matchSearch && matchRole;
     });
 });
+
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedUsers, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredUsers.value);
 
 const showModal = ref(false);
 const editingUser = ref<UserItem | null>(null);
@@ -243,7 +247,7 @@ function formatDate(dateString: string): string {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="filteredUsers.length === 0">
+                        <tr v-if="paginatedUsers.length === 0">
                             <td colspan="5" class="px-6 py-12 text-center text-muted-foreground">
                                 <User class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">
@@ -256,7 +260,7 @@ function formatDate(dateString: string): string {
                             </td>
                         </tr>
                         <tr
-                            v-for="userItem in filteredUsers"
+                            v-for="userItem in paginatedUsers"
                             :key="userItem.id"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -320,6 +324,17 @@ function formatDate(dateString: string): string {
                     </tbody>
                 </table>
             </div>
+            <Pagination
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :start-index="startIndex"
+                :end-index="endIndex"
+                :per-page="perPage"
+                :visible-pages="visiblePages"
+                @update:current-page="goToPage"
+                @update:per-page="perPage = $event"
+            />
         </div>
     </div>
 
