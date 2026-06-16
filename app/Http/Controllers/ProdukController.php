@@ -62,8 +62,8 @@ class ProdukController extends Controller
             'nama' => ['required', 'string', 'max:255'],
             'harga_jual' => ['required', 'integer', 'min:0'],
             'stok' => ['required', 'integer', 'min:0'],
-            'barcode' => ['required', 'string', 'max:255', 'unique:produks,barcode'],
-            'sku' => ['required', 'string', 'max:255', 'unique:produks,sku'],
+            'barcode' => ['nullable', 'string', 'max:255', 'unique:produks,barcode'],
+            'sku' => ['nullable', 'string', 'max:255', 'unique:produks,sku'],
             'foto' => ['nullable', 'string', 'max:2048'],
             'foto_upload' => ['nullable', 'image', 'max:2048'],
         ]);
@@ -89,8 +89,8 @@ class ProdukController extends Controller
             'nama' => ['required', 'string', 'max:255'],
             'harga_jual' => ['required', 'integer', 'min:0'],
             'stok' => ['required', 'integer', 'min:0'],
-            'barcode' => ['required', 'string', 'max:255', 'unique:produks,barcode,'.$produk->id_produk.',id_produk'],
-            'sku' => ['required', 'string', 'max:255', 'unique:produks,sku,'.$produk->id_produk.',id_produk'],
+            'barcode' => ['nullable', 'string', 'max:255', 'unique:produks,barcode,'.$produk->id_produk.',id_produk'],
+            'sku' => ['nullable', 'string', 'max:255', 'unique:produks,sku,'.$produk->id_produk.',id_produk'],
             'foto' => ['nullable', 'string', 'max:2048'],
             'foto_upload' => ['nullable', 'image', 'max:2048'],
         ]);

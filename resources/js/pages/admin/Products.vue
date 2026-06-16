@@ -13,8 +13,10 @@ import {
     AlertCircle,
     ImageIcon,
     Barcode,
+    Printer,
 } from 'lucide-vue-next';
 import { ref, computed, nextTick, onBeforeUnmount, watch } from 'vue';
+import JsBarcode from 'jsbarcode';
 import { store as productStore, update as productUpdate, destroy as productDestroy } from '@/routes/admin/products';
 
 defineOptions({
@@ -40,8 +42,8 @@ interface Produk {
     id_kategori: number;
     harga_jual: number;
     stok: number;
-    barcode: string;
-    sku: string;
+    barcode: string | null;
+    sku: string | null;
     foto: string | null;
     foto_url?: string | null;
     status_stok: 'in-stock' | 'low-stock' | 'out-of-stock';
@@ -134,8 +136,8 @@ function openEdit(produk: Produk) {
     form.foto_upload = null;
     form.harga_jual = String(produk.harga_jual);
     form.stok = String(produk.stok);
-    form.barcode = produk.barcode;
-    form.sku = produk.sku;
+    form.barcode = produk.barcode ?? '';
+    form.sku = produk.sku ?? '';
     showModal.value = true;
 }
 
@@ -280,6 +282,115 @@ const statusLabel: Record<string, string> = {
     'out-of-stock': 'Stok Habis',
 };
 
+// Barcode print
+const showBarcodeModal = ref(false);
+const barcodePrintList = ref<Produk[]>([]);
+const barcodeRefs = ref<SVGElement[]>([]);
+
+function openPrintBarcode(produk: Produk) {
+    barcodePrintList.value = [produk];
+    showBarcodeModal.value = true;
+    nextTick(() => renderBarcodes());
+}
+
+function openPrintAllBarcodes() {
+    barcodePrintList.value = filteredProduks.value.filter((p) => p.barcode);
+    showBarcodeModal.value = true;
+    nextTick(() => renderBarcodes());
+}
+
+function closeBarcodeModal() {
+    showBarcodeModal.value = false;
+    barcodePrintList.value = [];
+    barcodeRefs.value = [];
+}
+
+function renderBarcodes() {
+    barcodeRefs.value.forEach((el, i) => {
+        const barcode = barcodePrintList.value[i]?.barcode;
+        if (barcode && el) {
+            try {
+                JsBarcode(el, barcode, {
+                    format: 'CODE128',
+                    width: 2,
+                    height: 60,
+                    displayValue: true,
+                    fontSize: 12,
+                    margin: 8,
+                    background: '#ffffff',
+                    lineColor: '#000000',
+                });
+            } catch {
+                // barcode value may be invalid for CODE128
+            }
+        }
+    });
+}
+
+function setBarcodeRef(el: unknown, index: number) {
+    if (el instanceof SVGElement) {
+        barcodeRefs.value[index] = el;
+    }
+}
+
+function printBarcodes() {
+    const labels = barcodePrintList.value
+        .map((produk, i) => {
+            const svgEl = barcodeRefs.value[i];
+            const svgHtml = svgEl ? svgEl.outerHTML : '';
+            return `
+                <div class="label">
+                    ${svgHtml}
+                    <p class="nama">${produk.nama}</p>
+                    <p class="harga">${formatRupiah(produk.harga_jual)}</p>
+                </div>
+            `;
+        })
+        .join('');
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8" />
+            <title>Cetak Barcode Produk</title>
+            <style>
+                * { box-sizing: border-box; margin: 0; padding: 0; }
+                body { font-family: Arial, sans-serif; background: #fff; padding: 16px; }
+                .labels { display: flex; flex-wrap: wrap; gap: 12px; }
+                .label {
+                    border: 1px solid #ccc;
+                    border-radius: 6px;
+                    padding: 10px 12px;
+                    text-align: center;
+                    width: 200px;
+                    page-break-inside: avoid;
+                }
+                .label svg { max-width: 100%; height: auto; }
+                .nama { font-size: 12px; font-weight: bold; margin-top: 6px; word-break: break-word; }
+                .harga { font-size: 11px; color: #444; margin-top: 2px; }
+                @media print {
+                    body { padding: 8px; }
+                    .labels { gap: 8px; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="labels">${labels}</div>
+            <script>
+                window.onload = function() {
+                    setTimeout(function() { window.print(); }, 300);
+                };
+            <\/script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
 const statusClass: Record<string, string> = {
     'in-stock': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
     'low-stock': 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
@@ -388,6 +499,14 @@ const statusClass: Record<string, string> = {
                             {{ kat.nama_kategori }}
                         </option>
                     </select>
+                    <button
+                        class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40"
+                        title="Cetak barcode semua produk yang tampil"
+                        @click="openPrintAllBarcodes"
+                    >
+                        <Printer class="h-4 w-4" />
+                        Cetak Semua Barcode
+                    </button>
                 </div>
             </div>
 
@@ -475,6 +594,14 @@ const statusClass: Record<string, string> = {
                             <td class="px-6 py-4 text-right">
                                 <div class="inline-flex justify-end gap-2">
                                     <button
+                                        v-if="produk.barcode"
+                                        class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-zinc-800"
+                                        title="Cetak Barcode"
+                                        @click="openPrintBarcode(produk)"
+                                    >
+                                        <Printer class="h-4 w-4" />
+                                    </button>
+                                    <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-zinc-800"
                                         title="Edit"
                                         @click="openEdit(produk)"
@@ -496,6 +623,81 @@ const statusClass: Record<string, string> = {
             </div>
         </div>
     </div>
+
+    <!-- Modal Cetak Barcode -->
+    <Teleport to="body">
+        <div
+            v-if="showBarcodeModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            @click.self="closeBarcodeModal"
+        >
+            <div
+                class="w-full max-w-2xl rounded-2xl border border-sidebar-border/70 bg-card p-6 shadow-2xl dark:border-sidebar-border"
+                style="max-height: 90vh; overflow-y: auto"
+            >
+                <div class="mb-5 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-bold">Cetak Barcode Produk</h2>
+                        <p class="mt-0.5 text-xs text-muted-foreground">
+                            {{ barcodePrintList.length }} label barcode siap dicetak
+                        </p>
+                    </div>
+                    <button
+                        class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
+                        @click="closeBarcodeModal"
+                    >
+                        <X class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div v-if="barcodePrintList.length === 0" class="py-10 text-center text-muted-foreground">
+                    <Barcode class="mx-auto mb-3 h-10 w-10 opacity-30" />
+                    <p class="text-sm font-medium">Tidak ada produk dengan barcode yang dapat dicetak.</p>
+                    <p class="mt-1 text-xs">Tambahkan barcode ke produk terlebih dahulu melalui menu Edit.</p>
+                </div>
+
+                <div v-else>
+                    <!-- Preview labels -->
+                    <div class="mb-5 flex flex-wrap gap-4 rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20">
+                        <div
+                            v-for="(produk, index) in barcodePrintList"
+                            :key="produk.id_produk"
+                            class="flex w-48 flex-col items-center rounded-lg border border-sidebar-border/70 bg-white p-3 dark:border-sidebar-border dark:bg-zinc-900"
+                        >
+                            <svg
+                                :ref="(el) => setBarcodeRef(el, index)"
+                                class="w-full"
+                            />
+                            <p class="mt-2 text-center text-xs font-semibold leading-tight text-slate-800 dark:text-slate-200">
+                                {{ produk.nama }}
+                            </p>
+                            <p class="mt-0.5 text-center text-xs text-muted-foreground">
+                                {{ formatRupiah(produk.harga_jual) }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3">
+                        <button
+                            type="button"
+                            class="rounded-lg border border-sidebar-border/70 bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
+                            @click="closeBarcodeModal"
+                        >
+                            Tutup
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500"
+                            @click="printBarcodes"
+                        >
+                            <Printer class="h-4 w-4" />
+                            Cetak Sekarang
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 
     <!-- Modal Tambah / Edit Produk -->
     <Teleport to="body">
