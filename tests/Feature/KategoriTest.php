@@ -114,7 +114,7 @@ test('admin can create a new produk', function () {
     $response = $this->actingAs($admin)->post(route('admin.products.store'), [
         'id_kategori' => $kategori->id_kategori,
         'nama' => 'Kopi Susu',
-        'harga_beli' => 10000,
+
         'harga_jual' => 18000,
         'stok' => 50,
         'barcode' => '1234567890123',
@@ -138,7 +138,7 @@ test('admin can upload produk foto file', function () {
     $response = $this->actingAs($admin)->post(route('admin.products.store'), [
         'id_kategori' => $kategori->id_kategori,
         'nama' => 'Kopi Latte',
-        'harga_beli' => 10000,
+
         'harga_jual' => 20000,
         'stok' => 20,
         'barcode' => '9876543210987',

@@ -17,7 +17,6 @@ class Produk extends Model
         'id_kategori',
         'nama',
         'foto',
-        'harga_beli',
         'harga_jual',
         'stok',
         'barcode',
@@ -25,7 +24,6 @@ class Produk extends Model
     ];
 
     protected $casts = [
-        'harga_beli' => 'integer',
         'harga_jual' => 'integer',
         'stok' => 'integer',
     ];

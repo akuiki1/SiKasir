@@ -22,7 +22,6 @@ class ProdukFactory extends Factory
             'id_kategori' => Kategori::factory(),
             'nama' => fake()->words(3, true),
             'foto' => null,
-            'harga_beli' => fake()->numberBetween(5000, 50000),
             'harga_jual' => fake()->numberBetween(10000, 100000),
             'stok' => fake()->numberBetween(0, 100),
             'barcode' => fake()->unique()->ean13(),

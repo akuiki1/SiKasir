@@ -46,12 +46,6 @@ interface CashierItem {
     revenue: number;
 }
 
-interface ProfitProductItem {
-    nama: string;
-    profit: number;
-    transactions: number;
-}
-
 interface WorstProductItem {
     nama: string;
     qty: number;
@@ -66,7 +60,6 @@ const props = defineProps<{
         total_items_sold: number;
         total_expenses: number;
         sales_margin: number;
-        gross_profit: number;
         net_profit: number;
     };
     revenue_chart: ChartPoint[];
@@ -76,7 +69,6 @@ const props = defineProps<{
     best_selling_products: ProductItem[];
     worst_selling_products: WorstProductItem[];
     cashier_achievements: CashierItem[];
-    best_profit_products: ProfitProductItem[];
     top_cashiers_by_transactions: CashierItem[];
     top_cashiers_by_revenue: CashierItem[];
     date_range: {
@@ -511,7 +503,7 @@ function printSection(section: string): void {
                         <Percent class="h-5 w-5" />
                     </div>
                 </div>
-                <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">Laba kotor {{ formatRupiah(props.stats.gross_profit) }}</p>
+                <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">Laba bersih {{ formatRupiah(props.stats.net_profit) }}</p>
             </div>
 
             <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">

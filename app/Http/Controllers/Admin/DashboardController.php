@@ -68,9 +68,6 @@ class DashboardController extends Controller
                 'nama' => $name,
                 'qty' => $group->sum('jumlah'),
                 'revenue' => $group->sum('subtotal'),
-                'profit' => $group->first()?->produk
-                    ? ($group->first()->produk->harga_jual - $group->first()->produk->harga_beli)
-                    : 0,
                 'transactions' => $group->pluck('id_transaksi')->unique()->count(),
             ]);
 
@@ -81,11 +78,6 @@ class DashboardController extends Controller
 
         $worstSellingProducts = $productGroups
             ->sortBy(fn ($item) => $item['qty'])
-            ->values()
-            ->take(5);
-
-        $bestProfitProducts = $productGroups
-            ->sortByDesc(fn ($item) => $item['profit'])
             ->values()
             ->take(5);
 
@@ -137,21 +129,9 @@ class DashboardController extends Controller
         $totalItemsSold = $details->sum('jumlah');
         $averageOrderValue = $totalTransactions > 0 ? (int) floor($totalRevenue / $totalTransactions) : 0;
 
-        // Calculate total cost of goods sold (COGS)
-        $totalCogs = $details->sum(function ($detail) {
-            return $detail->jumlah * ($detail->produk?->harga_beli ?? 0);
-        });
-
-        // Calculate expenses from Pengeluaran model
         $totalExpenses = Pengeluaran::whereBetween('created_at', [$startDate, $endDate])->sum('nominal');
 
-        // Calculate gross profit (Revenue - COGS)
-        $grossProfit = $totalRevenue - $totalCogs;
-
-        // Calculate net profit (Gross Profit - Expenses)
-        $netProfit = $grossProfit - $totalExpenses;
-
-        // Calculate sales margin percentage (Net Profit / Revenue * 100)
+        $netProfit = $totalRevenue - $totalExpenses;
         $salesMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0;
 
         return Inertia::render('admin/Dashboard', [
@@ -162,7 +142,6 @@ class DashboardController extends Controller
                 'total_items_sold' => $totalItemsSold,
                 'total_expenses' => $totalExpenses,
                 'sales_margin' => $salesMargin,
-                'gross_profit' => $grossProfit,
                 'net_profit' => $netProfit,
             ],
             'revenue_chart' => $revenueChart,
@@ -172,7 +151,6 @@ class DashboardController extends Controller
             'top_sales_dates' => $topSalesDates,
             'top_sales_hours' => $topSalesHours,
             'cashier_achievements' => $cashierAchievements,
-            'best_profit_products' => $bestProfitProducts,
             'top_cashiers_by_transactions' => $topCashiersByTransactions,
             'top_cashiers_by_revenue' => $topCashiersByRevenue,
             'date_range' => [

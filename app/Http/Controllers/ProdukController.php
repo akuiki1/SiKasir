@@ -25,7 +25,6 @@ class ProdukController extends Controller
                     'nama' => $produk->nama,
                     'kategori' => $produk->kategori?->nama_kategori,
                     'id_kategori' => $produk->id_kategori,
-                    'harga_beli' => $produk->harga_beli,
                     'harga_jual' => $produk->harga_jual,
                     'stok' => $produk->stok,
                     'barcode' => $produk->barcode,
@@ -61,7 +60,6 @@ class ProdukController extends Controller
         $validated = $request->validate([
             'id_kategori' => ['required', 'exists:kategoris,id_kategori'],
             'nama' => ['required', 'string', 'max:255'],
-            'harga_beli' => ['required', 'integer', 'min:0'],
             'harga_jual' => ['required', 'integer', 'min:0'],
             'stok' => ['required', 'integer', 'min:0'],
             'barcode' => ['required', 'string', 'max:255', 'unique:produks,barcode'],
@@ -89,7 +87,6 @@ class ProdukController extends Controller
         $validated = $request->validate([
             'id_kategori' => ['required', 'exists:kategoris,id_kategori'],
             'nama' => ['required', 'string', 'max:255'],
-            'harga_beli' => ['required', 'integer', 'min:0'],
             'harga_jual' => ['required', 'integer', 'min:0'],
             'stok' => ['required', 'integer', 'min:0'],
             'barcode' => ['required', 'string', 'max:255', 'unique:produks,barcode,'.$produk->id_produk.',id_produk'],

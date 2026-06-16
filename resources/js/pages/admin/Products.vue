@@ -38,7 +38,6 @@ interface Produk {
     nama: string;
     kategori: string | null;
     id_kategori: number;
-    harga_beli: number;
     harga_jual: number;
     stok: number;
     barcode: string;
@@ -110,7 +109,6 @@ const form = useForm({
     nama: '',
     foto: '',
     foto_upload: null as File | null,
-    harga_beli: '',
     harga_jual: '',
     stok: '',
     barcode: '',
@@ -134,7 +132,6 @@ function openEdit(produk: Produk) {
     form.nama = produk.nama;
     form.foto = produk.foto ?? '';
     form.foto_upload = null;
-    form.harga_beli = String(produk.harga_beli);
     form.harga_jual = String(produk.harga_jual);
     form.stok = String(produk.stok);
     form.barcode = produk.barcode;
@@ -256,7 +253,6 @@ function submitForm() {
         ...form.data(),
         id_kategori: Number(form.id_kategori),
         foto: form.foto || null,
-        harga_beli: Number(form.harga_beli),
         harga_jual: Number(form.harga_jual),
         stok: Number(form.stok),
     };
@@ -606,42 +602,23 @@ const statusClass: Record<string, string> = {
                         </p>
                     </div>
 
-                    <!-- Harga Beli & Jual -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium" for="prod-harga-beli">
-                                Harga Beli (Rp)
-                            </label>
-                            <input
-                                id="prod-harga-beli"
-                                v-model="form.harga_beli"
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                :class="{ 'border-rose-500': form.errors.harga_beli }"
-                            />
-                            <p v-if="form.errors.harga_beli" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                <AlertCircle class="h-3 w-3" />{{ form.errors.harga_beli }}
-                            </p>
-                        </div>
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium" for="prod-harga-jual">
-                                Harga Jual (Rp)
-                            </label>
-                            <input
-                                id="prod-harga-jual"
-                                v-model="form.harga_jual"
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                :class="{ 'border-rose-500': form.errors.harga_jual }"
-                            />
-                            <p v-if="form.errors.harga_jual" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                <AlertCircle class="h-3 w-3" />{{ form.errors.harga_jual }}
-                            </p>
-                        </div>
+                    <!-- Harga Jual -->
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" for="prod-harga-jual">
+                            Harga Jual (Rp)
+                        </label>
+                        <input
+                            id="prod-harga-jual"
+                            v-model="form.harga_jual"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            :class="{ 'border-rose-500': form.errors.harga_jual }"
+                        />
+                        <p v-if="form.errors.harga_jual" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                            <AlertCircle class="h-3 w-3" />{{ form.errors.harga_jual }}
+                        </p>
                     </div>
 
                     <!-- Stok -->
