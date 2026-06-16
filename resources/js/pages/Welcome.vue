@@ -17,6 +17,10 @@ import {
     Menu,
     X,
     ShoppingBag,
+    ShoppingCart,
+    Plus,
+    Minus,
+    Trash2,
     Award,
     ShieldCheck,
     Leaf,
@@ -36,8 +40,26 @@ interface BestSeller {
     total_terjual: number;
 }
 
+interface Product {
+    id_produk: number;
+    nama: string;
+    kategori: string | null;
+    harga_jual: number;
+    stok: number;
+    foto_url: string | null;
+}
+
+interface CartItem {
+    id_produk: number;
+    nama: string;
+    harga_jual: number;
+    foto_url: string | null;
+    quantity: number;
+}
+
 const props = defineProps<{
     bestSellers: BestSeller[];
+    allProducts: Product[];
 }>();
 
 const { appearance, updateAppearance } = useAppearance();
@@ -159,13 +181,16 @@ const resetQuiz = () => {
     quizCompleted.value = false;
 };
 
+// Nomor WhatsApp tujuan (admin KriukKita)
+const WHATSAPP_NUMBER = '6281234567890';
+
 // WhatsApp Direct Link Generator
 const getWhatsAppLink = (productName: string) => {
     const message = encodeURIComponent(
         `Halo Kak! Saya tertarik untuk memesan produk Cemilan "${productName}" dari KriukKita. Bagaimana cara memesannya ya?`,
     );
 
-    return `https://wa.me/6281234567890?text=${message}`;
+    return `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
 };
 
 const getGeneralWhatsAppLink = () => {
@@ -173,7 +198,87 @@ const getGeneralWhatsAppLink = () => {
         'Halo KriukKita! Saya ingin tahu lebih lanjut tentang menu cemilan premium dan ingin memesan paket hemat.',
     );
 
-    return `https://wa.me/6281234567890?text=${message}`;
+    return `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+};
+
+// ===== Shopping Cart State & Logic =====
+const cart = ref<CartItem[]>([]);
+const isCartOpen = ref(false);
+
+const cartItemCount = computed(() =>
+    cart.value.reduce((sum, item) => sum + item.quantity, 0),
+);
+
+const cartTotal = computed(() =>
+    cart.value.reduce((sum, item) => sum + item.harga_jual * item.quantity, 0),
+);
+
+const addToCart = (product: Product) => {
+    const existing = cart.value.find(
+        (item) => item.id_produk === product.id_produk,
+    );
+
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        cart.value.push({
+            id_produk: product.id_produk,
+            nama: product.nama,
+            harga_jual: product.harga_jual,
+            foto_url: product.foto_url,
+            quantity: 1,
+        });
+    }
+
+    isCartOpen.value = true;
+};
+
+const increaseQty = (id: number) => {
+    const item = cart.value.find((i) => i.id_produk === id);
+    if (item) {
+        item.quantity += 1;
+    }
+};
+
+const decreaseQty = (id: number) => {
+    const item = cart.value.find((i) => i.id_produk === id);
+    if (item) {
+        item.quantity -= 1;
+        if (item.quantity <= 0) {
+            removeFromCart(id);
+        }
+    }
+};
+
+const removeFromCart = (id: number) => {
+    cart.value = cart.value.filter((i) => i.id_produk !== id);
+};
+
+const clearCart = () => {
+    cart.value = [];
+};
+
+// Checkout: kirim pesan otomatis via WhatsApp (TANPA mengurangi stok)
+const checkoutViaWhatsApp = () => {
+    if (cart.value.length === 0) {
+        return;
+    }
+
+    const lines = cart.value.map(
+        (item, index) =>
+            `${index + 1}. ${item.nama}\n   ${item.quantity} x ${formatPrice(item.harga_jual)} = ${formatPrice(item.harga_jual * item.quantity)}`,
+    );
+
+    const message =
+        `Halo KriukKita! 👋\nSaya ingin memesan cemilan berikut:\n\n` +
+        `${lines.join('\n')}\n\n` +
+        `*Total Pesanan: ${formatPrice(cartTotal.value)}*\n\n` +
+        `Mohon info ketersediaan dan ongkos kirimnya ya. Terima kasih! 🙏`;
+
+    window.open(
+        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
+        '_blank',
+    );
 };
 
 // Formatting helper
@@ -258,7 +363,12 @@ const formatPrice = (price: number) => {
                         <a
                             href="#menu"
                             class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
-                            >Katalog Menu</a
+                            >Best Seller</a
+                        >
+                        <a
+                            href="#katalog"
+                            class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
+                            >Katalog</a
                         >
                         <a
                             href="#quiz"
@@ -350,7 +460,13 @@ const formatPrice = (price: number) => {
                         href="#menu"
                         @click="isMobileMenuOpen = false"
                         class="block rounded-lg px-3 py-2 text-base font-semibold hover:bg-amber-50 hover:text-orange-600 dark:hover:bg-neutral-900"
-                        >Katalog Menu</a
+                        >Best Seller</a
+                    >
+                    <a
+                        href="#katalog"
+                        @click="isMobileMenuOpen = false"
+                        class="block rounded-lg px-3 py-2 text-base font-semibold hover:bg-amber-50 hover:text-orange-600 dark:hover:bg-neutral-900"
+                        >Katalog</a
                     >
                     <a
                         href="#quiz"
@@ -755,6 +871,93 @@ const formatPrice = (price: number) => {
                                 >
                                     <MessageCircle class="h-5 w-5" />
                                 </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty state -->
+                <div
+                    v-else
+                    class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 py-20 text-center dark:border-neutral-700"
+                >
+                    <ShoppingBag class="mb-4 h-12 w-12 text-amber-300 dark:text-neutral-600" />
+                    <p class="text-neutral-500 dark:text-neutral-400">Belum ada produk tersedia.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Full Product Catalog Section -->
+        <section
+            id="katalog"
+            class="relative z-10 border-t border-amber-100/30 bg-amber-50/30 py-24 dark:border-neutral-900/30 dark:bg-neutral-900/20"
+        >
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="mx-auto mb-14 max-w-2xl space-y-3 text-center">
+                    <span
+                        class="text-xs font-extrabold tracking-widest text-orange-600 uppercase dark:text-amber-400"
+                        >Katalog Lengkap</span
+                    >
+                    <h2
+                        class="font-['Outfit',sans-serif] text-3xl font-bold text-neutral-900 sm:text-4xl dark:text-white"
+                    >
+                        Semua Produk Cemilan Kami
+                    </h2>
+                    <p class="text-neutral-600 dark:text-neutral-300">
+                        Tambahkan cemilan favoritmu ke keranjang, lalu checkout
+                        langsung lewat WhatsApp. Mudah & cepat!
+                    </p>
+                </div>
+
+                <!-- Catalog Grid -->
+                <div
+                    v-if="props.allProducts.length > 0"
+                    class="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4"
+                >
+                    <div
+                        v-for="product in props.allProducts"
+                        :key="product.id_produk"
+                        class="group flex flex-col overflow-hidden rounded-3xl border border-amber-100/50 bg-[#FFFDF9] shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/40 hover:shadow-xl dark:border-neutral-800/80 dark:bg-neutral-900"
+                    >
+                        <!-- Image -->
+                        <div
+                            class="relative aspect-square w-full overflow-hidden bg-amber-50/50 dark:bg-neutral-900"
+                        >
+                            <span
+                                v-if="product.kategori"
+                                class="absolute top-3 left-3 z-10 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-bold text-orange-600 shadow-xs dark:bg-neutral-800/90 dark:text-amber-400"
+                            >
+                                {{ product.kategori }}
+                            </span>
+                            <img
+                                :src="product.foto_url || '/images/hero.png'"
+                                :alt="product.nama"
+                                class="h-full w-full transform object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
+                        </div>
+
+                        <!-- Content -->
+                        <div
+                            class="flex flex-1 flex-col justify-between gap-3 p-4"
+                        >
+                            <h3
+                                class="line-clamp-2 text-sm font-bold leading-snug text-neutral-900 transition-colors group-hover:text-orange-600 dark:text-white dark:group-hover:text-amber-400"
+                            >
+                                {{ product.nama }}
+                            </h3>
+
+                            <div class="space-y-3">
+                                <span
+                                    class="block text-base font-extrabold text-orange-600 dark:text-amber-400"
+                                    >{{ formatPrice(product.harga_jual) }}</span
+                                >
+                                <button
+                                    @click="addToCart(product)"
+                                    class="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95"
+                                >
+                                    <Plus class="h-4 w-4" />
+                                    <span>Keranjang</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1252,11 +1455,183 @@ const formatPrice = (price: number) => {
         <a
             :href="getGeneralWhatsAppLink()"
             target="_blank"
-            class="fixed right-6 bottom-6 z-50 flex h-14 w-14 transform animate-bounce items-center justify-center rounded-full bg-emerald-500 text-white shadow-2xl transition-all hover:scale-110 hover:bg-emerald-400 active:scale-95"
+            class="fixed right-6 bottom-6 z-50 flex h-14 w-14 transform items-center justify-center rounded-full bg-emerald-500 text-white shadow-2xl transition-all hover:scale-110 hover:bg-emerald-400 active:scale-95"
             title="Chat Admin WhatsApp"
         >
             <MessageCircle class="h-7 w-7" />
         </a>
+
+        <!-- Floating Cart Button -->
+        <button
+            @click="isCartOpen = true"
+            class="fixed right-6 bottom-24 z-50 flex h-14 w-14 transform cursor-pointer items-center justify-center rounded-full bg-orange-600 text-white shadow-2xl transition-all hover:scale-110 hover:bg-orange-500 active:scale-95"
+            title="Buka Keranjang"
+        >
+            <ShoppingCart class="h-7 w-7" />
+            <span
+                v-if="cartItemCount > 0"
+                class="absolute -top-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-[#FFFDF9] bg-red-500 px-1.5 text-xs font-extrabold text-white dark:border-neutral-950"
+            >
+                {{ cartItemCount }}
+            </span>
+        </button>
+
+        <!-- Cart Drawer -->
+        <transition name="fade">
+            <div
+                v-if="isCartOpen"
+                class="fixed inset-0 z-[60] bg-neutral-950/50 backdrop-blur-sm"
+                @click="isCartOpen = false"
+            ></div>
+        </transition>
+
+        <transition name="slide">
+            <aside
+                v-if="isCartOpen"
+                class="fixed top-0 right-0 z-[70] flex h-full w-full max-w-md flex-col bg-[#FFFDF9] shadow-2xl dark:bg-neutral-950"
+            >
+                <!-- Drawer Header -->
+                <div
+                    class="flex items-center justify-between border-b border-amber-100/60 px-6 py-5 dark:border-neutral-800"
+                >
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-amber-400"
+                        >
+                            <ShoppingCart class="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3
+                                class="font-['Outfit',sans-serif] text-lg font-extrabold text-neutral-900 dark:text-white"
+                            >
+                                Keranjang Belanja
+                            </h3>
+                            <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                                {{ cartItemCount }} item dipilih
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        @click="isCartOpen = false"
+                        class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-amber-50 hover:text-neutral-800 dark:hover:bg-neutral-900 dark:hover:text-white"
+                    >
+                        <X class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <!-- Cart Items List -->
+                <div class="flex-1 overflow-y-auto px-6 py-4">
+                    <div
+                        v-if="cart.length > 0"
+                        class="space-y-4"
+                    >
+                        <div
+                            v-for="item in cart"
+                            :key="item.id_produk"
+                            class="flex gap-4 rounded-2xl border border-amber-100/60 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                        >
+                            <img
+                                :src="item.foto_url || '/images/hero.png'"
+                                :alt="item.nama"
+                                class="h-20 w-20 flex-shrink-0 rounded-xl object-cover"
+                            />
+                            <div class="flex flex-1 flex-col justify-between">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h4
+                                        class="line-clamp-2 text-sm font-bold text-neutral-900 dark:text-white"
+                                    >
+                                        {{ item.nama }}
+                                    </h4>
+                                    <button
+                                        @click="removeFromCart(item.id_produk)"
+                                        class="flex-shrink-0 cursor-pointer text-neutral-400 transition-colors hover:text-red-500"
+                                        title="Hapus item"
+                                    >
+                                        <Trash2 class="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span
+                                        class="text-sm font-extrabold text-orange-600 dark:text-amber-400"
+                                        >{{ formatPrice(item.harga_jual * item.quantity) }}</span
+                                    >
+                                    <!-- Quantity Stepper -->
+                                    <div
+                                        class="flex items-center gap-2 rounded-lg border border-amber-200 dark:border-neutral-700"
+                                    >
+                                        <button
+                                            @click="decreaseQty(item.id_produk)"
+                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-l-lg text-neutral-600 transition-colors hover:bg-amber-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                                        >
+                                            <Minus class="h-3.5 w-3.5" />
+                                        </button>
+                                        <span
+                                            class="w-6 text-center text-sm font-bold text-neutral-900 dark:text-white"
+                                            >{{ item.quantity }}</span
+                                        >
+                                        <button
+                                            @click="increaseQty(item.id_produk)"
+                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-r-lg text-neutral-600 transition-colors hover:bg-amber-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                                        >
+                                            <Plus class="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty Cart -->
+                    <div
+                        v-else
+                        class="flex h-full flex-col items-center justify-center py-20 text-center"
+                    >
+                        <div
+                            class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 dark:bg-neutral-900"
+                        >
+                            <ShoppingCart
+                                class="h-8 w-8 text-amber-300 dark:text-neutral-600"
+                            />
+                        </div>
+                        <p class="font-bold text-neutral-700 dark:text-neutral-300">
+                            Keranjang masih kosong
+                        </p>
+                        <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                            Yuk pilih cemilan favoritmu dulu!
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Drawer Footer / Checkout -->
+                <div
+                    v-if="cart.length > 0"
+                    class="space-y-4 border-t border-amber-100/60 px-6 py-5 dark:border-neutral-800"
+                >
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-neutral-500 dark:text-neutral-400"
+                            >Total Pesanan</span
+                        >
+                        <span
+                            class="font-['Outfit',sans-serif] text-2xl font-black text-orange-600 dark:text-amber-400"
+                            >{{ formatPrice(cartTotal) }}</span
+                        >
+                    </div>
+                    <button
+                        @click="checkoutViaWhatsApp"
+                        class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-xl active:scale-[0.98]"
+                    >
+                        <MessageCircle class="h-5 w-5" />
+                        <span>Checkout via WhatsApp</span>
+                    </button>
+                    <button
+                        @click="clearCart"
+                        class="w-full cursor-pointer text-center text-xs font-semibold text-neutral-400 transition-colors hover:text-red-500"
+                    >
+                        Kosongkan Keranjang
+                    </button>
+                </div>
+            </aside>
+        </transition>
     </div>
 </template>
 
@@ -1269,5 +1644,24 @@ html {
 /* Fine-tune outfit font layout */
 .font-outfit {
     font-family: 'Outfit', sans-serif;
+}
+
+/* Cart drawer transitions */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+    transition: transform 0.3s ease;
+}
+.slide-enter-from,
+.slide-leave-to {
+    transform: translateX(100%);
 }
 </style>

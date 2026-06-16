@@ -34,7 +34,22 @@ Route::get('/', function () {
             'total_terjual' => (int) $p->total_terjual,
         ]);
 
-    return Inertia::render('Welcome', ['bestSellers' => $bestSellers]);
+    $allProducts = Produk::with('kategori')
+        ->orderBy('nama')
+        ->get()
+        ->map(fn (Produk $p) => [
+            'id_produk'  => $p->id_produk,
+            'nama'       => $p->nama,
+            'kategori'   => $p->kategori?->nama_kategori,
+            'harga_jual' => $p->harga_jual,
+            'stok'       => $p->stok,
+            'foto_url'   => $p->foto ? asset("storage/{$p->foto}") : null,
+        ]);
+
+    return Inertia::render('Welcome', [
+        'bestSellers' => $bestSellers,
+        'allProducts' => $allProducts,
+    ]);
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
