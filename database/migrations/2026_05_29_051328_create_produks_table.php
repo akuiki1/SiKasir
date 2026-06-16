@@ -21,6 +21,7 @@ return new class extends Migration {
 
             $table->string('nama');
             $table->string('foto')->nullable();
+
             $table->unsignedBigInteger('harga_jual');
 
             $table->integer('stok')->default(0);
