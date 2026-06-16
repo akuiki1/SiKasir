@@ -16,6 +16,7 @@ import {
     Smile,
     Menu,
     X,
+    Search,
     ShoppingBag,
     ShoppingCart,
     Plus,
@@ -213,7 +214,14 @@ const cartTotal = computed(() =>
     cart.value.reduce((sum, item) => sum + item.harga_jual * item.quantity, 0),
 );
 
-const addToCart = (product: Product) => {
+// Menerima Product (katalog) maupun BestSeller (produk favorit) —
+// keduanya berbagi field minimal yang dibutuhkan keranjang.
+type AddableProduct = Pick<
+    CartItem,
+    'id_produk' | 'nama' | 'harga_jual' | 'foto_url'
+>;
+
+const addToCart = (product: AddableProduct) => {
     const existing = cart.value.find(
         (item) => item.id_produk === product.id_produk,
     );
@@ -230,7 +238,8 @@ const addToCart = (product: Product) => {
         });
     }
 
-    isCartOpen.value = true;
+    // Jangan auto-buka keranjang — cukup tampilkan notifikasi singkat.
+    showToast(`${product.nama} ditambahkan ke keranjang`);
 };
 
 const increaseQty = (id: number) => {
@@ -257,6 +266,35 @@ const removeFromCart = (id: number) => {
 const clearCart = () => {
     cart.value = [];
 };
+
+// ===== Toast Notification (feedback tambah ke keranjang) =====
+const toastMessage = ref<string | null>(null);
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+const showToast = (message: string) => {
+    toastMessage.value = message;
+    if (toastTimer) {
+        clearTimeout(toastTimer);
+    }
+    toastTimer = setTimeout(() => {
+        toastMessage.value = null;
+    }, 2200);
+};
+
+// ===== Product Search =====
+const searchQuery = ref('');
+
+const filteredProducts = computed(() => {
+    const query = searchQuery.value.trim().toLowerCase();
+    if (!query) {
+        return props.allProducts;
+    }
+
+    return props.allProducts.filter((product) => {
+        const haystack = `${product.nama} ${product.kategori ?? ''}`.toLowerCase();
+        return haystack.includes(query);
+    });
+});
 
 // Checkout: kirim pesan otomatis via WhatsApp (TANPA mengurangi stok)
 const checkoutViaWhatsApp = () => {
@@ -354,7 +392,7 @@ const formatPrice = (price: number) => {
                     </div>
 
                     <!-- Navigation Links - Desktop -->
-                    <nav class="hidden items-center gap-8 md:flex">
+                    <nav class="hidden items-center gap-6 lg:flex xl:gap-8">
                         <a
                             href="#home"
                             class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
@@ -388,7 +426,7 @@ const formatPrice = (price: number) => {
                     </nav>
 
                     <!-- Header Actions -->
-                    <div class="hidden items-center gap-4 md:flex">
+                    <div class="hidden items-center gap-4 lg:flex">
                         <!-- Appearance Mode Switcher -->
                         <button
                             @click="toggleTheme"
@@ -422,7 +460,7 @@ const formatPrice = (price: number) => {
                     </div>
 
                     <!-- Mobile Menu Button -->
-                    <div class="flex items-center gap-2 md:hidden">
+                    <div class="flex items-center gap-2 lg:hidden">
                         <button
                             @click="toggleTheme"
                             class="mr-1 flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200/50 bg-amber-50/50 text-neutral-700 transition-all dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
@@ -447,7 +485,7 @@ const formatPrice = (price: number) => {
             <!-- Mobile Navigation Overlay -->
             <div
                 v-if="isMobileMenuOpen"
-                class="border-t border-amber-100 bg-[#FFFDF9] px-4 py-4 shadow-lg md:hidden dark:border-neutral-800 dark:bg-neutral-950"
+                class="border-t border-amber-100 bg-[#FFFDF9] px-4 py-4 shadow-lg lg:hidden dark:border-neutral-800 dark:bg-neutral-950"
             >
                 <div class="flex flex-col gap-3">
                     <a
@@ -790,12 +828,12 @@ const formatPrice = (price: number) => {
                 <!-- Products Grid -->
                 <div
                     v-if="props.bestSellers.length > 0"
-                    class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+                    class="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3 xl:grid-cols-5"
                 >
                     <div
                         v-for="(product, index) in props.bestSellers"
                         :key="product.id_produk"
-                        class="group flex flex-col overflow-hidden rounded-3xl border border-amber-100/50 bg-[#FFFDF9] shadow-xs transition-all duration-300 hover:-translate-y-2 hover:border-orange-500/40 hover:shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900"
+                        class="group flex flex-col overflow-hidden rounded-2xl border border-amber-100/50 bg-[#FFFDF9] shadow-xs transition-all duration-300 hover:-translate-y-2 hover:border-orange-500/40 hover:shadow-2xl sm:rounded-3xl dark:border-neutral-800/80 dark:bg-neutral-900"
                     >
                         <!-- Image Container with rank badge -->
                         <div
@@ -803,7 +841,7 @@ const formatPrice = (price: number) => {
                         >
                             <span
                                 :class="[
-                                    'absolute top-4 left-4 z-10 rounded-xl px-3 py-1.5 text-xs font-extrabold text-white shadow-md',
+                                    'absolute top-3 left-3 z-10 rounded-lg px-2 py-1 text-[10px] font-extrabold text-white shadow-md sm:top-4 sm:left-4 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-xs',
                                     index === 0 ? 'bg-orange-600' : 'bg-neutral-700',
                                 ]"
                             >
@@ -815,62 +853,52 @@ const formatPrice = (price: number) => {
                                 :alt="product.nama"
                                 class="h-full w-full transform object-cover transition-transform duration-500 group-hover:scale-110"
                             />
-
-                            <div
-                                class="absolute inset-0 flex items-end justify-center bg-gradient-to-t from-neutral-950/60 via-transparent to-transparent pb-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                            >
-                                <span
-                                    class="flex items-center gap-1 text-xs font-semibold text-white"
-                                >
-                                    <Sparkles class="h-3 w-3 text-amber-400" />
-                                    Klik Pesan Sekarang
-                                </span>
-                            </div>
                         </div>
 
                         <!-- Card Content -->
                         <div
-                            class="flex flex-1 flex-col justify-between space-y-4 p-5"
+                            class="flex flex-1 flex-col justify-between gap-3 p-3 sm:p-5"
                         >
-                            <div class="space-y-2">
+                            <div class="space-y-1.5">
                                 <!-- Total Terjual -->
                                 <div class="flex items-center gap-1.5">
-                                    <TrendingUp class="h-3.5 w-3.5 text-orange-500" />
+                                    <TrendingUp class="h-3.5 w-3.5 shrink-0 text-orange-500" />
                                     <span
-                                        class="text-xs font-bold text-neutral-500 dark:text-neutral-400"
+                                        class="text-[11px] font-bold text-neutral-500 sm:text-xs dark:text-neutral-400"
                                     >
                                         {{ product.total_terjual.toLocaleString('id-ID') }} terjual
                                     </span>
                                 </div>
 
                                 <h3
-                                    class="text-base font-bold leading-snug text-neutral-900 transition-colors group-hover:text-orange-600 dark:text-white dark:group-hover:text-amber-400"
+                                    class="line-clamp-2 text-sm font-bold leading-snug text-neutral-900 transition-colors group-hover:text-orange-600 sm:text-base dark:text-white dark:group-hover:text-amber-400"
                                 >
                                     {{ product.nama }}
                                 </h3>
                             </div>
 
-                            <div
-                                class="flex items-center justify-between border-t border-amber-100/50 pt-2 dark:border-neutral-800/80"
-                            >
-                                <div class="flex flex-col">
-                                    <span
-                                        class="text-[10px] font-bold tracking-wider text-neutral-400 uppercase dark:text-neutral-500"
-                                        >Harga Kemasan</span
-                                    >
-                                    <span
-                                        class="text-lg font-extrabold text-orange-600 dark:text-amber-400"
-                                        >{{ formatPrice(product.harga_jual) }}</span
-                                    >
-                                </div>
-                                <a
-                                    :href="getWhatsAppLink(product.nama)"
-                                    target="_blank"
-                                    class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-600 text-white shadow-xs transition-colors hover:bg-orange-500"
-                                    title="Pesan via WhatsApp"
+                            <div class="space-y-2.5">
+                                <span
+                                    class="block text-base font-extrabold text-orange-600 sm:text-lg dark:text-amber-400"
+                                    >{{ formatPrice(product.harga_jual) }}</span
                                 >
-                                    <MessageCircle class="h-5 w-5" />
-                                </a>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        @click="addToCart(product)"
+                                        class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95"
+                                    >
+                                        <Plus class="h-4 w-4" />
+                                        <span>Keranjang</span>
+                                    </button>
+                                    <a
+                                        :href="getWhatsAppLink(product.nama)"
+                                        target="_blank"
+                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs transition-colors hover:bg-emerald-500"
+                                        title="Pesan langsung via WhatsApp"
+                                    >
+                                        <MessageCircle class="h-5 w-5" />
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -893,31 +921,62 @@ const formatPrice = (price: number) => {
             class="relative z-10 border-t border-amber-100/30 bg-amber-50/30 py-24 dark:border-neutral-900/30 dark:bg-neutral-900/20"
         >
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="mx-auto mb-14 max-w-2xl space-y-3 text-center">
+                <div class="mx-auto mb-10 max-w-2xl space-y-3 text-center sm:mb-12">
                     <span
                         class="text-xs font-extrabold tracking-widest text-orange-600 uppercase dark:text-amber-400"
                         >Katalog Lengkap</span
                     >
                     <h2
-                        class="font-['Outfit',sans-serif] text-3xl font-bold text-neutral-900 sm:text-4xl dark:text-white"
+                        class="font-['Outfit',sans-serif] text-2xl font-bold text-neutral-900 sm:text-4xl dark:text-white"
                     >
                         Semua Produk Cemilan Kami
                     </h2>
-                    <p class="text-neutral-600 dark:text-neutral-300">
+                    <p class="text-sm text-neutral-600 sm:text-base dark:text-neutral-300">
                         Tambahkan cemilan favoritmu ke keranjang, lalu checkout
                         langsung lewat WhatsApp. Mudah & cepat!
                     </p>
                 </div>
 
+                <!-- Search Bar -->
+                <div class="mx-auto mb-10 max-w-xl">
+                    <div class="relative">
+                        <Search
+                            class="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-neutral-400"
+                        />
+                        <input
+                            v-model="searchQuery"
+                            type="text"
+                            inputmode="search"
+                            placeholder="Cari cemilan favoritmu..."
+                            class="w-full rounded-2xl border border-amber-200 bg-white py-3.5 pr-12 pl-12 text-sm font-medium text-neutral-800 shadow-xs transition-all outline-none placeholder:text-neutral-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-400/30 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+                        />
+                        <button
+                            v-if="searchQuery"
+                            @click="searchQuery = ''"
+                            class="absolute top-1/2 right-3 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-amber-50 hover:text-neutral-700 dark:hover:bg-neutral-800"
+                            title="Hapus pencarian"
+                        >
+                            <X class="h-4 w-4" />
+                        </button>
+                    </div>
+                    <p
+                        v-if="searchQuery"
+                        class="mt-3 text-center text-xs text-neutral-500 dark:text-neutral-400"
+                    >
+                        Menampilkan {{ filteredProducts.length }} produk untuk
+                        "<span class="font-semibold text-orange-600 dark:text-amber-400">{{ searchQuery }}</span>"
+                    </p>
+                </div>
+
                 <!-- Catalog Grid -->
                 <div
-                    v-if="props.allProducts.length > 0"
-                    class="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4"
+                    v-if="filteredProducts.length > 0"
+                    class="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
                 >
                     <div
-                        v-for="product in props.allProducts"
+                        v-for="product in filteredProducts"
                         :key="product.id_produk"
-                        class="group flex flex-col overflow-hidden rounded-3xl border border-amber-100/50 bg-[#FFFDF9] shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/40 hover:shadow-xl dark:border-neutral-800/80 dark:bg-neutral-900"
+                        class="group flex flex-col overflow-hidden rounded-2xl border border-amber-100/50 bg-[#FFFDF9] shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/40 hover:shadow-xl sm:rounded-3xl dark:border-neutral-800/80 dark:bg-neutral-900"
                     >
                         <!-- Image -->
                         <div
@@ -925,7 +984,7 @@ const formatPrice = (price: number) => {
                         >
                             <span
                                 v-if="product.kategori"
-                                class="absolute top-3 left-3 z-10 rounded-lg bg-white/90 px-2.5 py-1 text-[10px] font-bold text-orange-600 shadow-xs dark:bg-neutral-800/90 dark:text-amber-400"
+                                class="absolute top-3 left-3 z-10 rounded-lg bg-white/90 px-2 py-1 text-[10px] font-bold text-orange-600 shadow-xs dark:bg-neutral-800/90 dark:text-amber-400"
                             >
                                 {{ product.kategori }}
                             </span>
@@ -938,7 +997,7 @@ const formatPrice = (price: number) => {
 
                         <!-- Content -->
                         <div
-                            class="flex flex-1 flex-col justify-between gap-3 p-4"
+                            class="flex flex-1 flex-col justify-between gap-3 p-3 sm:p-4"
                         >
                             <h3
                                 class="line-clamp-2 text-sm font-bold leading-snug text-neutral-900 transition-colors group-hover:text-orange-600 dark:text-white dark:group-hover:text-amber-400"
@@ -946,7 +1005,7 @@ const formatPrice = (price: number) => {
                                 {{ product.nama }}
                             </h3>
 
-                            <div class="space-y-3">
+                            <div class="space-y-2.5">
                                 <span
                                     class="block text-base font-extrabold text-orange-600 dark:text-amber-400"
                                     >{{ formatPrice(product.harga_jual) }}</span
@@ -961,6 +1020,26 @@ const formatPrice = (price: number) => {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- No search result -->
+                <div
+                    v-else-if="props.allProducts.length > 0"
+                    class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 py-16 text-center dark:border-neutral-700"
+                >
+                    <Search class="mb-4 h-12 w-12 text-amber-300 dark:text-neutral-600" />
+                    <p class="font-bold text-neutral-700 dark:text-neutral-300">
+                        Produk tidak ditemukan
+                    </p>
+                    <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                        Coba kata kunci lain ya.
+                    </p>
+                    <button
+                        @click="searchQuery = ''"
+                        class="mt-4 cursor-pointer rounded-xl border border-amber-200 px-5 py-2.5 text-sm font-semibold text-orange-700 transition-colors hover:bg-amber-50 dark:border-neutral-700 dark:text-amber-400 dark:hover:bg-neutral-800"
+                    >
+                        Reset Pencarian
+                    </button>
                 </div>
 
                 <!-- Empty state -->
@@ -1322,10 +1401,10 @@ const formatPrice = (price: number) => {
         >
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div
-                    class="grid grid-cols-1 gap-12 border-b border-neutral-800 pb-12 md:grid-cols-4"
+                    class="grid grid-cols-2 gap-8 border-b border-neutral-800 pb-10 md:grid-cols-4 md:gap-12 md:pb-12"
                 >
                     <!-- Brand column -->
-                    <div class="space-y-4">
+                    <div class="col-span-2 space-y-4 md:col-span-1">
                         <div class="flex items-center gap-2">
                             <div
                                 class="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500 text-white"
@@ -1363,7 +1442,14 @@ const formatPrice = (price: number) => {
                                 <a
                                     href="#menu"
                                     class="transition-colors hover:text-amber-400"
-                                    >Katalog Menu</a
+                                    >Best Seller</a
+                                >
+                            </li>
+                            <li>
+                                <a
+                                    href="#katalog"
+                                    class="transition-colors hover:text-amber-400"
+                                    >Katalog Produk</a
                                 >
                             </li>
                             <li>
@@ -1492,7 +1578,7 @@ const formatPrice = (price: number) => {
             >
                 <!-- Drawer Header -->
                 <div
-                    class="flex items-center justify-between border-b border-amber-100/60 px-6 py-5 dark:border-neutral-800"
+                    class="flex items-center justify-between border-b border-amber-100/60 px-4 py-4 sm:px-6 sm:py-5 dark:border-neutral-800"
                 >
                     <div class="flex items-center gap-3">
                         <div
@@ -1520,62 +1606,73 @@ const formatPrice = (price: number) => {
                 </div>
 
                 <!-- Cart Items List -->
-                <div class="flex-1 overflow-y-auto px-6 py-4">
+                <div class="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
                     <div
                         v-if="cart.length > 0"
-                        class="space-y-4"
+                        class="space-y-3"
                     >
                         <div
                             v-for="item in cart"
                             :key="item.id_produk"
-                            class="flex gap-4 rounded-2xl border border-amber-100/60 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                            class="flex gap-3 rounded-2xl border border-amber-100/70 bg-white p-2.5 shadow-xs transition-shadow hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
                         >
                             <img
                                 :src="item.foto_url || '/images/hero.png'"
                                 :alt="item.nama"
-                                class="h-20 w-20 flex-shrink-0 rounded-xl object-cover"
+                                class="h-20 w-20 shrink-0 rounded-xl object-cover"
                             />
-                            <div class="flex flex-1 flex-col justify-between">
+                            <div class="flex min-w-0 flex-1 flex-col justify-between gap-2">
+                                <!-- Title + remove -->
                                 <div class="flex items-start justify-between gap-2">
-                                    <h4
-                                        class="line-clamp-2 text-sm font-bold text-neutral-900 dark:text-white"
-                                    >
-                                        {{ item.nama }}
-                                    </h4>
+                                    <div class="min-w-0">
+                                        <h4
+                                            class="line-clamp-2 text-sm leading-snug font-bold text-neutral-900 dark:text-white"
+                                        >
+                                            {{ item.nama }}
+                                        </h4>
+                                        <p
+                                            class="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500"
+                                        >
+                                            {{ formatPrice(item.harga_jual) }} / pcs
+                                        </p>
+                                    </div>
                                     <button
                                         @click="removeFromCart(item.id_produk)"
-                                        class="flex-shrink-0 cursor-pointer text-neutral-400 transition-colors hover:text-red-500"
+                                        class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40"
                                         title="Hapus item"
                                     >
                                         <Trash2 class="h-4 w-4" />
                                     </button>
                                 </div>
-                                <div class="flex items-center justify-between">
-                                    <span
-                                        class="text-sm font-extrabold text-orange-600 dark:text-amber-400"
-                                        >{{ formatPrice(item.harga_jual * item.quantity) }}</span
-                                    >
-                                    <!-- Quantity Stepper -->
+
+                                <!-- Quantity stepper + subtotal -->
+                                <div class="flex items-center justify-between gap-2">
                                     <div
-                                        class="flex items-center gap-2 rounded-lg border border-amber-200 dark:border-neutral-700"
+                                        class="inline-flex items-center gap-1 rounded-full bg-amber-50 p-1 dark:bg-neutral-800"
                                     >
                                         <button
                                             @click="decreaseQty(item.id_produk)"
-                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-l-lg text-neutral-600 transition-colors hover:bg-amber-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors hover:text-orange-600 dark:bg-neutral-700 dark:text-neutral-200"
+                                            :title="item.quantity === 1 ? 'Hapus item' : 'Kurangi'"
                                         >
                                             <Minus class="h-3.5 w-3.5" />
                                         </button>
                                         <span
-                                            class="w-6 text-center text-sm font-bold text-neutral-900 dark:text-white"
+                                            class="w-7 text-center text-sm font-extrabold text-neutral-900 dark:text-white"
                                             >{{ item.quantity }}</span
                                         >
                                         <button
                                             @click="increaseQty(item.id_produk)"
-                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-r-lg text-neutral-600 transition-colors hover:bg-amber-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors hover:text-orange-600 dark:bg-neutral-700 dark:text-neutral-200"
+                                            title="Tambah"
                                         >
                                             <Plus class="h-3.5 w-3.5" />
                                         </button>
                                     </div>
+                                    <span
+                                        class="text-sm font-extrabold text-orange-600 dark:text-amber-400"
+                                        >{{ formatPrice(item.harga_jual * item.quantity) }}</span
+                                    >
                                 </div>
                             </div>
                         </div>
@@ -1599,39 +1696,72 @@ const formatPrice = (price: number) => {
                         <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
                             Yuk pilih cemilan favoritmu dulu!
                         </p>
+                        <button
+                            @click="isCartOpen = false"
+                            class="mt-5 cursor-pointer rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-orange-500"
+                        >
+                            Lihat Produk
+                        </button>
                     </div>
                 </div>
 
                 <!-- Drawer Footer / Checkout -->
                 <div
                     v-if="cart.length > 0"
-                    class="space-y-4 border-t border-amber-100/60 px-6 py-5 dark:border-neutral-800"
+                    class="space-y-3 border-t border-amber-100/60 bg-[#FFFDF9] px-4 py-4 sm:px-6 sm:py-5 dark:border-neutral-800 dark:bg-neutral-950"
                 >
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-semibold text-neutral-500 dark:text-neutral-400"
-                            >Total Pesanan</span
+                    <div
+                        class="flex items-center justify-between rounded-2xl bg-amber-50/70 px-4 py-3 dark:bg-neutral-900"
+                    >
+                        <span class="text-sm font-semibold text-neutral-600 dark:text-neutral-300"
+                            >Total ({{ cartItemCount }} item)</span
                         >
                         <span
-                            class="font-['Outfit',sans-serif] text-2xl font-black text-orange-600 dark:text-amber-400"
+                            class="font-['Outfit',sans-serif] text-xl font-black text-orange-600 sm:text-2xl dark:text-amber-400"
                             >{{ formatPrice(cartTotal) }}</span
                         >
                     </div>
                     <button
                         @click="checkoutViaWhatsApp"
-                        class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-xl active:scale-[0.98]"
+                        class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-xl active:scale-[0.98]"
                     >
                         <MessageCircle class="h-5 w-5" />
                         <span>Checkout via WhatsApp</span>
                     </button>
-                    <button
-                        @click="clearCart"
-                        class="w-full cursor-pointer text-center text-xs font-semibold text-neutral-400 transition-colors hover:text-red-500"
-                    >
-                        Kosongkan Keranjang
-                    </button>
+                    <div class="flex items-center justify-between gap-3">
+                        <button
+                            @click="isCartOpen = false"
+                            class="flex-1 cursor-pointer rounded-xl border border-amber-200 px-4 py-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-amber-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                        >
+                            Lanjut Belanja
+                        </button>
+                        <button
+                            @click="clearCart"
+                            class="flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-semibold text-neutral-400 transition-colors hover:text-red-500"
+                        >
+                            Kosongkan
+                        </button>
+                    </div>
                 </div>
             </aside>
         </transition>
+
+        <!-- Toast Notification (feedback tambah ke keranjang) -->
+        <div
+            class="pointer-events-none fixed inset-x-0 top-24 z-[80] flex justify-center px-4"
+        >
+            <transition name="toast">
+                <div
+                    v-if="toastMessage"
+                    class="pointer-events-auto flex max-w-sm items-center gap-2.5 rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-2xl dark:bg-white dark:text-neutral-900"
+                >
+                    <CheckCircle2
+                        class="h-5 w-5 shrink-0 text-emerald-400 dark:text-emerald-500"
+                    />
+                    <span class="line-clamp-2">{{ toastMessage }}</span>
+                </div>
+            </transition>
+        </div>
     </div>
 </template>
 
@@ -1663,5 +1793,18 @@ html {
 .slide-enter-from,
 .slide-leave-to {
     transform: translateX(100%);
+}
+
+/* Toast transition */
+.toast-enter-active,
+.toast-leave-active {
+    transition:
+        opacity 0.3s ease,
+        transform 0.3s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+    opacity: 0;
+    transform: translateY(-12px);
 }
 </style>
