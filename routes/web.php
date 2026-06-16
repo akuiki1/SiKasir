@@ -8,10 +8,34 @@ use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\PromoController;
 use App\Http\Controllers\TransaksiController;
+use App\Models\Produk;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
-Route::inertia('/', 'Welcome')->name('home');
+Route::get('/', function () {
+    $bestSellers = Produk::select(
+        'produks.id_produk',
+        'produks.nama',
+        'produks.harga_jual',
+        'produks.foto'
+    )
+        ->selectRaw('COALESCE(SUM(detail_transaksis.jumlah), 0) as total_terjual')
+        ->leftJoin('detail_transaksis', 'produks.id_produk', '=', 'detail_transaksis.id_produk')
+        ->groupBy('produks.id_produk', 'produks.nama', 'produks.harga_jual', 'produks.foto')
+        ->orderByDesc('total_terjual')
+        ->take(5)
+        ->get()
+        ->map(fn ($p) => [
+            'id_produk'     => $p->id_produk,
+            'nama'          => $p->nama,
+            'harga_jual'    => $p->harga_jual,
+            'foto_url'      => $p->foto ? asset("storage/{$p->foto}") : null,
+            'total_terjual' => (int) $p->total_terjual,
+        ]);
+
+    return Inertia::render('Welcome', ['bestSellers' => $bestSellers]);
+})->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {

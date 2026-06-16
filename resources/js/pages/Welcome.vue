@@ -22,10 +22,23 @@ import {
     Leaf,
     Clock,
     ThumbsUp,
+    TrendingUp,
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import { useAppearance } from '@/composables/useAppearance';
 import { dashboard, login } from '@/routes';
+
+interface BestSeller {
+    id_produk: number;
+    nama: string;
+    harga_jual: number;
+    foto_url: string | null;
+    total_terjual: number;
+}
+
+const props = defineProps<{
+    bestSellers: BestSeller[];
+}>();
 
 const { appearance, updateAppearance } = useAppearance();
 
@@ -35,8 +48,15 @@ const toggleTheme = () => {
     updateAppearance(appearance.value === 'dark' ? 'light' : 'dark');
 };
 
-// Snack Data
-const products = [
+const getRankTag = (index: number): string => {
+    if (index === 0) return 'Terlaris 🔥';
+    if (index === 1) return '#2 Best Seller';
+    if (index === 2) return '#3 Favorit';
+    return `#${index + 1} Pilihan`;
+};
+
+// Static data for the flavor quiz section only
+const quizProducts = [
     {
         id: 1,
         name: 'Keripik Singkong Pedas Daun Jeruk',
@@ -120,12 +140,12 @@ const quizOptions = [
 
 const matchedProduct = computed(() => {
     if (!selectedFlavor.value) {
-return null;
-}
+        return null;
+    }
 
     return (
-        products.find((p) => p.flavorType === selectedFlavor.value) ||
-        products[0]
+        quizProducts.find((p) => p.flavorType === selectedFlavor.value) ||
+        quizProducts[0]
     );
 });
 
@@ -653,26 +673,30 @@ const formatPrice = (price: number) => {
 
                 <!-- Products Grid -->
                 <div
-                    class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4"
+                    v-if="props.bestSellers.length > 0"
+                    class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
                 >
                     <div
-                        v-for="product in products"
-                        :key="product.id"
+                        v-for="(product, index) in props.bestSellers"
+                        :key="product.id_produk"
                         class="group flex flex-col overflow-hidden rounded-3xl border border-amber-100/50 bg-[#FFFDF9] shadow-xs transition-all duration-300 hover:-translate-y-2 hover:border-orange-500/40 hover:shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900"
                     >
-                        <!-- Image Container with tag badge -->
+                        <!-- Image Container with rank badge -->
                         <div
                             class="relative aspect-square w-full overflow-hidden bg-amber-50/50 dark:bg-neutral-900"
                         >
                             <span
-                                class="absolute top-4 left-4 z-10 rounded-xl bg-orange-600 px-3 py-1.5 text-xs font-extrabold text-white shadow-md"
+                                :class="[
+                                    'absolute top-4 left-4 z-10 rounded-xl px-3 py-1.5 text-xs font-extrabold text-white shadow-md',
+                                    index === 0 ? 'bg-orange-600' : 'bg-neutral-700',
+                                ]"
                             >
-                                {{ product.tag }}
+                                {{ getRankTag(index) }}
                             </span>
 
                             <img
-                                :src="product.image"
-                                :alt="product.name"
+                                :src="product.foto_url || '/images/hero.png'"
+                                :alt="product.nama"
                                 class="h-full w-full transform object-cover transition-transform duration-500 group-hover:scale-110"
                             />
 
@@ -690,38 +714,24 @@ const formatPrice = (price: number) => {
 
                         <!-- Card Content -->
                         <div
-                            class="flex flex-1 flex-col justify-between space-y-4 p-6"
+                            class="flex flex-1 flex-col justify-between space-y-4 p-5"
                         >
                             <div class="space-y-2">
-                                <!-- Rating -->
-                                <div class="flex items-center gap-1">
-                                    <div class="flex text-amber-400">
-                                        <Star
-                                            v-for="n in 5"
-                                            :key="n"
-                                            class="h-3.5 w-3.5 fill-current"
-                                        />
-                                    </div>
+                                <!-- Total Terjual -->
+                                <div class="flex items-center gap-1.5">
+                                    <TrendingUp class="h-3.5 w-3.5 text-orange-500" />
                                     <span
                                         class="text-xs font-bold text-neutral-500 dark:text-neutral-400"
                                     >
-                                        {{ product.rating }} ({{
-                                            product.reviews
-                                        }})
+                                        {{ product.total_terjual.toLocaleString('id-ID') }} terjual
                                     </span>
                                 </div>
 
                                 <h3
-                                    class="text-lg font-bold text-neutral-900 transition-colors group-hover:text-orange-600 dark:text-white dark:group-hover:text-amber-400"
+                                    class="text-base font-bold leading-snug text-neutral-900 transition-colors group-hover:text-orange-600 dark:text-white dark:group-hover:text-amber-400"
                                 >
-                                    {{ product.name }}
+                                    {{ product.nama }}
                                 </h3>
-
-                                <p
-                                    class="line-clamp-3 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400"
-                                >
-                                    {{ product.description }}
-                                </p>
                             </div>
 
                             <div
@@ -734,11 +744,11 @@ const formatPrice = (price: number) => {
                                     >
                                     <span
                                         class="text-lg font-extrabold text-orange-600 dark:text-amber-400"
-                                        >{{ formatPrice(product.price) }}</span
+                                        >{{ formatPrice(product.harga_jual) }}</span
                                     >
                                 </div>
                                 <a
-                                    :href="getWhatsAppLink(product.name)"
+                                    :href="getWhatsAppLink(product.nama)"
                                     target="_blank"
                                     class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-600 text-white shadow-xs transition-colors hover:bg-orange-500"
                                     title="Pesan via WhatsApp"
@@ -748,6 +758,15 @@ const formatPrice = (price: number) => {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Empty state -->
+                <div
+                    v-else
+                    class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 py-20 text-center dark:border-neutral-700"
+                >
+                    <ShoppingBag class="mb-4 h-12 w-12 text-amber-300 dark:text-neutral-600" />
+                    <p class="text-neutral-500 dark:text-neutral-400">Belum ada produk tersedia.</p>
                 </div>
             </div>
         </section>
