@@ -28,10 +28,20 @@ import {
     Clock,
     ThumbsUp,
     TrendingUp,
+    Tag,
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import { useAppearance } from '@/composables/useAppearance';
 import { dashboard, login } from '@/routes';
+
+interface Promo {
+    nama: string;
+    label: string;
+    tipe: 'persen' | 'nominal';
+    nilai: number;
+    sisa_hari: number;
+    tanggal_selesai: string;
+}
 
 interface BestSeller {
     id_produk: number;
@@ -39,6 +49,7 @@ interface BestSeller {
     harga_jual: number;
     foto_url: string | null;
     total_terjual: number;
+    promo: Promo | null;
 }
 
 interface Product {
@@ -48,6 +59,7 @@ interface Product {
     harga_jual: number;
     stok: number;
     foto_url: string | null;
+    promo: Promo | null;
 }
 
 interface CartItem {
@@ -326,6 +338,17 @@ const formatPrice = (price: number) => {
         currency: 'IDR',
         minimumFractionDigits: 0,
     }).format(price);
+};
+
+// Teks sisa masa berlaku promo
+const promoSisaText = (sisaHari: number) => {
+    if (sisaHari <= 0) {
+        return 'Berakhir hari ini';
+    }
+    if (sisaHari === 1) {
+        return 'Sisa 1 hari lagi';
+    }
+    return `Sisa ${sisaHari} hari lagi`;
 };
 </script>
 
@@ -848,6 +871,15 @@ const formatPrice = (price: number) => {
                                 {{ getRankTag(index) }}
                             </span>
 
+                            <!-- Promo ribbon -->
+                            <span
+                                v-if="product.promo"
+                                class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-2 py-1 text-[10px] font-extrabold text-white shadow-md sm:top-4 sm:right-4"
+                            >
+                                <Tag class="h-3 w-3" />
+                                {{ product.promo.label }}
+                            </span>
+
                             <img
                                 :src="product.foto_url || '/images/hero.png'"
                                 :alt="product.nama"
@@ -882,6 +914,26 @@ const formatPrice = (price: number) => {
                                     class="block text-base font-extrabold text-orange-600 sm:text-lg dark:text-amber-400"
                                     >{{ formatPrice(product.harga_jual) }}</span
                                 >
+
+                                <!-- Promo info: promo apa + sisa masa berlaku -->
+                                <div
+                                    v-if="product.promo"
+                                    class="space-y-1 rounded-xl border border-red-200/70 bg-red-50/70 p-2 dark:border-red-900/40 dark:bg-red-950/30"
+                                >
+                                    <div class="flex items-center gap-1.5">
+                                        <Tag class="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
+                                        <span class="line-clamp-1 text-[11px] font-bold text-red-700 dark:text-red-300">
+                                            {{ product.promo.nama }}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <Clock class="h-3.5 w-3.5 shrink-0 text-red-500 dark:text-red-400" />
+                                        <span class="text-[11px] font-semibold text-red-600 dark:text-red-400">
+                                            {{ promoSisaText(product.promo.sisa_hari) }}
+                                        </span>
+                                    </div>
+                                </div>
+
                                 <div class="flex items-center gap-2">
                                     <button
                                         @click="addToCart(product)"
@@ -988,6 +1040,14 @@ const formatPrice = (price: number) => {
                             >
                                 {{ product.kategori }}
                             </span>
+                            <!-- Promo ribbon -->
+                            <span
+                                v-if="product.promo"
+                                class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-2 py-1 text-[10px] font-extrabold text-white shadow-md"
+                            >
+                                <Tag class="h-3 w-3" />
+                                {{ product.promo.label }}
+                            </span>
                             <img
                                 :src="product.foto_url || '/images/hero.png'"
                                 :alt="product.nama"
@@ -1010,6 +1070,26 @@ const formatPrice = (price: number) => {
                                     class="block text-base font-extrabold text-orange-600 dark:text-amber-400"
                                     >{{ formatPrice(product.harga_jual) }}</span
                                 >
+
+                                <!-- Promo info: promo apa + sisa masa berlaku -->
+                                <div
+                                    v-if="product.promo"
+                                    class="space-y-1 rounded-xl border border-red-200/70 bg-red-50/70 p-2 dark:border-red-900/40 dark:bg-red-950/30"
+                                >
+                                    <div class="flex items-center gap-1.5">
+                                        <Tag class="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
+                                        <span class="line-clamp-1 text-[11px] font-bold text-red-700 dark:text-red-300">
+                                            {{ product.promo.nama }}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <Clock class="h-3.5 w-3.5 shrink-0 text-red-500 dark:text-red-400" />
+                                        <span class="text-[11px] font-semibold text-red-600 dark:text-red-400">
+                                            {{ promoSisaText(product.promo.sisa_hari) }}
+                                        </span>
+                                    </div>
+                                </div>
+
                                 <button
                                     @click="addToCart(product)"
                                     class="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95"

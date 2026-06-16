@@ -9,11 +9,47 @@ use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\PromoController;
 use App\Http\Controllers\TransaksiController;
 use App\Models\Produk;
+use App\Models\Promo;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
+    $now = now();
+
+    // Promo aktif yang masih berlaku & spesifik per produk (bukan promo global "Semua Produk").
+    $activePromos = Promo::where('aktif', true)
+        ->whereNotNull('id_produk')
+        ->where('tanggal_mulai', '<=', $now)
+        ->where('tanggal_selesai', '>=', $now)
+        ->orderBy('tanggal_selesai')
+        ->get()
+        ->groupBy('id_produk');
+
+    // Bentuk keterangan promo (jenis diskon + sisa hari berlaku) untuk sebuah produk.
+    $promoFor = function (int $idProduk) use ($activePromos, $now): ?array {
+        $promo = $activePromos->get($idProduk)?->first();
+
+        if (! $promo) {
+            return null;
+        }
+
+        $sisaHari = (int) ceil(($promo->tanggal_selesai->getTimestamp() - $now->getTimestamp()) / 86400);
+
+        $label = $promo->tipe === 'persen'
+            ? 'Diskon '.rtrim(rtrim(number_format($promo->nilai, 2, ',', '.'), '0'), ',').'%'
+            : 'Diskon Rp'.number_format($promo->nilai, 0, ',', '.');
+
+        return [
+            'nama'            => $promo->nama,
+            'label'           => $label,
+            'tipe'            => $promo->tipe,
+            'nilai'           => (float) $promo->nilai,
+            'sisa_hari'       => max(0, $sisaHari),
+            'tanggal_selesai' => $promo->tanggal_selesai->format('Y-m-d'),
+        ];
+    };
+
     $bestSellers = Produk::select(
         'produks.id_produk',
         'produks.nama',
@@ -32,6 +68,7 @@ Route::get('/', function () {
             'harga_jual'    => $p->harga_jual,
             'foto_url'      => $p->foto ? asset("storage/{$p->foto}") : null,
             'total_terjual' => (int) $p->total_terjual,
+            'promo'         => $promoFor($p->id_produk),
         ]);
 
     $allProducts = Produk::with('kategori')
@@ -44,7 +81,11 @@ Route::get('/', function () {
             'harga_jual' => $p->harga_jual,
             'stok'       => $p->stok,
             'foto_url'   => $p->foto ? asset("storage/{$p->foto}") : null,
-        ]);
+            'promo'      => $promoFor($p->id_produk),
+        ])
+        // Produk yang sedang promo tampil paling atas (urutan nama tetap dalam tiap grup).
+        ->sortBy(fn ($p) => $p['promo'] === null ? 1 : 0)
+        ->values();
 
     return Inertia::render('Welcome', [
         'bestSellers' => $bestSellers,
