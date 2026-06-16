@@ -3,6 +3,8 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import {
     BarChart3,
     CalendarDays,
+    ChevronLeft,
+    ChevronRight,
     Clock3,
     Filter,
     Package,
@@ -88,12 +90,7 @@ const form = useForm({
     end_date: props.date_range.end_date,
 });
 
-const MONTHS = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-];
-
-const filterYear = ref(new Date().getFullYear());
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
 function getMonthRange(year: number, month: number) {
     const start = new Date(year, month, 1);
@@ -103,6 +100,12 @@ function getMonthRange(year: number, month: number) {
         end: end.toISOString().slice(0, 10),
     };
 }
+
+function detectInitialYear(): number {
+    return props.date_range.start_date ? new Date(props.date_range.start_date + 'T00:00:00').getFullYear() : new Date().getFullYear();
+}
+
+const filterYear = ref(detectInitialYear());
 
 function detectInitialMode(): string {
     for (let m = 0; m < 12; m++) {
@@ -127,6 +130,20 @@ function selectMonth(monthIndex: number): void {
 
 function selectCustom(): void {
     selectedMode.value = 'custom';
+}
+
+function prevYear(): void {
+    filterYear.value--;
+    if (selectedMode.value !== 'custom') {
+        selectMonth(Number(selectedMode.value));
+    }
+}
+
+function nextYear(): void {
+    filterYear.value++;
+    if (selectedMode.value !== 'custom') {
+        selectMonth(Number(selectedMode.value));
+    }
 }
 
 const maxRevenue = computed(() => Math.max(...props.revenue_chart.map((point) => point.value), 1));
@@ -366,72 +383,91 @@ function printSection(section: string): void {
                 <h1 class="mt-2 text-2xl font-bold tracking-tight md:text-3xl">Ringkasan Performa Bisnis</h1>
             </div>
 
-            <div class="w-full rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 xl:w-auto">
-                <div class="flex items-center justify-between gap-4">
-                    <p class="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        Periode {{ filterYear }}
-                    </p>
+            <div class="w-full rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 xl:w-72">
+                <!-- Year navigator + Print -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-0.5">
+                        <button
+                            type="button"
+                            class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
+                            @click="prevYear"
+                        >
+                            <ChevronLeft class="h-4 w-4" />
+                        </button>
+                        <span class="w-11 text-center text-sm font-bold text-slate-800 dark:text-slate-100">{{ filterYear }}</span>
+                        <button
+                            type="button"
+                            class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
+                            @click="nextYear"
+                        >
+                            <ChevronRight class="h-4 w-4" />
+                        </button>
+                    </div>
                     <button
                         type="button"
-                        class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-zinc-700 dark:text-slate-300 dark:hover:bg-zinc-800"
+                        class="inline-flex h-7 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 dark:border-zinc-700 dark:text-slate-400 dark:hover:bg-zinc-800"
                         @click="printReport"
                     >
-                        <Printer class="h-3.5 w-3.5" />
+                        <Printer class="h-3 w-3" />
                         Cetak
                     </button>
                 </div>
 
-                <div class="mt-3 flex gap-1 overflow-x-auto pb-0.5">
+                <!-- Month grid 4 cols -->
+                <div class="mt-3 grid grid-cols-4 gap-1">
                     <button
                         v-for="(month, i) in MONTHS"
                         :key="i"
                         type="button"
-                        class="shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150"
+                        class="rounded-lg py-2 text-xs font-semibold transition-all"
                         :class="selectedMode === String(i)
-                            ? 'bg-sky-500 text-white shadow-sm'
-                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-zinc-800 dark:hover:text-slate-200'"
+                            ? 'bg-sky-500 text-white'
+                            : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
                         @click="selectMonth(i)"
                     >
                         {{ month }}
                     </button>
                     <button
                         type="button"
-                        class="shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-150"
+                        class="col-span-4 rounded-lg py-2 text-xs font-semibold transition-all"
                         :class="selectedMode === 'custom'
-                            ? 'bg-sky-500 text-white shadow-sm'
-                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-zinc-800 dark:hover:text-slate-200'"
+                            ? 'bg-sky-500 text-white'
+                            : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
                         @click="selectCustom"
                     >
                         Custom
                     </button>
                 </div>
 
+                <!-- Custom date inputs -->
                 <div
                     v-if="selectedMode === 'custom'"
-                    class="mt-3 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 dark:border-zinc-800"
+                    class="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-zinc-800"
                 >
-                    <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                        Mulai
-                        <input
-                            v-model="form.start_date"
-                            type="date"
-                            class="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
-                        />
-                    </label>
-                    <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                        Sampai
-                        <input
-                            v-model="form.end_date"
-                            type="date"
-                            class="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
-                        />
-                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            Mulai
+                            <input
+                                v-model="form.start_date"
+                                type="date"
+                                class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
+                            />
+                        </label>
+                        <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            Sampai
+                            <input
+                                v-model="form.end_date"
+                                type="date"
+                                class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
+                            />
+                        </label>
+                    </div>
                     <button
                         type="button"
-                        class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-sky-500 px-4 text-sm font-semibold text-white transition hover:bg-sky-600"
+                        class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-sky-500 text-xs font-semibold text-white transition hover:bg-sky-600"
                         @click="applyRange"
                     >
-                        <Filter class="h-3.5 w-3.5" />
+                        <Filter class="h-3 w-3" />
                         Terapkan
                     </button>
                 </div>
