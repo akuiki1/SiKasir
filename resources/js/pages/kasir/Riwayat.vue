@@ -9,6 +9,8 @@ import {
     FileText,
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
+import { usePagination } from '@/composables/usePagination';
+import Pagination from '@/components/Pagination.vue';
 
 defineOptions({
     layout: {
@@ -68,6 +70,8 @@ const filteredTransaksis = computed(() => {
         (trx) => trx.kode.toLowerCase().includes(q) || trx.metode_pembayaran.toLowerCase().includes(q),
     );
 });
+
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedTransaksis, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredTransaksis.value);
 
 function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', {
@@ -329,7 +333,7 @@ function printSessionReport(): void {
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
                         <tr
-                            v-if="filteredTransaksis.length === 0"
+                            v-if="paginatedTransaksis.length === 0"
                             class="bg-background text-center text-sm text-muted-foreground"
                         >
                             <td colspan="7" class="px-6 py-8">
@@ -337,7 +341,7 @@ function printSessionReport(): void {
                             </td>
                         </tr>
                         <tr
-                            v-for="trx in filteredTransaksis"
+                            v-for="trx in paginatedTransaksis"
                             :key="trx.id_transaksi"
                             class="hover:bg-slate-50/50 dark:hover:bg-zinc-800/10 transition-colors"
                         >
@@ -374,6 +378,17 @@ function printSessionReport(): void {
                     </tbody>
                 </table>
             </div>
+            <Pagination
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :start-index="startIndex"
+                :end-index="endIndex"
+                :per-page="perPage"
+                :visible-pages="visiblePages"
+                @update:current-page="goToPage"
+                @update:per-page="perPage = $event"
+            />
         </div>
     </div>
 </template>

@@ -13,6 +13,8 @@ import {
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 import { toast } from 'vue-sonner';
+import { usePagination } from '@/composables/usePagination';
+import Pagination from '@/components/Pagination.vue';
 
 defineOptions({
     layout: {
@@ -108,6 +110,8 @@ const filteredProduks = computed(() => {
         return matchesSearch && matchesCategory;
     });
 });
+
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedProduks, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredProduks.value, 12);
 
 function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', {
@@ -453,7 +457,7 @@ function submitTransaction() {
 
             <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 <div
-                    v-for="product in filteredProduks"
+                    v-for="product in paginatedProduks"
                     :key="product.id_produk"
                     :class="[
                         'group overflow-hidden rounded-3xl border p-4 transition-all duration-200 shadow-sm',
@@ -526,6 +530,22 @@ function submitTransaction() {
                     </div>
                 </div>
             </div>
+
+            <div v-if="paginatedProduks.length === 0 && filteredProduks.length === 0" class="py-12 text-center text-muted-foreground">
+                <p class="font-medium">Tidak ada produk yang sesuai pencarian.</p>
+            </div>
+
+            <Pagination
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :start-index="startIndex"
+                :end-index="endIndex"
+                :per-page="perPage"
+                :visible-pages="visiblePages"
+                @update:current-page="goToPage"
+                @update:per-page="perPage = $event"
+            />
         </div>
 
         <div class="w-full lg:w-[380px] rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border flex flex-col justify-between shadow-sm overflow-hidden lg:sticky lg:top-6 lg:h-[calc(100vh-120px)]">
