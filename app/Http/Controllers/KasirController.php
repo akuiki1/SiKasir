@@ -248,7 +248,8 @@ class KasirController extends Controller
             'id_promo' => ['nullable', 'exists:promos,id_promo'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
-            'items.*.jumlah' => ['required', 'integer', 'min:1'],
+            // numeric (bukan integer) agar produk curah bisa dijual pecahan (mis. 1.429 liter).
+            'items.*.jumlah' => ['required', 'numeric', 'gt:0'],
         ]);
 
         DB::transaction(function () use ($validated): void {
@@ -347,7 +348,17 @@ class KasirController extends Controller
                     'subtotal' => $detail['subtotal_after_promo'],
                 ]);
 
-                $detail['produk']->decrement('stok', $detail['jumlah']);
+                // Kurangi stok + catat ke kartu stok (produk masih terkunci dari loop validasi).
+                $detail['produk']->terapkanMutasiStok(
+                    -(float) $detail['jumlah'],
+                    'jual',
+                    [
+                        'keterangan' => 'Penjualan TRX-'.$transaksi->id_transaksi,
+                        'ref_tipe' => 'Transaksi',
+                        'id_referensi' => $transaksi->id_transaksi,
+                        'id_user' => Auth::id(),
+                    ]
+                );
             }
         });
 

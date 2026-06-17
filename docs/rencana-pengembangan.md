@@ -30,8 +30,15 @@ Pisahkan dua konsep yang sekarang menempel:
 
 ## 2. Fase pengembangan (urut berdasarkan ketergantungan)
 
-### Fase 0 — Fondasi: pemisahan model jual + kartu stok ⭐ kerjakan pertama
+### Fase 0 — Fondasi: pemisahan model jual + kartu stok ✅ SELESAI (17 Jun 2026)
 Semua fase lain berdiri di atas ini.
+
+> **Status:** terimplementasi & teruji (100+5 test hijau, migrasi terpasang di DB dev).
+> - Migrasi: `2026_06_17_100001` (tipe_jual+satuan), `100002` (stok & jumlah → decimal(12,3)), `100003` (tabel `stok_mutasis`).
+> - Model: `StokMutasi` baru; `Produk` punya `terapkanMutasiStok()` & `catatMutasiStok()`; cast `stok`/`jumlah` → float.
+> - Kartu stok dicatat di SEMUA titik: penjualan kasir (`KasirController`), transaksi admin (`TransaksiController` create/update/delete), batch produksi (`ProduksiController` store/destroy), buat/edit produk (`ProdukController`).
+> - Test baru: `tests/Feature/StokMutasiTest.php`.
+> - ⏳ UI admin untuk memilih `tipe_jual`/`satuan` menyusul di Fase 1 (backend sudah menerima & default `satuan`/`pcs`).
 
 **Migrasi:**
 - `produks`: tambah `tipe_jual` enum(`satuan`,`curah`,`jasa`) default `satuan`;
@@ -60,9 +67,9 @@ Bergantung pada desimal di Fase 0.
 
 - `harga_jual` untuk `curah` dimaknai **per satuan** (per liter / per kg).
   Bensin: `harga_modal`/liter + margin Rp1.000 → `harga_jual`/liter.
-- UI kasir untuk item `curah`: toggle **input by-qty** atau **input by-rupiah**.
-  - by-rupiah ("isi 20rb"): `qty = nominal ÷ harga_jual`, dibulatkan 3 desimal.
-  - subtotal = nominal (atau `qty × harga`, tentukan aturan pembulatan — lihat §4).
+- UI kasir untuk item `curah`: **utamakan input by-rupiah** (keputusan klien 17 Jun).
+  - by-rupiah ("isi 20rb"): kasir ketik nominal → `qty = nominal ÷ harga_jual`, dibulatkan 3 desimal. **subtotal = nominal persis** (qty disimpan sbg catatan).
+  - input by-qty boleh ada sebagai opsi sekunder, tapi rupiah yang ditonjolkan.
 - Tampilan menunjukkan qty + satuan (mis. `1.429 liter`).
 - `modal` per baris = `qty × harga_modal/satuan` (snapshot, sama seperti sekarang).
 
@@ -138,9 +145,8 @@ Tiga titik agregasi yang WAJIB ditinjau ulang setiap menyentuh Fase 2 & 4:
   - Curah: pastikan qty desimal tidak merusak penjumlahan integer lama.
 
 ## 4. Keputusan teknis yang masih terbuka
-1. **Pembulatan curah by-rupiah:** subtotal = nominal persis (qty desimal panjang)
-   ATAU qty dibulatkan dulu lalu subtotal = qty × harga (ada selisih recehan)?
-   → Rekomendasi: subtotal = **nominal persis**, qty disimpan 3 desimal sbg catatan.
+1. **Pembulatan curah by-rupiah:** ✅ DIPUTUSKAN — input **utamakan rupiah**,
+   subtotal = **nominal persis**, qty (= nominal ÷ harga) disimpan 3 desimal sbg catatan.
 2. **Jasa — produk atau tabel sendiri?** Pakai `produks.tipe_jual=jasa` (cepat,
    reuse UI) ATAU tabel `layanan` terpisah (lebih bersih, tapi lebih banyak kerja)?
    → Rekomendasi: mulai dari `tipe_jual=jasa`, pisah nanti bila perlu.

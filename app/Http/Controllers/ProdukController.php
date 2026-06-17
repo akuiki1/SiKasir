@@ -62,10 +62,13 @@ class ProdukController extends Controller
         $validated = $request->validate([
             'id_kategori' => ['required', 'exists:kategoris,id_kategori'],
             'jenis' => ['nullable', 'in:beli,produksi'],
+            'tipe_jual' => ['nullable', 'in:satuan,curah,jasa'],
+            'satuan' => ['nullable', 'string', 'max:20'],
             'nama' => ['required', 'string', 'max:255'],
             'harga_jual' => ['required', 'integer', 'min:0'],
             'harga_modal' => ['nullable', 'integer', 'min:0'],
-            'stok' => ['required', 'integer', 'min:0'],
+            // numeric agar produk curah bisa berstok pecahan (mis. 12.5 liter).
+            'stok' => ['required', 'numeric', 'min:0'],
             'barcode' => ['nullable', 'string', 'max:255', 'unique:produks,barcode'],
             'sku' => ['nullable', 'string', 'max:255', 'unique:produks,sku'],
             'foto' => ['nullable', 'string', 'max:2048'],
@@ -73,6 +76,13 @@ class ProdukController extends Controller
         ]);
 
         $validated['jenis'] = $validated['jenis'] ?? 'beli';
+        $validated['tipe_jual'] = $validated['tipe_jual'] ?? 'satuan';
+        $validated['satuan'] = $validated['satuan'] ?? 'pcs';
+
+        // Produk jasa (tarik tunai/transfer) tidak punya stok fisik.
+        if ($validated['tipe_jual'] === 'jasa') {
+            $validated['stok'] = 0;
+        }
 
         if ($request->hasFile('foto_upload')) {
             $validated['foto'] = $request->file('foto_upload')->store('produk', 'public');
@@ -86,7 +96,14 @@ class ProdukController extends Controller
             ? 0
             : (int) ($validated['harga_modal'] ?? 0);
 
-        Produk::create($validated);
+        $produk = Produk::create($validated);
+
+        // Catat saldo awal ke kartu stok bila produk dibuat dengan stok > 0.
+        if ((float) $produk->stok != 0.0) {
+            $produk->catatMutasiStok(0, (float) $produk->stok, (float) $produk->stok, 'awal', [
+                'keterangan' => 'Stok awal saat produk dibuat',
+            ]);
+        }
 
         return redirect()->route('admin.products')->with('success', 'Produk berhasil ditambahkan.');
     }
@@ -99,10 +116,13 @@ class ProdukController extends Controller
         $validated = $request->validate([
             'id_kategori' => ['required', 'exists:kategoris,id_kategori'],
             'jenis' => ['nullable', 'in:beli,produksi'],
+            'tipe_jual' => ['nullable', 'in:satuan,curah,jasa'],
+            'satuan' => ['nullable', 'string', 'max:20'],
             'nama' => ['required', 'string', 'max:255'],
             'harga_jual' => ['required', 'integer', 'min:0'],
             'harga_modal' => ['nullable', 'integer', 'min:0'],
-            'stok' => ['required', 'integer', 'min:0'],
+            // numeric agar produk curah bisa berstok pecahan (mis. 12.5 liter).
+            'stok' => ['required', 'numeric', 'min:0'],
             'barcode' => ['nullable', 'string', 'max:255', 'unique:produks,barcode,'.$produk->id_produk.',id_produk'],
             'sku' => ['nullable', 'string', 'max:255', 'unique:produks,sku,'.$produk->id_produk.',id_produk'],
             'foto' => ['nullable', 'string', 'max:2048'],
@@ -110,6 +130,15 @@ class ProdukController extends Controller
         ]);
 
         $validated['jenis'] = $validated['jenis'] ?? $produk->jenis;
+        $validated['tipe_jual'] = $validated['tipe_jual'] ?? $produk->tipe_jual;
+        $validated['satuan'] = $validated['satuan'] ?? $produk->satuan;
+
+        // Produk jasa tidak punya stok fisik.
+        if ($validated['tipe_jual'] === 'jasa') {
+            $validated['stok'] = 0;
+        }
+
+        $stokLama = (float) $produk->stok;
 
         if ($request->hasFile('foto_upload')) {
             $validated['foto'] = $request->file('foto_upload')->store('produk', 'public');
@@ -125,6 +154,14 @@ class ProdukController extends Controller
         }
 
         $produk->update($validated);
+
+        // Catat penyesuaian stok manual ke kartu stok bila stok berubah.
+        $stokBaru = (float) $produk->stok;
+        if ($stokBaru !== $stokLama) {
+            $produk->catatMutasiStok($stokLama, $stokBaru, $stokBaru - $stokLama, 'penyesuaian', [
+                'keterangan' => 'Penyesuaian stok manual dari halaman produk',
+            ]);
+        }
 
         return redirect()->route('admin.products')->with('success', 'Produk berhasil diperbarui.');
     }

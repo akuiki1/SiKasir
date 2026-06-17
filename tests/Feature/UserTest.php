@@ -132,7 +132,7 @@ test('kasir can store a new transaksi and decrement stock', function () {
         'jumlah' => 2,
         'subtotal' => 20000,
     ]);
-    expect($produk->fresh()->stok)->toBe(3);
+    expect($produk->fresh()->stok)->toBe(3.0);
 });
 
 test('kasir can apply a global promo when storing transaksi', function () {
@@ -215,7 +215,7 @@ test('admin can create a transaction and decrement stock', function () {
         'jumlah' => 2,
         'subtotal' => 20000,
     ]);
-    expect($produk->fresh()->stok)->toBe(18);
+    expect($produk->fresh()->stok)->toBe(18.0);
 });
 
 test('admin cannot create transaction with insufficient stock', function () {
@@ -233,7 +233,7 @@ test('admin cannot create transaction with insufficient stock', function () {
     ]);
 
     $response->assertSessionHasErrors('items');
-    expect($produk->fresh()->stok)->toBe(1);
+    expect($produk->fresh()->stok)->toBe(1.0);
 });
 
 test('admin can update a transaction', function () {
@@ -270,7 +270,7 @@ test('admin can update a transaction', function () {
         'total_harga' => 20000,
         'metode_pembayaran' => 'qris',
     ]);
-    expect($produk->fresh()->stok)->toBe(8);
+    expect($produk->fresh()->stok)->toBe(8.0);
 });
 
 test('admin can delete a transaction and restore stock', function () {
@@ -291,7 +291,7 @@ test('admin can delete a transaction and restore stock', function () {
 
     $response->assertRedirect(route('admin.transactions'));
     $this->assertDatabaseMissing('transaksis', ['id_transaksi' => $transaksi->id_transaksi]);
-    expect($produk->fresh()->stok)->toBe(5);
+    expect($produk->fresh()->stok)->toBe(5.0);
 });
 
 test('admin can delete produk used in transaction and preserve transaction history', function () {

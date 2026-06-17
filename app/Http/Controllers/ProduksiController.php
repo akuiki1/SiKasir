@@ -95,7 +95,15 @@ class ProduksiController extends Controller
 
             // Produksi menambah stok barang jadi & memperbarui modal per unit produk.
             $produk = Produk::lockForUpdate()->findOrFail($validated['id_produk']);
-            $produk->increment('stok', $validated['jumlah']);
+            $produk->terapkanMutasiStok(
+                (float) $validated['jumlah'],
+                'produksi',
+                [
+                    'keterangan' => 'Batch produksi #'.$produksi->id_produksi,
+                    'ref_tipe' => 'Produksi',
+                    'id_referensi' => $produksi->id_produksi,
+                ]
+            );
             $produk->update(['harga_modal' => $modalPerUnit]);
         });
 
@@ -112,8 +120,15 @@ class ProduksiController extends Controller
             $produk = Produk::lockForUpdate()->find($produksi->id_produk);
 
             if ($produk) {
-                $sisa = max(0, $produk->stok - $produksi->jumlah);
-                $produk->update(['stok' => $sisa]);
+                $produk->terapkanMutasiStok(
+                    -(float) $produksi->jumlah,
+                    'produksi_batal',
+                    [
+                        'keterangan' => 'Pembatalan batch produksi #'.$produksi->id_produksi,
+                        'ref_tipe' => 'Produksi',
+                        'id_referensi' => $produksi->id_produksi,
+                    ]
+                );
             }
 
             $produksi->delete(); // biaya ikut terhapus (cascade)

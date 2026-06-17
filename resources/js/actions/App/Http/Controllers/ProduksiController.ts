@@ -134,7 +134,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:108
+ * @see app/Http/Controllers/ProduksiController.php:116
  * @route '/admin/produksi/{produksi}'
  */
 export const destroy = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -149,7 +149,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:108
+ * @see app/Http/Controllers/ProduksiController.php:116
  * @route '/admin/produksi/{produksi}'
  */
 destroy.url = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions) => {
@@ -182,7 +182,7 @@ destroy.url = (args: { produksi: number | { id_produksi: number } } | [produksi:
 
 /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:108
+ * @see app/Http/Controllers/ProduksiController.php:116
  * @route '/admin/produksi/{produksi}'
  */
 destroy.delete = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -192,7 +192,7 @@ destroy.delete = (args: { produksi: number | { id_produksi: number } } | [produk
 
     /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:108
+ * @see app/Http/Controllers/ProduksiController.php:116
  * @route '/admin/produksi/{produksi}'
  */
     const destroyForm = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -207,7 +207,7 @@ destroy.delete = (args: { produksi: number | { id_produksi: number } } | [produk
 
             /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:108
+ * @see app/Http/Controllers/ProduksiController.php:116
  * @route '/admin/produksi/{produksi}'
  */
         destroyForm.delete = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

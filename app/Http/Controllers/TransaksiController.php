@@ -70,7 +70,8 @@ class TransaksiController extends Controller
             'bayar' => ['required', 'integer', 'min:0'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
-            'items.*.jumlah' => ['required', 'integer', 'min:1'],
+            // numeric (bukan integer) agar produk curah bisa dijual pecahan.
+            'items.*.jumlah' => ['required', 'numeric', 'gt:0'],
         ]);
 
         DB::transaction(function () use ($validated): void {
@@ -91,7 +92,8 @@ class TransaksiController extends Controller
             'bayar' => ['required', 'integer', 'min:0'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
-            'items.*.jumlah' => ['required', 'integer', 'min:1'],
+            // numeric (bukan integer) agar produk curah bisa dijual pecahan.
+            'items.*.jumlah' => ['required', 'numeric', 'gt:0'],
         ]);
 
         DB::transaction(function () use ($validated, $transaksi): void {
@@ -176,7 +178,16 @@ class TransaksiController extends Controller
                 'subtotal' => $detail['subtotal'],
             ]);
 
-            $detail['produk']->decrement('stok', $detail['jumlah']);
+            // Kurangi stok + catat ke kartu stok (produk masih terkunci dari loop validasi).
+            $detail['produk']->terapkanMutasiStok(
+                -(float) $detail['jumlah'],
+                'jual',
+                [
+                    'keterangan' => 'Penjualan (admin) TRX-'.$transaksi->id_transaksi,
+                    'ref_tipe' => 'Transaksi',
+                    'id_referensi' => $transaksi->id_transaksi,
+                ]
+            );
         }
     }
 
@@ -185,8 +196,24 @@ class TransaksiController extends Controller
         $transaksi->load('detailTransaksis');
 
         foreach ($transaksi->detailTransaksis as $detail) {
-            Produk::where('id_produk', $detail->id_produk)
-                ->increment('stok', $detail->jumlah);
+            if ($detail->id_produk === null) {
+                continue; // produk sudah dihapus — lewati pengembalian stok.
+            }
+
+            $produk = Produk::lockForUpdate()->find($detail->id_produk);
+
+            if ($produk) {
+                // Kembalikan stok + catat ke kartu stok (edit/hapus transaksi).
+                $produk->terapkanMutasiStok(
+                    (float) $detail->jumlah,
+                    'retur',
+                    [
+                        'keterangan' => 'Pengembalian stok dari edit/hapus TRX-'.$transaksi->id_transaksi,
+                        'ref_tipe' => 'Transaksi',
+                        'id_referensi' => $transaksi->id_transaksi,
+                    ]
+                );
+            }
         }
     }
 

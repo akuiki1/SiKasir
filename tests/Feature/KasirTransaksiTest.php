@@ -85,9 +85,9 @@ test('kasir can store a transaction, decrement stock and compute change', functi
         'subtotal' => 20000,
     ]);
 
-    // Stok berkurang sesuai jumlah terjual
-    expect($produkA->fresh()->stok)->toBe(8);
-    expect($produkB->fresh()->stok)->toBe(4);
+    // Stok berkurang sesuai jumlah terjual (stok kini bertipe desimal/float)
+    expect($produkA->fresh()->stok)->toBe(8.0);
+    expect($produkB->fresh()->stok)->toBe(4.0);
 });
 
 test('selling snapshots the product modal into the transaction detail', function () {
@@ -140,7 +140,7 @@ test('transaction is rejected when stock is insufficient and nothing is persiste
     $response->assertSessionHasErrors('items');
     $this->assertDatabaseCount('transaksis', 0);
     $this->assertDatabaseCount('detail_transaksis', 0);
-    expect($produk->fresh()->stok)->toBe(1); // stok tidak berubah (rollback)
+    expect($produk->fresh()->stok)->toBe(1.0); // stok tidak berubah (rollback)
 });
 
 test('transaction is rejected when payment is less than total', function () {
@@ -159,7 +159,7 @@ test('transaction is rejected when payment is less than total', function () {
 
     $response->assertSessionHasErrors('bayar');
     $this->assertDatabaseCount('transaksis', 0);
-    expect($produk->fresh()->stok)->toBe(10);
+    expect($produk->fresh()->stok)->toBe(10.0);
 });
 
 /*

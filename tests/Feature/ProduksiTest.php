@@ -51,7 +51,7 @@ test('recording a production batch computes unit cost, adds stock and updates pr
     $this->assertDatabaseCount('produksi_biayas', 2);
 
     // Stok bertambah & modal produk diperbarui ke modal/unit batch
-    expect($produk->fresh()->stok)->toBe(100);
+    expect($produk->fresh()->stok)->toBe(100.0);
     expect($produk->fresh()->harga_modal)->toBe(2500);
 });
 
@@ -119,7 +119,7 @@ test('deleting a production batch reverses the added stock', function () {
 
     $response->assertRedirect(route('admin.produksi'));
     $this->assertDatabaseMissing('produksis', ['id_produksi' => $produksi->id_produksi]);
-    expect($produk->fresh()->stok)->toBe(60); // 100 - 40
+    expect($produk->fresh()->stok)->toBe(60.0); // 100 - 40
 });
 
 test('kasir cannot access produksi pages', function () {

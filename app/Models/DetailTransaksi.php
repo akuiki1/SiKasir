@@ -24,7 +24,8 @@ class DetailTransaksi extends Model
     ];
 
     protected $casts = [
-        'jumlah' => 'integer',
+        // Bisa pecahan untuk produk curah (mis. 1.429 liter). Rupiah tetap integer.
+        'jumlah' => 'float',
         'harga' => 'integer',
         'modal' => 'integer',
         'subtotal' => 'integer',
