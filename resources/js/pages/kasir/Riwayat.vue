@@ -71,7 +71,7 @@ const filteredTransaksis = computed(() => {
     );
 });
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedTransaksis, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredTransaksis.value);
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedTransaksis, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredTransaksis.value, 10);
 
 function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', {
