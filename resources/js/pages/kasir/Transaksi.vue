@@ -132,7 +132,7 @@ const filteredProduks = computed(() => {
     });
 });
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedProduks, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredProduks.value, 12);
+const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedProduks, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredProduks.value, 10);
 
 function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', {
