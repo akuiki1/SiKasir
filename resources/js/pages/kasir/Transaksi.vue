@@ -118,18 +118,27 @@ const categories = computed(() => {
 
 const filteredProduks = computed(() => {
     const query = searchQuery.value.toLowerCase().trim();
+    const promoIds = activeProductPromos.value;
 
-    return props.produks.filter((product) => {
-        const matchesSearch =
-            !query ||
-            product.nama.toLowerCase().includes(query) ||
-            product.kategori?.toLowerCase().includes(query);
+    return props.produks
+        .filter((product) => {
+            const matchesSearch =
+                !query ||
+                product.nama.toLowerCase().includes(query) ||
+                product.kategori?.toLowerCase().includes(query);
 
-        const matchesCategory =
-            !selectedCategory.value || product.kategori === selectedCategory.value;
+            const matchesCategory =
+                !selectedCategory.value || product.kategori === selectedCategory.value;
 
-        return matchesSearch && matchesCategory;
-    });
+            return matchesSearch && matchesCategory;
+        })
+        // Produk yang sedang promo tampil paling depan (urutan lain tetap).
+        .sort((a, b) => {
+            const aPromo = promoIds.has(a.id_produk) ? 1 : 0;
+            const bPromo = promoIds.has(b.id_produk) ? 1 : 0;
+
+            return bPromo - aPromo;
+        });
 });
 
 const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedProduks, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredProduks.value, 10);

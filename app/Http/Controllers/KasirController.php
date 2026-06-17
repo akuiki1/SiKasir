@@ -121,6 +121,7 @@ class KasirController extends Controller
             ->where('aktif', true)
             ->where('tanggal_mulai', '<=', $now)
             ->where('tanggal_selesai', '>=', $now)
+            ->orderByRaw('DATE(tanggal_selesai) = ? DESC', [$today->toDateString()])
             ->orderBy('tanggal_selesai')
             ->limit(6)
             ->get()
@@ -134,9 +135,16 @@ class KasirController extends Controller
                 return [
                     'id_promo' => $promo->id_promo,
                     'nama' => $promo->nama,
+                    'deskripsi' => $promo->deskripsi,
                     'label' => $label,
+                    'tipe' => $promo->tipe,
                     'target' => $promo->id_produk ? $promo->produk->nama : 'Semua Produk',
+                    'is_global' => $promo->id_produk === null,
+                    'minimal_belanja' => $promo->minimal_belanja ? (int) $promo->minimal_belanja : null,
                     'sisa_hari' => max(0, $sisaHari),
+                    'berakhir_hari_ini' => $promo->tanggal_selesai->isToday(),
+                    'mulai_hari_ini' => $promo->tanggal_mulai->isToday(),
+                    'periode' => $promo->tanggal_mulai->translatedFormat('d M').' – '.$promo->tanggal_selesai->translatedFormat('d M Y'),
                 ];
             });
 
