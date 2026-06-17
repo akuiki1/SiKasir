@@ -224,17 +224,6 @@ class KasirController extends Controller
                 'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
             ]);
 
-        // Produk jasa (transfer/tarik tunai): nominal = pass-through, fee diketik kasir.
-        $layanan = Produk::query()
-            ->where('tipe_jual', 'jasa')
-            ->orderBy('nama')
-            ->get()
-            ->map(fn (Produk $produk) => [
-                'id_produk' => $produk->id_produk,
-                'nama' => $produk->nama,
-                'satuan' => $produk->satuan,
-            ]);
-
         // Pelanggan untuk pemilih di keranjang (default "Umum"); reseller dapat potongan harga.
         $pelanggans = Pelanggan::orderBy('nama')
             ->get()
@@ -262,9 +251,29 @@ class KasirController extends Controller
 
         return Inertia::render('kasir/Transaksi', [
             'produks' => $produks,
-            'layanan' => $layanan,
             'pelanggans' => $pelanggans,
             'promos' => $promos,
+        ]);
+    }
+
+    /**
+     * Halaman jasa/fee terpisah (transfer, tarik tunai) — bukan transaksi produk.
+     * Memakai endpoint store yang sama; nominal = pass-through, fee = pendapatan.
+     */
+    public function layanan(): Response
+    {
+        $layanan = Produk::query()
+            ->where('tipe_jual', 'jasa')
+            ->orderBy('nama')
+            ->get()
+            ->map(fn (Produk $produk) => [
+                'id_produk' => $produk->id_produk,
+                'nama' => $produk->nama,
+                'satuan' => $produk->satuan,
+            ]);
+
+        return Inertia::render('kasir/Layanan', [
+            'layanan' => $layanan,
         ]);
     }
 

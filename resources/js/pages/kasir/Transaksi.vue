@@ -61,12 +61,6 @@ interface Promo {
     minimal_belanja: number | null;
 }
 
-interface Layanan {
-    id_produk: number;
-    nama: string;
-    satuan: string;
-}
-
 interface Pelanggan {
     id_pelanggan: number;
     nama: string;
@@ -84,15 +78,13 @@ interface CartItem {
     stock: number;
     tipe_jual: TipeJual;
     satuan: string;
-    nominal: number; // curah: rupiah dibayar · jasa: uang transfer/tarik (pass-through)
-    fee: number; // hanya dipakai produk jasa (biaya admin = pendapatan)
+    nominal: number; // curah: rupiah yang dibayar (qty = nominal ÷ harga)
     foto: string | null;
     foto_url?: string | null;
 }
 
 const props = defineProps<{
     produks: Produk[];
-    layanan: Layanan[];
     pelanggans: Pelanggan[];
     promos: Promo[];
 }>();
@@ -128,7 +120,7 @@ const form = useForm({
     bayar: '',
     id_pelanggan: null as number | null,
     id_promo: null as number | null,
-    items: [] as Array<{ id_produk: number; jumlah: number; nominal?: number; fee?: number }>,
+    items: [] as Array<{ id_produk: number; jumlah: number; nominal?: number }>,
 });
 
 const selectedPelanggan = computed(() => props.pelanggans.find((p) => p.id_pelanggan === form.id_pelanggan) ?? null);
@@ -242,14 +234,6 @@ function recomputeCurahItem(item: CartItem): void {
     item.subtotal = Math.round(nominal);
 }
 
-// Jasa: subtotal/omzet = fee saja. Nominal pokok TIDAK masuk subtotal (pass-through).
-function recomputeJasaItem(item: CartItem): void {
-    const fee = Math.max(0, Number(item.fee) || 0);
-    item.harga = fee;
-    item.subtotal = fee;
-    item.qty = 1;
-}
-
 function resolveFoto(foto: string | null): string | null {
     if (!foto) {
         return null;
@@ -342,7 +326,6 @@ function addToCart(product: Produk) {
                 tipe_jual: 'curah',
                 satuan: product.satuan,
                 nominal: 0,
-                fee: 0,
                 foto: product.foto,
                 foto_url: product.foto_url ?? null,
             });
@@ -378,36 +361,9 @@ function addToCart(product: Produk) {
         tipe_jual: product.tipe_jual,
         satuan: product.satuan,
         nominal: 0,
-        fee: 0,
         foto: product.foto,
         foto_url: product.foto_url ?? null,
     });
-}
-
-// Layanan/jasa (transfer, tarik tunai): kasir isi nominal pokok + fee secara manual.
-function addLayanan(item: Layanan) {
-    const existing = cartItems.value.find((cart) => cart.id_produk === item.id_produk);
-
-    if (!existing) {
-        cartItems.value.push({
-            id_produk: item.id_produk,
-            nama: item.nama,
-            harga: 0,
-            harga_base: 0,
-            potongan_reseller: 0,
-            qty: 1,
-            subtotal: 0,
-            stock: Number.POSITIVE_INFINITY,
-            tipe_jual: 'jasa',
-            satuan: item.satuan,
-            nominal: 0,
-            fee: 0,
-            foto: null,
-            foto_url: null,
-        });
-    }
-
-    cartOpen.value = true; // buka keranjang agar kasir bisa isi nominal & fee
 }
 
 function removeCartItem(id: number) {
@@ -426,7 +382,7 @@ function updateItemQuantity(item: CartItem, delta: number) {
     item.subtotal = item.harga * item.qty;
 }
 
-// Hanya produk satuan yang dihitung per qty; curah & jasa dihitung 1 baris.
+// Produk satuan dihitung per qty; curah dihitung 1 baris (qty pecahan).
 const cartCount = computed(() =>
     cartItems.value.reduce((sum, item) => sum + (item.tipe_jual === 'satuan' ? item.qty : 1), 0),
 );
@@ -438,14 +394,7 @@ const invalidCurahItems = computed(() =>
     ),
 );
 
-// Baris jasa yang belum valid: fee atau nominal pokok belum diisi.
-const invalidJasaItems = computed(() =>
-    cartItems.value.filter(
-        (item) => item.tipe_jual === 'jasa' && ((Number(item.fee) || 0) <= 0 || (Number(item.nominal) || 0) <= 0),
-    ),
-);
-
-const hasInvalidItems = computed(() => invalidCurahItems.value.length > 0 || invalidJasaItems.value.length > 0);
+const hasInvalidItems = computed(() => invalidCurahItems.value.length > 0);
 
 const cartQtyById = computed(() => {
     const map = new Map<number, number>();
@@ -628,22 +577,11 @@ function submitTransaction() {
         return;
     }
 
-    form.items = cartItems.value.map((item) => {
-        if (item.tipe_jual === 'curah') {
-            return { id_produk: item.id_produk, jumlah: item.qty, nominal: Math.floor(Number(item.nominal) || 0) };
-        }
-
-        if (item.tipe_jual === 'jasa') {
-            return {
-                id_produk: item.id_produk,
-                jumlah: 1,
-                nominal: Math.floor(Number(item.nominal) || 0),
-                fee: Math.floor(Number(item.fee) || 0),
-            };
-        }
-
-        return { id_produk: item.id_produk, jumlah: item.qty };
-    });
+    form.items = cartItems.value.map((item) =>
+        item.tipe_jual === 'curah'
+            ? { id_produk: item.id_produk, jumlah: item.qty, nominal: Math.floor(Number(item.nominal) || 0) }
+            : { id_produk: item.id_produk, jumlah: item.qty },
+    );
 
     form.post(kasirTransaksiStore().url, {
         preserveScroll: true,
@@ -734,20 +672,6 @@ function submitTransaction() {
                     </button>
                 </div>
 
-                <!-- Layanan (transfer / tarik tunai) — produk jasa, fee diisi di keranjang -->
-                <div v-if="layanan.length" class="flex flex-wrap items-center gap-2">
-                    <span class="text-xs font-semibold text-muted-foreground">Layanan:</span>
-                    <button
-                        v-for="svc in layanan"
-                        :key="svc.id_produk"
-                        type="button"
-                        class="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-500/20 dark:text-violet-300"
-                        @click="addLayanan(svc)"
-                    >
-                        <CreditCard class="h-3.5 w-3.5" />
-                        {{ svc.nama }}
-                    </button>
-                </div>
             </div>
 
             <!-- Grid produk (area scroll) -->
@@ -943,8 +867,7 @@ function submitTransaction() {
 
                         <div class="min-w-0 flex-1">
                             <h4 class="truncate text-sm font-semibold text-foreground">{{ item.nama }}</h4>
-                            <p v-if="item.tipe_jual === 'jasa'" class="text-xs text-muted-foreground">Biaya admin (fee)</p>
-                            <p v-else class="text-xs text-muted-foreground">
+                            <p class="text-xs text-muted-foreground">
                                 {{ formatRupiah(item.harga) }}<span v-if="item.tipe_jual === 'curah'"> / {{ item.satuan }}</span>
                             </p>
                             <p class="text-sm font-bold text-indigo-600 dark:text-indigo-400">{{ formatRupiah(item.subtotal) }}</p>
@@ -1009,50 +932,6 @@ function submitTransaction() {
                         </p>
                         <p v-else class="text-xs text-amber-600 dark:text-amber-400">
                             Masukkan nominal pembelian dulu.
-                        </p>
-                    </div>
-
-                    <!-- Input nominal pokok + fee untuk jasa (transfer/tarik tunai) -->
-                    <div v-if="item.tipe_jual === 'jasa'" class="mt-2 space-y-2">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="mb-1 block text-[11px] font-medium text-muted-foreground">Nominal transfer/tarik</label>
-                                <div class="relative">
-                                    <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">Rp</span>
-                                    <input
-                                        v-model.number="item.nominal"
-                                        type="number"
-                                        min="0"
-                                        inputmode="numeric"
-                                        placeholder="500000"
-                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-7 pr-2 text-sm font-semibold transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="mb-1 block text-[11px] font-medium text-muted-foreground">Biaya admin (fee)</label>
-                                <div class="relative">
-                                    <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">Rp</span>
-                                    <input
-                                        v-model.number="item.fee"
-                                        type="number"
-                                        min="0"
-                                        inputmode="numeric"
-                                        placeholder="5000"
-                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-7 pr-2 text-sm font-semibold transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
-                                        @input="recomputeJasaItem(item)"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <p
-                            v-if="(Number(item.fee) || 0) > 0 && (Number(item.nominal) || 0) > 0"
-                            class="text-[11px] text-muted-foreground"
-                        >
-                            Hanya fee {{ formatRupiah(item.fee) }} masuk omzet · nominal {{ formatRupiah(item.nominal) }} hanya titipan.
-                        </p>
-                        <p v-else class="text-[11px] text-amber-600 dark:text-amber-400">
-                            Isi nominal transfer/tarik & biaya admin.
                         </p>
                     </div>
                 </div>
@@ -1175,7 +1054,7 @@ function submitTransaction() {
                 </div>
 
                 <p v-if="hasInvalidItems" class="-mb-1 text-center text-xs font-medium text-amber-600 dark:text-amber-400">
-                    Lengkapi nominal/fee item curah & jasa, dan pastikan tidak melebihi stok.
+                    Lengkapi nominal produk curah & pastikan tidak melebihi stok.
                 </p>
 
                 <button

@@ -89,9 +89,11 @@ Bergantung pada desimal di Fase 0.
 > - Migrasi `2026_06_17_100004`: `detail_transaksis.nominal` (nullable) = pass-through; `subtotal` baris jasa = fee.
 > - `KasirController::store` cabang jasa: TANPA stok/kartu stok, `modal=0`, `subtotal=fee`, simpan `nominal`. Validasi `items.*.fee` + `items.*.nominal` (dua-duanya wajib >0 untuk jasa).
 > - `transaksi()` mengirim prop `layanan` (daftar produk jasa) terpisah dari grid; `riwayat()` mengirim `nominal`.
-> - Kasir UI: strip **"Layanan"** (tombol violet) menambah baris jasa ke keranjang; baris jasa punya input **Nominal** + **Fee**, hanya fee masuk omzet, ada catatan "nominal hanya titipan".
 > - ⚠️ Omzet otomatis benar karena `total_harga = Σ subtotal` (= fee), `nominal` tak pernah masuk omzet. COGS jasa = 0.
 > - Test: `tests/Feature/JasaTest.php`.
+>
+> **Revisi (17 Jun, feedback klien): jasa dipindah ke halaman kasir tersendiri.**
+> Halaman Transaksi kini **produk-only** (curah/satuan). Jasa pindah ke `resources/js/pages/kasir/Layanan.vue` (route `kasir.layanan` GET → `KasirController::layanan()`, nav kasir "Layanan / Jasa"). Halaman Layanan punya keranjang jasa sendiri (input Nominal + Fee per baris) tapi tetap POST ke endpoint sama `kasir.transaksi.store` (backend store tetap mendukung item jasa). Semua logika jasa dihapus dari `Transaksi.vue`.
 - Produk ber-`tipe_jual=jasa`: **tanpa stok, tanpa HPP normal**.
 - `detail_transaksis`: tambah kolom `nominal` (nullable) = uang pokok yang
   ditransfer/ditarik (**pass-through, BUKAN omzet**). `subtotal` baris = **fee**.

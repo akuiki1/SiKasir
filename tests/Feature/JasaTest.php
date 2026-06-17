@@ -106,15 +106,23 @@ test('a mixed cart (product + jasa) totals product subtotal plus fee only', func
     expect((float) $produk->fresh()->stok)->toBe(8.0);
 });
 
-test('the kasir transaksi page exposes jasa products as a separate layanan list', function () {
+test('the dedicated kasir layanan page lists jasa products', function () {
     $kasir = User::factory()->create(['role' => 'kasir']);
     Produk::factory()->create(['tipe_jual' => 'satuan']);
     Produk::factory()->create(['tipe_jual' => 'jasa', 'stok' => 0]);
 
-    $this->actingAs($kasir)->get(route('kasir.transaksi'))->assertInertia(
+    $this->actingAs($kasir)->get(route('kasir.layanan'))->assertInertia(
         fn ($page) => $page
-            ->component('kasir/Transaksi')
-            ->has('produks', 1)   // jasa tidak di grid
-            ->has('layanan', 1)   // jasa muncul sebagai layanan
+            ->component('kasir/Layanan')
+            ->has('layanan', 1) // hanya produk jasa
+    );
+});
+
+test('the kasir transaksi page no longer carries the jasa layanan list', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    Produk::factory()->create(['tipe_jual' => 'jasa', 'stok' => 0]);
+
+    $this->actingAs($kasir)->get(route('kasir.transaksi'))->assertInertia(
+        fn ($page) => $page->component('kasir/Transaksi')->missing('layanan')
     );
 });
