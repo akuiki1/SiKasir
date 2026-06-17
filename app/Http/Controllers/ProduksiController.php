@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -66,7 +67,10 @@ class ProduksiController extends Controller
             ],
             'jumlah' => ['required', 'integer', 'min:1'],
             'catatan' => ['nullable', 'string', 'max:1000'],
-            'biayas' => ['required', 'array', 'min:1'],
+            // Mode sederhana: cukup 1 angka total. Mode rinci: daftar biaya bahan.
+            'mode' => ['nullable', 'in:sederhana,rinci'],
+            'total_biaya' => ['nullable', 'integer', 'min:0'],
+            'biayas' => ['nullable', 'array'],
             'biayas.*.nama' => ['required', 'string', 'max:255'],
             'biayas.*.nominal' => ['required', 'integer', 'min:0'],
         ], [
@@ -74,7 +78,29 @@ class ProduksiController extends Controller
         ]);
 
         DB::transaction(function () use ($validated): void {
-            $totalBiaya = collect($validated['biayas'])->sum('nominal');
+            // Mode eksplisit diutamakan; jika tak ada, deteksi dari ada/tidaknya rincian.
+            $mode = $validated['mode'] ?? (! empty($validated['biayas']) ? 'rinci' : 'sederhana');
+
+            if ($mode === 'rinci') {
+                $biayas = $validated['biayas'] ?? [];
+
+                if (count($biayas) === 0) {
+                    throw ValidationException::withMessages([
+                        'biayas' => 'Tambahkan minimal satu rincian biaya bahan.',
+                    ]);
+                }
+
+                $totalBiaya = (int) collect($biayas)->sum('nominal');
+            } else {
+                $totalBiaya = (int) ($validated['total_biaya'] ?? 0);
+            }
+
+            if ($totalBiaya <= 0) {
+                throw ValidationException::withMessages([
+                    'total_biaya' => 'Total biaya produksi harus lebih dari 0 (isi total atau rincian bahan).',
+                ]);
+            }
+
             $modalPerUnit = (int) round($totalBiaya / $validated['jumlah']);
 
             $produksi = Produksi::create([
@@ -85,12 +111,15 @@ class ProduksiController extends Controller
                 'catatan' => $validated['catatan'] ?? null,
             ]);
 
-            foreach ($validated['biayas'] as $biaya) {
-                ProduksiBiaya::create([
-                    'id_produksi' => $produksi->id_produksi,
-                    'nama' => $biaya['nama'],
-                    'nominal' => $biaya['nominal'],
-                ]);
+            // Rincian biaya hanya disimpan pada mode rinci.
+            if ($mode === 'rinci') {
+                foreach ($validated['biayas'] as $biaya) {
+                    ProduksiBiaya::create([
+                        'id_produksi' => $produksi->id_produksi,
+                        'nama' => $biaya['nama'],
+                        'nominal' => $biaya['nominal'],
+                    ]);
+                }
             }
 
             // Produksi menambah stok barang jadi & memperbarui modal per unit produk.

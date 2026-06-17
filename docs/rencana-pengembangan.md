@@ -107,7 +107,13 @@ Bergantung pada desimal di Fase 0.
 
 ---
 
-### Fase 3 — Modal produksi disederhanakan — kebutuhan #1
+### Fase 3 — Modal produksi disederhanakan — kebutuhan #1 ✅ SELESAI (17 Jun 2026)
+
+> **Status:** terimplementasi & teruji (115 test/112 hijau, build sukses, lint bersih).
+> - `ProduksiController::store` menerima `mode` (sederhana/rinci) + `total_biaya`; `biayas` kini opsional. Mode sederhana: `modal/unit = total_biaya ÷ jumlah` tanpa baris rincian. Validasi: harus ada sumber biaya (`total_biaya` > 0 atau rincian).
+> - Form ([Produksi.vue](resources/js/pages/admin/Produksi.vue)): toggle **Sederhana (1 angka)** / **Rincian bahan**; `form.transform` mengirim hanya field relevan. Default = sederhana (sesuai mindset klien).
+> - Aturan anti double-count tetap (biaya bahan lewat Produksi, bukan Pengeluaran).
+> - Test: `ProduksiTest` (mode sederhana + validasi sumber biaya).
 Rekonsiliasi: klien mau "keluar segini, jadi segini"; kita mau data akurat.
 Keduanya bisa dipenuhi.
 

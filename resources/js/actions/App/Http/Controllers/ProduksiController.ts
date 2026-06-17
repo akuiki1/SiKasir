@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\ProduksiController::index
- * @see app/Http/Controllers/ProduksiController.php:21
+ * @see app/Http/Controllers/ProduksiController.php:22
  * @route '/admin/produksi'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\ProduksiController::index
- * @see app/Http/Controllers/ProduksiController.php:21
+ * @see app/Http/Controllers/ProduksiController.php:22
  * @route '/admin/produksi'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ProduksiController::index
- * @see app/Http/Controllers/ProduksiController.php:21
+ * @see app/Http/Controllers/ProduksiController.php:22
  * @route '/admin/produksi'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\ProduksiController::index
- * @see app/Http/Controllers/ProduksiController.php:21
+ * @see app/Http/Controllers/ProduksiController.php:22
  * @route '/admin/produksi'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\ProduksiController::index
- * @see app/Http/Controllers/ProduksiController.php:21
+ * @see app/Http/Controllers/ProduksiController.php:22
  * @route '/admin/produksi'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\ProduksiController::index
- * @see app/Http/Controllers/ProduksiController.php:21
+ * @see app/Http/Controllers/ProduksiController.php:22
  * @route '/admin/produksi'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\ProduksiController::index
- * @see app/Http/Controllers/ProduksiController.php:21
+ * @see app/Http/Controllers/ProduksiController.php:22
  * @route '/admin/produksi'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\ProduksiController::store
- * @see app/Http/Controllers/ProduksiController.php:60
+ * @see app/Http/Controllers/ProduksiController.php:61
  * @route '/admin/produksi'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\ProduksiController::store
- * @see app/Http/Controllers/ProduksiController.php:60
+ * @see app/Http/Controllers/ProduksiController.php:61
  * @route '/admin/produksi'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ProduksiController::store
- * @see app/Http/Controllers/ProduksiController.php:60
+ * @see app/Http/Controllers/ProduksiController.php:61
  * @route '/admin/produksi'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\ProduksiController::store
- * @see app/Http/Controllers/ProduksiController.php:60
+ * @see app/Http/Controllers/ProduksiController.php:61
  * @route '/admin/produksi'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\ProduksiController::store
- * @see app/Http/Controllers/ProduksiController.php:60
+ * @see app/Http/Controllers/ProduksiController.php:61
  * @route '/admin/produksi'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -134,7 +134,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:116
+ * @see app/Http/Controllers/ProduksiController.php:145
  * @route '/admin/produksi/{produksi}'
  */
 export const destroy = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -149,7 +149,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:116
+ * @see app/Http/Controllers/ProduksiController.php:145
  * @route '/admin/produksi/{produksi}'
  */
 destroy.url = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions) => {
@@ -182,7 +182,7 @@ destroy.url = (args: { produksi: number | { id_produksi: number } } | [produksi:
 
 /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:116
+ * @see app/Http/Controllers/ProduksiController.php:145
  * @route '/admin/produksi/{produksi}'
  */
 destroy.delete = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -192,7 +192,7 @@ destroy.delete = (args: { produksi: number | { id_produksi: number } } | [produk
 
     /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:116
+ * @see app/Http/Controllers/ProduksiController.php:145
  * @route '/admin/produksi/{produksi}'
  */
     const destroyForm = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -207,7 +207,7 @@ destroy.delete = (args: { produksi: number | { id_produksi: number } } | [produk
 
             /**
 * @see \App\Http\Controllers\ProduksiController::destroy
- * @see app/Http/Controllers/ProduksiController.php:116
+ * @see app/Http/Controllers/ProduksiController.php:145
  * @route '/admin/produksi/{produksi}'
  */
         destroyForm.delete = (args: { produksi: number | { id_produksi: number } } | [produksi: number | { id_produksi: number } ] | number | { id_produksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

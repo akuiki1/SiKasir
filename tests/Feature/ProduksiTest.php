@@ -73,20 +73,47 @@ test('production batch is rejected for a non-produksi product', function () {
     $this->assertDatabaseCount('produksis', 0);
 });
 
-test('production batch requires at least one cost line', function () {
+test('production batch requires a cost source (total or itemized)', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $produk = Produk::factory()->create(['jenis' => 'produksi']);
 
+    // Tanpa total_biaya dan tanpa rincian biayas → ditolak.
     $this->actingAs($admin)
         ->from(route('admin.produksi'))
         ->post(route('admin.produksi.store'), [
             'id_produk' => $produk->id_produk,
             'jumlah' => 10,
-            'biayas' => [],
         ])
-        ->assertSessionHasErrors('biayas');
+        ->assertSessionHasErrors('total_biaya');
 
     $this->assertDatabaseCount('produksis', 0);
+});
+
+test('recording a production batch in simple mode uses total_biaya without cost lines', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $produk = Produk::factory()->create(['jenis' => 'produksi', 'stok' => 0, 'harga_modal' => 0]);
+
+    $response = $this->actingAs($admin)->post(route('admin.produksi.store'), [
+        'id_produk' => $produk->id_produk,
+        'jumlah' => 50,
+        'mode' => 'sederhana',
+        'total_biaya' => 100000,
+    ]);
+
+    $response->assertRedirect(route('admin.produksi'));
+    $response->assertSessionHas('success');
+
+    // modal/unit = 100.000 / 50 = 2.000, tanpa baris rincian biaya
+    $this->assertDatabaseHas('produksis', [
+        'id_produk' => $produk->id_produk,
+        'jumlah' => 50,
+        'total_biaya' => 100000,
+        'modal_per_unit' => 2000,
+    ]);
+    $this->assertDatabaseCount('produksi_biayas', 0);
+
+    expect($produk->fresh()->stok)->toBe(50.0);
+    expect($produk->fresh()->harga_modal)->toBe(2000);
 });
 
 test('production batch requires a positive output quantity', function () {

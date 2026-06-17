@@ -90,19 +90,29 @@ const {
 
 const showModal = ref(false);
 
+type ProduksiMode = 'sederhana' | 'rinci';
+
 const form = useForm<{
     id_produk: number | '';
     jumlah: number;
     catatan: string;
+    mode: ProduksiMode;
+    total_biaya: number;
     biayas: Biaya[];
 }>({
     id_produk: '',
     jumlah: 0,
     catatan: '',
+    mode: 'sederhana',
+    total_biaya: 0,
     biayas: [{ nama: '', nominal: 0 }],
 });
 
-const totalBiaya = computed(() => form.biayas.reduce((sum, b) => sum + (Number(b.nominal) || 0), 0));
+const totalBiaya = computed(() =>
+    form.mode === 'sederhana'
+        ? Number(form.total_biaya) || 0
+        : form.biayas.reduce((sum, b) => sum + (Number(b.nominal) || 0), 0),
+);
 const modalPerUnit = computed(() => (form.jumlah > 0 ? Math.round(totalBiaya.value / form.jumlah) : 0));
 
 const selectedProduk = computed(() => props.produks.find((p) => p.id_produk === form.id_produk) ?? null);
@@ -119,6 +129,8 @@ function removeBiaya(index: number): void {
 
 function openTambah(): void {
     form.reset();
+    form.mode = 'sederhana';
+    form.total_biaya = 0;
     form.biayas = [{ nama: '', nominal: 0 }];
     form.clearErrors();
     showModal.value = true;
@@ -131,9 +143,23 @@ function closeModal(): void {
 }
 
 function submitForm(): void {
-    form.post(produksiStore().url, {
-        onSuccess: () => closeModal(),
-    });
+    form
+        .transform((data) => {
+            const base = {
+                id_produk: data.id_produk,
+                jumlah: data.jumlah,
+                catatan: data.catatan,
+                mode: data.mode,
+            };
+
+            // Kirim hanya field yang relevan dengan mode terpilih.
+            return data.mode === 'sederhana'
+                ? { ...base, total_biaya: data.total_biaya }
+                : { ...base, biayas: data.biayas };
+        })
+        .post(produksiStore().url, {
+            onSuccess: () => closeModal(),
+        });
 }
 
 function hapusProduksi(item: Produksi): void {
@@ -277,7 +303,8 @@ function hapusProduksi(item: Produksi): void {
                     <div>
                         <h2 class="text-xl font-semibold">Catat Batch Produksi</h2>
                         <p class="mt-1 text-sm text-muted-foreground">
-                            Masukkan jumlah hasil dan biaya bahan yang <em>terpakai</em> untuk batch ini (bukan total pembelian).
+                            Mode <strong>Sederhana</strong>: cukup isi total uang yang keluar untuk batch ini.
+                            Mode <strong>Rincian</strong>: rinci biaya bahan yang <em>terpakai</em> (bukan total pembelian).
                         </p>
                     </div>
                     <button class="rounded-full p-2 text-muted-foreground transition hover:bg-slate-100 dark:hover:bg-zinc-800" @click="closeModal">
@@ -317,8 +344,63 @@ function hapusProduksi(item: Produksi): void {
                         </div>
                     </div>
 
-                    <!-- Rincian biaya -->
+                    <!-- Pemilih mode pengisian modal -->
                     <div>
+                        <label class="mb-2 block text-sm font-medium">Cara isi modal</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                :class="[
+                                    'rounded-lg border px-3 py-2 text-sm font-semibold transition',
+                                    form.mode === 'sederhana'
+                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                        : 'border-sidebar-border/70 bg-background text-muted-foreground hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800',
+                                ]"
+                                @click="form.mode = 'sederhana'"
+                            >
+                                Sederhana (1 angka)
+                            </button>
+                            <button
+                                type="button"
+                                :class="[
+                                    'rounded-lg border px-3 py-2 text-sm font-semibold transition',
+                                    form.mode === 'rinci'
+                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                        : 'border-sidebar-border/70 bg-background text-muted-foreground hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800',
+                                ]"
+                                @click="form.mode = 'rinci'"
+                            >
+                                Rincian bahan
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            <template v-if="form.mode === 'sederhana'">
+                                Cukup isi total uang yang keluar untuk batch ini — modal/unit dihitung otomatis.
+                            </template>
+                            <template v-else>
+                                Rinci tiap bahan; total dijumlahkan otomatis (cocok bila ingin catatan detail).
+                            </template>
+                        </p>
+                    </div>
+
+                    <!-- Mode sederhana: total biaya satu angka -->
+                    <div v-if="form.mode === 'sederhana'">
+                        <label class="mb-2 block text-sm font-medium">Total Biaya Produksi (Rp)</label>
+                        <div class="relative">
+                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">Rp</span>
+                            <input
+                                v-model.number="form.total_biaya"
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            />
+                        </div>
+                        <p v-if="form.errors.total_biaya" class="mt-2 text-sm text-rose-600">{{ form.errors.total_biaya }}</p>
+                    </div>
+
+                    <!-- Mode rinci: daftar biaya bahan -->
+                    <div v-if="form.mode === 'rinci'">
                         <div class="mb-2 flex items-center justify-between">
                             <label class="block text-sm font-medium">Rincian Biaya Bahan</label>
                             <button
@@ -360,6 +442,7 @@ function hapusProduksi(item: Produksi): void {
                             </div>
                         </div>
                         <p v-if="form.errors.biayas" class="mt-2 text-sm text-rose-600">{{ form.errors.biayas }}</p>
+                        <p v-if="form.errors.total_biaya" class="mt-2 text-sm text-rose-600">{{ form.errors.total_biaya }}</p>
                     </div>
 
                     <div>
