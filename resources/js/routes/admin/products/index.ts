@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\ProdukController::store
- * @see app/Http/Controllers/ProdukController.php:60
+ * @see app/Http/Controllers/ProdukController.php:62
  * @route '/admin/products'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\ProdukController::store
- * @see app/Http/Controllers/ProdukController.php:60
+ * @see app/Http/Controllers/ProdukController.php:62
  * @route '/admin/products'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ProdukController::store
- * @see app/Http/Controllers/ProdukController.php:60
+ * @see app/Http/Controllers/ProdukController.php:62
  * @route '/admin/products'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\ProdukController::store
- * @see app/Http/Controllers/ProdukController.php:60
+ * @see app/Http/Controllers/ProdukController.php:62
  * @route '/admin/products'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\ProdukController::store
- * @see app/Http/Controllers/ProdukController.php:60
+ * @see app/Http/Controllers/ProdukController.php:62
  * @route '/admin/products'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\ProdukController::update
- * @see app/Http/Controllers/ProdukController.php:114
+ * @see app/Http/Controllers/ProdukController.php:116
  * @route '/admin/products/{produk}'
  */
 export const update = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -71,7 +71,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\ProdukController::update
- * @see app/Http/Controllers/ProdukController.php:114
+ * @see app/Http/Controllers/ProdukController.php:116
  * @route '/admin/products/{produk}'
  */
 update.url = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions) => {
@@ -104,7 +104,7 @@ update.url = (args: { produk: number | { id_produk: number } } | [produk: number
 
 /**
 * @see \App\Http\Controllers\ProdukController::update
- * @see app/Http/Controllers/ProdukController.php:114
+ * @see app/Http/Controllers/ProdukController.php:116
  * @route '/admin/products/{produk}'
  */
 update.put = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -114,7 +114,7 @@ update.put = (args: { produk: number | { id_produk: number } } | [produk: number
 
     /**
 * @see \App\Http\Controllers\ProdukController::update
- * @see app/Http/Controllers/ProdukController.php:114
+ * @see app/Http/Controllers/ProdukController.php:116
  * @route '/admin/products/{produk}'
  */
     const updateForm = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -129,7 +129,7 @@ update.put = (args: { produk: number | { id_produk: number } } | [produk: number
 
             /**
 * @see \App\Http\Controllers\ProdukController::update
- * @see app/Http/Controllers/ProdukController.php:114
+ * @see app/Http/Controllers/ProdukController.php:116
  * @route '/admin/products/{produk}'
  */
         updateForm.put = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -145,7 +145,7 @@ update.put = (args: { produk: number | { id_produk: number } } | [produk: number
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:172
+ * @see app/Http/Controllers/ProdukController.php:174
  * @route '/admin/products/{produk}'
  */
 export const destroy = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -160,7 +160,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:172
+ * @see app/Http/Controllers/ProdukController.php:174
  * @route '/admin/products/{produk}'
  */
 destroy.url = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions) => {
@@ -193,7 +193,7 @@ destroy.url = (args: { produk: number | { id_produk: number } } | [produk: numbe
 
 /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:172
+ * @see app/Http/Controllers/ProdukController.php:174
  * @route '/admin/products/{produk}'
  */
 destroy.delete = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -203,7 +203,7 @@ destroy.delete = (args: { produk: number | { id_produk: number } } | [produk: nu
 
     /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:172
+ * @see app/Http/Controllers/ProdukController.php:174
  * @route '/admin/products/{produk}'
  */
     const destroyForm = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -218,7 +218,7 @@ destroy.delete = (args: { produk: number | { id_produk: number } } | [produk: nu
 
             /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:172
+ * @see app/Http/Controllers/ProdukController.php:174
  * @route '/admin/products/{produk}'
  */
         destroyForm.delete = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

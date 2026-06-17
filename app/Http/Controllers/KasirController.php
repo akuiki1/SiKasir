@@ -205,6 +205,8 @@ class KasirController extends Controller
     public function transaksi(): Response
     {
         $produks = Produk::query()
+            // Produk jasa (transfer/tarik tunai) punya alur sendiri (Fase 2), bukan grid biasa.
+            ->where('tipe_jual', '!=', 'jasa')
             ->orderBy('nama')
             ->get()
             ->map(fn (Produk $produk) => [
@@ -213,6 +215,8 @@ class KasirController extends Controller
                 'kategori' => $produk->kategori?->nama_kategori,
                 'harga_jual' => $produk->harga_jual,
                 'stok' => $produk->stok,
+                'tipe_jual' => $produk->tipe_jual,
+                'satuan' => $produk->satuan,
                 'barcode' => $produk->barcode,
                 'foto' => $produk->foto,
                 'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
@@ -250,6 +254,8 @@ class KasirController extends Controller
             'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
             // numeric (bukan integer) agar produk curah bisa dijual pecahan (mis. 1.429 liter).
             'items.*.jumlah' => ['required', 'numeric', 'gt:0'],
+            // Untuk produk curah: nominal rupiah yang dibayar (qty dihitung dari sini).
+            'items.*.nominal' => ['nullable', 'integer', 'min:1'],
         ]);
 
         DB::transaction(function () use ($validated): void {
@@ -264,15 +270,38 @@ class KasirController extends Controller
 
             foreach ($validated['items'] as $item) {
                 $produk = Produk::lockForUpdate()->findOrFail($item['id_produk']);
+                $harga = $produk->harga_jual;
 
-                if ($produk->stok < $item['jumlah']) {
+                if ($produk->tipe_jual === 'curah') {
+                    // Curah (bensin/bawang): kasir input NOMINAL rupiah → qty = nominal ÷ harga/satuan.
+                    // subtotal = nominal persis; qty (3 desimal) dipakai untuk potong stok & HPP.
+                    $nominal = (int) ($item['nominal'] ?? 0);
+
+                    if ($nominal <= 0) {
+                        throw ValidationException::withMessages([
+                            'items' => "Masukkan nominal pembelian untuk {$produk->nama}.",
+                        ]);
+                    }
+
+                    if ($harga <= 0) {
+                        throw ValidationException::withMessages([
+                            'items' => "Harga per {$produk->satuan} untuk {$produk->nama} belum diatur.",
+                        ]);
+                    }
+
+                    $qty = round($nominal / $harga, 3);
+                    $itemSubtotal = $nominal;
+                } else {
+                    $qty = (float) $item['jumlah'];
+                    $itemSubtotal = (int) round($harga * $qty);
+                }
+
+                if ($produk->stok < $qty) {
                     throw ValidationException::withMessages([
-                        'items' => "Stok {$produk->nama} tidak mencukupi (tersedia: {$produk->stok}).",
+                        'items' => "Stok {$produk->nama} tidak mencukupi (tersedia: {$produk->stok} {$produk->satuan}).",
                     ]);
                 }
 
-                $harga = $produk->harga_jual;
-                $itemSubtotal = $harga * $item['jumlah'];
                 $subtotal += $itemSubtotal;
 
                 // Cari promo spesifik produk
@@ -282,13 +311,13 @@ class KasirController extends Controller
                     if ($prodPromo->tipe === 'persen') {
                         $itemDiskon = (int) ($itemSubtotal * ($prodPromo->nilai / 100));
                     } else {
-                        $itemDiskon = (int) ($prodPromo->nilai * $item['jumlah']);
+                        $itemDiskon = (int) ($prodPromo->nilai * $qty);
                     }
                 }
 
                 $details[] = [
                     'produk' => $produk,
-                    'jumlah' => $item['jumlah'],
+                    'jumlah' => $qty,
                     'harga' => $harga,
                     'modal' => $produk->harga_modal, // snapshot HPP/unit saat terjual
                     'subtotal_after_promo' => max(0, $itemSubtotal - $itemDiskon),

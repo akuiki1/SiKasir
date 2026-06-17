@@ -35,12 +35,16 @@ defineOptions({
     },
 });
 
+type TipeJual = 'satuan' | 'curah' | 'jasa';
+
 interface Produk {
     id_produk: number;
     nama: string;
     kategori: string | null;
     harga_jual: number;
     stok: number;
+    tipe_jual: TipeJual;
+    satuan: string;
     barcode: string;
     foto: string | null;
     foto_url?: string | null;
@@ -63,6 +67,9 @@ interface CartItem {
     qty: number;
     subtotal: number;
     stock: number;
+    tipe_jual: TipeJual;
+    satuan: string;
+    nominal: number; // hanya dipakai produk curah (rupiah yang dibayar)
     foto: string | null;
     foto_url?: string | null;
 }
@@ -102,7 +109,7 @@ const form = useForm({
     metode_pembayaran: 'cash',
     bayar: '',
     id_promo: null as number | null,
-    items: [] as Array<{ id_produk: number; jumlah: number }>,
+    items: [] as Array<{ id_produk: number; jumlah: number; nominal?: number }>,
 });
 
 const categories = computed(() => {
@@ -159,6 +166,19 @@ function formatRupiah(value: number): string {
         currency: 'IDR',
         minimumFractionDigits: 0,
     }).format(value);
+}
+
+// Kuantitas curah bisa pecahan (mis. 1,429 liter) — tampilkan rapi.
+function formatQty(value: number): string {
+    return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 }).format(Number(value) || 0);
+}
+
+// Curah: dari nominal rupiah → qty = nominal ÷ harga/satuan (3 desimal), subtotal = nominal persis.
+// Tidak menulis ulang item.nominal agar kasir tetap bisa mengosongkan input saat mengetik.
+function recomputeCurahItem(item: CartItem): void {
+    const nominal = Math.max(0, Number(item.nominal) || 0);
+    item.qty = item.harga > 0 ? Math.round((nominal / item.harga) * 1000) / 1000 : 0;
+    item.subtotal = Math.round(nominal);
 }
 
 function resolveFoto(foto: string | null): string | null {
@@ -236,6 +256,33 @@ const handleScannerDeviceConnectionChange = (): void => {
 function addToCart(product: Produk) {
     const existing = cartItems.value.find((item) => item.id_produk === product.id_produk);
 
+    // Produk curah: kasir mengisi NOMINAL rupiah di keranjang, bukan stepper qty.
+    if (product.tipe_jual === 'curah') {
+        if (!existing) {
+            if (product.stok <= 0) {
+                return;
+            }
+
+            cartItems.value.push({
+                id_produk: product.id_produk,
+                nama: product.nama,
+                harga: product.harga_jual,
+                qty: 0,
+                subtotal: 0,
+                stock: product.stok,
+                tipe_jual: 'curah',
+                satuan: product.satuan,
+                nominal: 0,
+                foto: product.foto,
+                foto_url: product.foto_url ?? null,
+            });
+        }
+
+        cartOpen.value = true; // buka keranjang agar kasir bisa langsung isi nominal
+
+        return;
+    }
+
     if (existing) {
         if (existing.qty < existing.stock) {
             existing.qty += 1;
@@ -256,6 +303,9 @@ function addToCart(product: Produk) {
         qty: 1,
         subtotal: product.harga_jual,
         stock: product.stok,
+        tipe_jual: product.tipe_jual,
+        satuan: product.satuan,
+        nominal: 0,
         foto: product.foto,
         foto_url: product.foto_url ?? null,
     });
@@ -277,7 +327,19 @@ function updateItemQuantity(item: CartItem, delta: number) {
     item.subtotal = item.harga * item.qty;
 }
 
-const cartCount = computed(() => cartItems.value.reduce((sum, item) => sum + item.qty, 0));
+// Curah dihitung 1 baris (qty pecahan), satuan dihitung sesuai qty.
+const cartCount = computed(() =>
+    cartItems.value.reduce((sum, item) => sum + (item.tipe_jual === 'curah' ? 1 : item.qty), 0),
+);
+
+// Baris curah yang belum valid: nominal belum diisi atau qty melebihi stok.
+const invalidCurahItems = computed(() =>
+    cartItems.value.filter(
+        (item) => item.tipe_jual === 'curah' && (item.nominal <= 0 || item.qty > item.stock),
+    ),
+);
+
+const hasCurahIssue = computed(() => invalidCurahItems.value.length > 0);
 
 const cartQtyById = computed(() => {
     const map = new Map<number, number>();
@@ -454,10 +516,17 @@ function submitTransaction() {
         return;
     }
 
-    form.items = cartItems.value.map((item) => ({
-        id_produk: item.id_produk,
-        jumlah: item.qty,
-    }));
+    if (hasCurahIssue.value) {
+        cartOpen.value = true;
+
+        return;
+    }
+
+    form.items = cartItems.value.map((item) =>
+        item.tipe_jual === 'curah'
+            ? { id_produk: item.id_produk, jumlah: item.qty, nominal: Math.floor(Number(item.nominal) || 0) }
+            : { id_produk: item.id_produk, jumlah: item.qty },
+    );
 
     form.post(kasirTransaksiStore().url, {
         preserveScroll: true,
@@ -592,7 +661,7 @@ function submitTransaction() {
                                 v-if="cartQtyById.get(product.id_produk)"
                                 class="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-xs font-bold text-white shadow-md ring-2 ring-white dark:ring-zinc-900"
                             >
-                                {{ cartQtyById.get(product.id_produk) }}
+                                {{ formatQty(cartQtyById.get(product.id_produk)!) }}
                             </span>
 
                             <!-- Overlay habis -->
@@ -614,7 +683,7 @@ function submitTransaction() {
                             <div class="mt-2 flex items-end justify-between gap-2 pt-1">
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                                        {{ formatRupiah(product.harga_jual) }}
+                                        {{ formatRupiah(product.harga_jual) }}<span v-if="product.tipe_jual === 'curah'" class="text-[10px] font-medium text-muted-foreground"> / {{ product.satuan }}</span>
                                     </p>
                                     <p
                                         :class="[
@@ -626,7 +695,7 @@ function submitTransaction() {
                                                 : 'text-rose-600 dark:text-rose-400',
                                         ]"
                                     >
-                                        {{ product.stok > 0 ? `Stok ${product.stok}` : 'Habis' }}
+                                        {{ product.stok > 0 ? `Stok ${formatQty(product.stok)} ${product.satuan}` : 'Habis' }}
                                     </p>
                                 </div>
                                 <span
@@ -723,53 +792,90 @@ function submitTransaction() {
                 <div
                     v-for="item in cartItems"
                     :key="item.id_produk"
-                    class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50/60 dark:hover:bg-zinc-800/20"
+                    class="px-4 py-3 transition-colors hover:bg-slate-50/60 dark:hover:bg-zinc-800/20"
                 >
-                    <img
-                        v-if="resolveFoto(item.foto_url ?? item.foto)"
-                        :src="resolveFoto(item.foto_url ?? item.foto) ?? undefined"
-                        :alt="item.nama"
-                        class="h-12 w-12 shrink-0 rounded-xl border border-sidebar-border/70 object-cover dark:border-sidebar-border"
-                    />
-                    <div
-                        v-else
-                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-sidebar-border/70 bg-slate-100 text-muted-foreground dark:border-sidebar-border dark:bg-zinc-800"
-                    >
-                        <PackageX class="h-5 w-5 opacity-50" />
-                    </div>
-
-                    <div class="min-w-0 flex-1">
-                        <h4 class="truncate text-sm font-semibold text-foreground">{{ item.nama }}</h4>
-                        <p class="text-xs text-muted-foreground">{{ formatRupiah(item.harga) }}</p>
-                        <p class="text-sm font-bold text-indigo-600 dark:text-indigo-400">{{ formatRupiah(item.subtotal) }}</p>
-                    </div>
-
-                    <div class="flex flex-col items-end gap-1.5">
-                        <button
-                            type="button"
-                            class="rounded-lg p-1 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
-                            @click="removeCartItem(item.id_produk)"
+                    <div class="flex items-center gap-3">
+                        <img
+                            v-if="resolveFoto(item.foto_url ?? item.foto)"
+                            :src="resolveFoto(item.foto_url ?? item.foto) ?? undefined"
+                            :alt="item.nama"
+                            class="h-12 w-12 shrink-0 rounded-xl border border-sidebar-border/70 object-cover dark:border-sidebar-border"
+                        />
+                        <div
+                            v-else
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-sidebar-border/70 bg-slate-100 text-muted-foreground dark:border-sidebar-border dark:bg-zinc-800"
                         >
-                            <Trash2 class="h-4 w-4" />
-                        </button>
-                        <div class="flex items-center gap-1 rounded-lg border border-sidebar-border/70 p-0.5 dark:border-sidebar-border">
-                            <button
-                                type="button"
-                                class="flex h-7 w-7 items-center justify-center rounded-md text-foreground transition hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
-                                @click="updateItemQuantity(item, -1)"
-                            >
-                                <Minus class="h-3.5 w-3.5" />
-                            </button>
-                            <span class="min-w-7 text-center text-sm font-bold tabular-nums select-none">{{ item.qty }}</span>
-                            <button
-                                type="button"
-                                class="flex h-7 w-7 items-center justify-center rounded-md text-foreground transition hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
-                                :disabled="item.qty >= item.stock"
-                                @click="updateItemQuantity(item, 1)"
-                            >
-                                <Plus class="h-3.5 w-3.5" />
-                            </button>
+                            <PackageX class="h-5 w-5 opacity-50" />
                         </div>
+
+                        <div class="min-w-0 flex-1">
+                            <h4 class="truncate text-sm font-semibold text-foreground">{{ item.nama }}</h4>
+                            <p class="text-xs text-muted-foreground">
+                                {{ formatRupiah(item.harga) }}<span v-if="item.tipe_jual === 'curah'"> / {{ item.satuan }}</span>
+                            </p>
+                            <p class="text-sm font-bold text-indigo-600 dark:text-indigo-400">{{ formatRupiah(item.subtotal) }}</p>
+                        </div>
+
+                        <div class="flex flex-col items-end gap-1.5">
+                            <button
+                                type="button"
+                                class="rounded-lg p-1 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+                                @click="removeCartItem(item.id_produk)"
+                            >
+                                <Trash2 class="h-4 w-4" />
+                            </button>
+                            <div
+                                v-if="item.tipe_jual !== 'curah'"
+                                class="flex items-center gap-1 rounded-lg border border-sidebar-border/70 p-0.5 dark:border-sidebar-border"
+                            >
+                                <button
+                                    type="button"
+                                    class="flex h-7 w-7 items-center justify-center rounded-md text-foreground transition hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+                                    @click="updateItemQuantity(item, -1)"
+                                >
+                                    <Minus class="h-3.5 w-3.5" />
+                                </button>
+                                <span class="min-w-7 text-center text-sm font-bold tabular-nums select-none">{{ item.qty }}</span>
+                                <button
+                                    type="button"
+                                    class="flex h-7 w-7 items-center justify-center rounded-md text-foreground transition hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+                                    :disabled="item.qty >= item.stock"
+                                    @click="updateItemQuantity(item, 1)"
+                                >
+                                    <Plus class="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input nominal (rupiah) untuk produk curah -->
+                    <div v-if="item.tipe_jual === 'curah'" class="mt-2 space-y-1">
+                        <div class="relative">
+                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">Rp</span>
+                            <input
+                                v-model.number="item.nominal"
+                                type="number"
+                                min="0"
+                                inputmode="numeric"
+                                placeholder="Nominal pembelian (mis. 20000)"
+                                :class="[
+                                    'w-full rounded-lg border bg-background py-2 pl-8 pr-3 text-sm font-semibold transition focus:ring-2 focus:ring-indigo-500/20 focus:outline-none',
+                                    item.nominal > 0 && item.qty > item.stock
+                                        ? 'border-rose-500 focus:border-rose-500'
+                                        : 'border-sidebar-border/70 focus:border-indigo-500 dark:border-sidebar-border',
+                                ]"
+                                @input="recomputeCurahItem(item)"
+                            />
+                        </div>
+                        <p v-if="item.nominal > 0 && item.qty <= item.stock" class="text-xs text-muted-foreground">
+                            ≈ {{ formatQty(item.qty) }} {{ item.satuan }} · stok {{ formatQty(item.stock) }} {{ item.satuan }}
+                        </p>
+                        <p v-else-if="item.qty > item.stock" class="text-xs font-medium text-rose-600 dark:text-rose-400">
+                            Melebihi stok: butuh {{ formatQty(item.qty) }} {{ item.satuan }}, tersedia {{ formatQty(item.stock) }} {{ item.satuan }}.
+                        </p>
+                        <p v-else class="text-xs text-amber-600 dark:text-amber-400">
+                            Masukkan nominal pembelian dulu.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -874,10 +980,14 @@ function submitTransaction() {
                     </div>
                 </div>
 
+                <p v-if="hasCurahIssue" class="-mb-1 text-center text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Lengkapi nominal produk curah & pastikan tidak melebihi stok.
+                </p>
+
                 <button
                     type="button"
                     class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                    :disabled="cartItems.length === 0 || form.processing"
+                    :disabled="cartItems.length === 0 || form.processing || hasCurahIssue"
                     @click="submitTransaction"
                 >
                     {{ form.processing ? 'Memproses...' : 'Proses Pembayaran' }}

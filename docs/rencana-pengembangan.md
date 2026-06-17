@@ -62,8 +62,14 @@ slow-mover & curah.
 
 ---
 
-### Fase 1 — Produk curah (bensin & bawang) — kebutuhan #5
+### Fase 1 — Produk curah (bensin & bawang) — kebutuhan #5 ✅ SELESAI (17 Jun 2026)
 Bergantung pada desimal di Fase 0.
+
+> **Status:** terimplementasi & teruji (build sukses, 109 test/106 hijau, lint bersih).
+> - Form produk admin ([Products.vue](resources/js/pages/admin/Products.vue)): pilih `tipe_jual` (satuan/curah/jasa) + `satuan`; label harga & stok menyesuaikan; jasa menyembunyikan stok; badge tipe di tabel.
+> - Halaman kasir ([Transaksi.vue](resources/js/pages/kasir/Transaksi.vue)): produk curah → kartu keranjang menampilkan input **Rp nominal**; qty = nominal ÷ harga/satuan (3 desimal) ditampilkan "≈ x satuan"; subtotal = nominal persis; peringatan bila melebihi stok; submit dikunci sampai nominal valid.
+> - `KasirController::store` bercabang per `tipe_jual` (curah pakai `items.*.nominal`); produk `jasa` dikecualikan dari grid kasir (alur sendiri di Fase 2).
+> - Test: `tests/Feature/CurahTest.php`.
 
 - `harga_jual` untuk `curah` dimaknai **per satuan** (per liter / per kg).
   Bensin: `harga_modal`/liter + margin Rp1.000 → `harga_jual`/liter.

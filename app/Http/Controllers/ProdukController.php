@@ -24,6 +24,8 @@ class ProdukController extends Controller
                     'id_produk' => $produk->id_produk,
                     'nama' => $produk->nama,
                     'jenis' => $produk->jenis,
+                    'tipe_jual' => $produk->tipe_jual,
+                    'satuan' => $produk->satuan,
                     'kategori' => $produk->kategori?->nama_kategori,
                     'id_kategori' => $produk->id_kategori,
                     'harga_jual' => $produk->harga_jual,

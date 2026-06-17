@@ -46,10 +46,14 @@ interface Kategori {
     nama_kategori: string;
 }
 
+type TipeJual = 'satuan' | 'curah' | 'jasa';
+
 interface Produk {
     id_produk: number;
     nama: string;
     jenis: 'beli' | 'produksi';
+    tipe_jual: TipeJual;
+    satuan: string;
     kategori: string | null;
     id_kategori: number;
     harga_jual: number;
@@ -140,6 +144,16 @@ function formatRupiah(value: number): string {
     }).format(value);
 }
 
+// Stok bisa pecahan (curah) — tampilkan tanpa nol di belakang yang tak perlu.
+function formatStok(value: number): string {
+    return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 }).format(Number(value) || 0);
+}
+
+const tipeJualBadge: Record<string, { label: string; class: string }> = {
+    curah: { label: 'Curah', class: 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400' },
+    jasa: { label: 'Jasa', class: 'border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400' },
+};
+
 function resolveFoto(foto: string | null): string | null {
     if (!foto) {
         return null;
@@ -166,6 +180,8 @@ const BARCODE_SCANNER_MIN_LENGTH = 3;
 const form = useForm({
     id_kategori: '',
     jenis: 'beli',
+    tipe_jual: 'satuan' as TipeJual,
+    satuan: 'pcs',
     nama: '',
     foto: '',
     foto_upload: null as File | null,
@@ -174,6 +190,19 @@ const form = useForm({
     stok: '',
     barcode: '',
     sku: '',
+});
+
+const tipeJualOptions: { value: TipeJual; label: string; hint: string }[] = [
+    { value: 'satuan', label: 'Satuan (per biji)', hint: 'Dihitung per buah/bungkus. Cocok untuk cemilan, kue, permen.' },
+    { value: 'curah', label: 'Curah (per takaran)', hint: 'Dijual per liter/kg, boleh pecahan. Kasir bisa input rupiah (mis. bensin, bawang).' },
+    { value: 'jasa', label: 'Jasa (biaya admin)', hint: 'Tanpa stok. Harga = fee/biaya admin (mis. transfer, tarik tunai).' },
+];
+
+// Saran satuan sesuai tipe jual (tetap bisa diketik bebas).
+const satuanSuggestions = computed<string[]>(() => {
+    if (form.tipe_jual === 'curah') return ['liter', 'kg', 'gram', 'meter'];
+    if (form.tipe_jual === 'jasa') return ['transaksi', 'layanan'];
+    return ['pcs', 'bungkus', 'box', 'pack'];
 });
 
 const fotoUploadName = computed(() => form.foto_upload?.name ?? '');
@@ -191,6 +220,8 @@ function openEdit(produk: Produk) {
     stopBarcodeScan();
     form.id_kategori = String(produk.id_kategori);
     form.jenis = produk.jenis;
+    form.tipe_jual = produk.tipe_jual ?? 'satuan';
+    form.satuan = produk.satuan ?? 'pcs';
     form.nama = produk.nama;
     form.foto = produk.foto ?? '';
     form.foto_upload = null;
@@ -319,7 +350,9 @@ function submitForm() {
         foto: form.foto || null,
         harga_jual: Number(form.harga_jual),
         harga_modal: form.jenis === 'produksi' ? 0 : Number(form.harga_modal || 0),
-        stok: Number(form.stok),
+        // Jasa tidak punya stok fisik; backend juga memaksanya ke 0.
+        stok: form.tipe_jual === 'jasa' ? 0 : Number(form.stok || 0),
+        satuan: form.satuan || 'pcs',
     };
 
     if (editingProduk.value) {
@@ -768,7 +801,15 @@ const statusClass: Record<string, string> = {
                                         <ImageIcon class="h-5 w-5" />
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="font-semibold text-foreground">{{ produk.nama }}</p>
+                                        <div class="flex items-center gap-2">
+                                            <p class="truncate font-semibold text-foreground">{{ produk.nama }}</p>
+                                            <span
+                                                v-if="tipeJualBadge[produk.tipe_jual]"
+                                                :class="['inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold', tipeJualBadge[produk.tipe_jual].class]"
+                                            >
+                                                {{ tipeJualBadge[produk.tipe_jual].label }}
+                                            </span>
+                                        </div>
                                         <p class="text-xs text-muted-foreground">SKU: {{ produk.sku }}</p>
                                     </div>
                                 </div>
@@ -779,7 +820,10 @@ const statusClass: Record<string, string> = {
                             <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
                                 {{ formatRupiah(produk.harga_jual) }}
                             </td>
-                            <td class="px-6 py-4 font-medium">{{ produk.stok }} pcs</td>
+                            <td class="px-6 py-4 font-medium">
+                                <span v-if="produk.tipe_jual === 'jasa'" class="text-muted-foreground">—</span>
+                                <span v-else>{{ formatStok(produk.stok) }} {{ produk.satuan }}</span>
+                            </td>
                             <td class="px-6 py-4">
                                 <span
                                     :class="[
@@ -1037,10 +1081,51 @@ const statusClass: Record<string, string> = {
                         </p>
                     </div>
 
+                    <!-- Tipe Jual + Satuan -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium" for="prod-tipe-jual">
+                                Tipe Jual
+                            </label>
+                            <select
+                                id="prod-tipe-jual"
+                                v-model="form.tipe_jual"
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            >
+                                <option v-for="opt in tipeJualOptions" :key="opt.value" :value="opt.value">
+                                    {{ opt.label }}
+                                </option>
+                            </select>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                {{ tipeJualOptions.find((o) => o.value === form.tipe_jual)?.hint }}
+                            </p>
+                        </div>
+                        <div v-if="form.tipe_jual !== 'jasa'">
+                            <label class="mb-1.5 block text-sm font-medium" for="prod-satuan">
+                                Satuan
+                            </label>
+                            <input
+                                id="prod-satuan"
+                                v-model="form.satuan"
+                                type="text"
+                                list="satuan-suggestions"
+                                placeholder="pcs / liter / kg"
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                :class="{ 'border-rose-500': form.errors.satuan }"
+                            />
+                            <datalist id="satuan-suggestions">
+                                <option v-for="s in satuanSuggestions" :key="s" :value="s" />
+                            </datalist>
+                            <p v-if="form.errors.satuan" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                <AlertCircle class="h-3 w-3" />{{ form.errors.satuan }}
+                            </p>
+                        </div>
+                    </div>
+
                     <!-- Harga Jual -->
                     <div>
                         <label class="mb-1.5 block text-sm font-medium" for="prod-harga-jual">
-                            Harga Jual (Rp)
+                            {{ form.tipe_jual === 'jasa' ? 'Biaya / Fee (Rp)' : form.tipe_jual === 'curah' ? `Harga Jual per ${form.satuan || 'satuan'} (Rp)` : 'Harga Jual (Rp)' }}
                         </label>
                         <input
                             id="prod-harga-jual"
@@ -1078,21 +1163,30 @@ const statusClass: Record<string, string> = {
                         Modal produk ini dikelola lewat menu <strong>Produksi</strong>.
                     </div>
 
-                    <!-- Stok -->
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-stok">Stok</label>
+                    <!-- Stok (jasa tidak punya stok) -->
+                    <div v-if="form.tipe_jual !== 'jasa'">
+                        <label class="mb-1.5 block text-sm font-medium" for="prod-stok">
+                            Stok{{ form.satuan ? ` (${form.satuan})` : '' }}
+                        </label>
                         <input
                             id="prod-stok"
                             v-model="form.stok"
                             type="number"
                             min="0"
+                            :step="form.tipe_jual === 'curah' ? 'any' : '1'"
                             placeholder="0"
                             class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                             :class="{ 'border-rose-500': form.errors.stok }"
                         />
+                        <p v-if="form.tipe_jual === 'curah'" class="mt-1 text-xs text-muted-foreground">
+                            Boleh pecahan, mis. 12.5 {{ form.satuan || 'satuan' }}.
+                        </p>
                         <p v-if="form.errors.stok" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
                             <AlertCircle class="h-3 w-3" />{{ form.errors.stok }}
                         </p>
+                    </div>
+                    <div v-else class="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-2.5 text-xs text-muted-foreground">
+                        Produk <strong>jasa</strong> tidak menyimpan stok. Pendapatan dihitung dari fee/biaya admin.
                     </div>
 
                     <!-- Barcode & SKU -->
