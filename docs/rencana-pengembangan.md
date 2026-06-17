@@ -83,7 +83,15 @@ Bergantung pada desimal di Fase 0.
 
 ---
 
-### Fase 2 — Jasa: transfer & tarik tunai — kebutuhan #7 (paling rawan laporan)
+### Fase 2 — Jasa: transfer & tarik tunai — kebutuhan #7 (paling rawan laporan) ✅ SELESAI (17 Jun 2026)
+
+> **Status:** terimplementasi & teruji (114 test/111 hijau, build sukses, lint bersih). Keputusan klien: **fee diketik manual** tiap transaksi (tanpa default/tiering).
+> - Migrasi `2026_06_17_100004`: `detail_transaksis.nominal` (nullable) = pass-through; `subtotal` baris jasa = fee.
+> - `KasirController::store` cabang jasa: TANPA stok/kartu stok, `modal=0`, `subtotal=fee`, simpan `nominal`. Validasi `items.*.fee` + `items.*.nominal` (dua-duanya wajib >0 untuk jasa).
+> - `transaksi()` mengirim prop `layanan` (daftar produk jasa) terpisah dari grid; `riwayat()` mengirim `nominal`.
+> - Kasir UI: strip **"Layanan"** (tombol violet) menambah baris jasa ke keranjang; baris jasa punya input **Nominal** + **Fee**, hanya fee masuk omzet, ada catatan "nominal hanya titipan".
+> - ⚠️ Omzet otomatis benar karena `total_harga = Σ subtotal` (= fee), `nominal` tak pernah masuk omzet. COGS jasa = 0.
+> - Test: `tests/Feature/JasaTest.php`.
 - Produk ber-`tipe_jual=jasa`: **tanpa stok, tanpa HPP normal**.
 - `detail_transaksis`: tambah kolom `nominal` (nullable) = uang pokok yang
   ditransfer/ditarik (**pass-through, BUKAN omzet**). `subtotal` baris = **fee**.

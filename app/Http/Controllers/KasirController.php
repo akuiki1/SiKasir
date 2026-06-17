@@ -222,6 +222,17 @@ class KasirController extends Controller
                 'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
             ]);
 
+        // Produk jasa (transfer/tarik tunai): nominal = pass-through, fee diketik kasir.
+        $layanan = Produk::query()
+            ->where('tipe_jual', 'jasa')
+            ->orderBy('nama')
+            ->get()
+            ->map(fn (Produk $produk) => [
+                'id_produk' => $produk->id_produk,
+                'nama' => $produk->nama,
+                'satuan' => $produk->satuan,
+            ]);
+
         $now = now();
         $promos = Promo::with('produk')
             ->where('aktif', true)
@@ -240,6 +251,7 @@ class KasirController extends Controller
 
         return Inertia::render('kasir/Transaksi', [
             'produks' => $produks,
+            'layanan' => $layanan,
             'promos' => $promos,
         ]);
     }
@@ -255,7 +267,10 @@ class KasirController extends Controller
             // numeric (bukan integer) agar produk curah bisa dijual pecahan (mis. 1.429 liter).
             'items.*.jumlah' => ['required', 'numeric', 'gt:0'],
             // Untuk produk curah: nominal rupiah yang dibayar (qty dihitung dari sini).
+            // Untuk produk jasa: nominal = uang transfer/tarik (pass-through).
             'items.*.nominal' => ['nullable', 'integer', 'min:1'],
+            // Untuk produk jasa: fee/biaya admin (satu-satunya pendapatan dari jasa).
+            'items.*.fee' => ['nullable', 'integer', 'min:0'],
         ]);
 
         DB::transaction(function () use ($validated): void {
@@ -271,6 +286,45 @@ class KasirController extends Controller
             foreach ($validated['items'] as $item) {
                 $produk = Produk::lockForUpdate()->findOrFail($item['id_produk']);
                 $harga = $produk->harga_jual;
+                $nominalRef = null; // diisi hanya untuk jasa (pass-through)
+
+                if ($produk->tipe_jual === 'jasa') {
+                    // Jasa (transfer/tarik tunai): TANPA stok. Omzet = fee saja.
+                    // Nominal pokok hanya pass-through (titipan), TIDAK masuk omzet.
+                    $fee = (int) ($item['fee'] ?? 0);
+                    $nominalRef = (int) ($item['nominal'] ?? 0);
+
+                    if ($fee <= 0) {
+                        throw ValidationException::withMessages([
+                            'items' => "Masukkan biaya admin (fee) untuk {$produk->nama}.",
+                        ]);
+                    }
+
+                    if ($nominalRef <= 0) {
+                        throw ValidationException::withMessages([
+                            'items' => "Masukkan nominal transfer/tarik untuk {$produk->nama}.",
+                        ]);
+                    }
+
+                    $qty = 1;
+                    $harga = $fee;
+                    $itemSubtotal = $fee;
+
+                    $subtotal += $itemSubtotal;
+
+                    $details[] = [
+                        'produk' => $produk,
+                        'jumlah' => $qty,
+                        'harga' => $harga,
+                        'modal' => 0, // jasa tidak punya HPP
+                        'subtotal_after_promo' => $itemSubtotal,
+                        'item_diskon' => 0, // promo tidak berlaku untuk fee jasa
+                        'nominal' => $nominalRef,
+                        'is_jasa' => true,
+                    ];
+
+                    continue;
+                }
 
                 if ($produk->tipe_jual === 'curah') {
                     // Curah (bensin/bawang): kasir input NOMINAL rupiah → qty = nominal ÷ harga/satuan.
@@ -375,7 +429,13 @@ class KasirController extends Controller
                     'harga' => $detail['harga'],
                     'modal' => $detail['modal'],
                     'subtotal' => $detail['subtotal_after_promo'],
+                    'nominal' => $detail['nominal'] ?? null,
                 ]);
+
+                // Jasa tidak menyentuh stok (tanpa kartu stok).
+                if (! empty($detail['is_jasa'])) {
+                    continue;
+                }
 
                 // Kurangi stok + catat ke kartu stok (produk masih terkunci dari loop validasi).
                 $detail['produk']->terapkanMutasiStok(
@@ -428,6 +488,7 @@ class KasirController extends Controller
                     'jumlah' => $detail->jumlah,
                     'harga' => $detail->harga,
                     'subtotal' => $detail->subtotal,
+                    'nominal' => $detail->nominal, // pass-through jasa (null bila bukan jasa)
                     'foto' => $detail->produk?->foto ?? null,
                     'foto_url' => $detail->produk?->foto ? asset('storage/'.$detail->produk->foto) : null,
                 ])->values(),

@@ -21,6 +21,7 @@ class DetailTransaksi extends Model
         'harga',
         'modal',
         'subtotal',
+        'nominal',
     ];
 
     protected $casts = [
@@ -29,6 +30,8 @@ class DetailTransaksi extends Model
         'harga' => 'integer',
         'modal' => 'integer',
         'subtotal' => 'integer',
+        // Pass-through jasa (uang transfer/tarik). null untuk baris non-jasa.
+        'nominal' => 'integer',
     ];
 
     public function transaksi(): BelongsTo
