@@ -167,6 +167,14 @@ function getMonthRange(year: number, month: number) {
     };
 }
 
+function getYearRange(year: number) {
+    // String manual agar tidak bergeser akibat konversi UTC pada toISOString().
+    return {
+        start: `${year}-01-01`,
+        end: `${year}-12-31`,
+    };
+}
+
 const showDateFilter = ref(false);
 const filterYear = ref(props.date_range.start_date ? new Date(props.date_range.start_date + 'T00:00:00').getFullYear() : new Date().getFullYear());
 const dateStartDate = ref(props.date_range.start_date);
@@ -176,6 +184,10 @@ function detectDateMode(): string {
     const today = new Date().toISOString().slice(0, 10);
     if (props.date_range.start_date === today && props.date_range.end_date === today) {
         return 'today';
+    }
+    const yearRange = getYearRange(filterYear.value);
+    if (props.date_range.start_date === yearRange.start && props.date_range.end_date === yearRange.end) {
+        return 'year';
     }
     for (let m = 0; m < 12; m++) {
         const range = getMonthRange(filterYear.value, m);
@@ -190,6 +202,7 @@ const selectedDateMode = ref(detectDateMode());
 
 const periodLabel = computed(() => {
     if (selectedDateMode.value === 'today') return 'Hari Ini';
+    if (selectedDateMode.value === 'year') return `Tahun ${filterYear.value}`;
     if (selectedDateMode.value !== 'custom') {
         return `${MONTHS[Number(selectedDateMode.value)]} ${filterYear.value}`;
     }
@@ -216,18 +229,31 @@ function selectToday(): void {
     }, { preserveState: true, replace: true });
 }
 
-function prevFilterYear(): void {
-    filterYear.value--;
-    if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
+function selectYear(): void {
+    selectedDateMode.value = 'year';
+    const range = getYearRange(filterYear.value);
+    router.get('/admin/transactions', {
+        start_date: range.start,
+        end_date: range.end,
+    }, { preserveState: true, replace: true });
+}
+
+function onYearNav(): void {
+    if (selectedDateMode.value === 'year') {
+        selectYear();
+    } else if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
         selectMonth(Number(selectedDateMode.value));
     }
 }
 
+function prevFilterYear(): void {
+    filterYear.value--;
+    onYearNav();
+}
+
 function nextFilterYear(): void {
     filterYear.value++;
-    if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
-        selectMonth(Number(selectedDateMode.value));
-    }
+    onYearNav();
 }
 
 function applyDateRange(): void {
@@ -468,6 +494,16 @@ function hapusTransaksi(trx: Transaksi) {
                                     @click="selectMonth(i); showDateFilter = false"
                                 >
                                     {{ month }}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="col-span-4 rounded-lg py-2 text-xs font-semibold transition-all"
+                                    :class="selectedDateMode === 'year'
+                                        ? 'bg-indigo-500 text-white'
+                                        : 'text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-500/10'"
+                                    @click="selectYear(); showDateFilter = false"
+                                >
+                                    Setahun Penuh ({{ filterYear }})
                                 </button>
                                 <button
                                     type="button"

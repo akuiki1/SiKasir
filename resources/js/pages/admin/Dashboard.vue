@@ -135,6 +135,14 @@ function getMonthRange(year: number, month: number) {
     };
 }
 
+function getYearRange(year: number) {
+    // String manual agar tidak bergeser akibat konversi UTC pada toISOString().
+    return {
+        start: `${year}-01-01`,
+        end: `${year}-12-31`,
+    };
+}
+
 function detectInitialYear(): number {
     return props.date_range.start_date ? new Date(props.date_range.start_date + 'T00:00:00').getFullYear() : new Date().getFullYear();
 }
@@ -145,6 +153,10 @@ function detectInitialMode(): string {
     const today = new Date().toISOString().slice(0, 10);
     if (props.date_range.start_date === today && props.date_range.end_date === today) {
         return 'today';
+    }
+    const yearRange = getYearRange(filterYear.value);
+    if (props.date_range.start_date === yearRange.start && props.date_range.end_date === yearRange.end) {
+        return 'year';
     }
     for (let m = 0; m < 12; m++) {
         const range = getMonthRange(filterYear.value, m);
@@ -159,6 +171,7 @@ const selectedMode = ref(detectInitialMode());
 
 const filterBadgeLabel = computed(() => {
     if (selectedMode.value === 'today') return 'Hari Ini';
+    if (selectedMode.value === 'year') return `Tahun ${filterYear.value}`;
     if (selectedMode.value !== 'custom') return `${MONTHS[Number(selectedMode.value)]} ${filterYear.value}`;
     return 'Custom';
 });
@@ -185,18 +198,31 @@ function selectToday(): void {
     }, { preserveState: true, replace: true });
 }
 
-function prevYear(): void {
-    filterYear.value--;
-    if (selectedMode.value !== 'custom' && selectedMode.value !== 'today') {
+function selectYear(): void {
+    selectedMode.value = 'year';
+    const range = getYearRange(filterYear.value);
+    router.get('/admin/dashboard', {
+        start_date: range.start,
+        end_date: range.end,
+    }, { preserveState: true, replace: true });
+}
+
+function onYearNav(): void {
+    if (selectedMode.value === 'year') {
+        selectYear();
+    } else if (selectedMode.value !== 'custom' && selectedMode.value !== 'today') {
         selectMonth(Number(selectedMode.value));
     }
 }
 
+function prevYear(): void {
+    filterYear.value--;
+    onYearNav();
+}
+
 function nextYear(): void {
     filterYear.value++;
-    if (selectedMode.value !== 'custom' && selectedMode.value !== 'today') {
-        selectMonth(Number(selectedMode.value));
-    }
+    onYearNav();
 }
 
 const maxRevenue = computed(() => Math.max(...props.revenue_chart.map((point) => point.value), 1));
@@ -567,6 +593,16 @@ function printSection(section: string): void {
                                     @click="selectMonth(i); showFilter = false"
                                 >
                                     {{ month }}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="col-span-4 rounded-lg py-2 text-xs font-semibold transition-all"
+                                    :class="selectedMode === 'year'
+                                        ? 'bg-sky-500 text-white'
+                                        : 'text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-500/10'"
+                                    @click="selectYear(); showFilter = false"
+                                >
+                                    Setahun Penuh ({{ filterYear }})
                                 </button>
                                 <button
                                     type="button"
