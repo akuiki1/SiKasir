@@ -9,6 +9,14 @@ import {
     Trash2,
     ArrowRight,
     Percent,
+    X,
+    ChevronUp,
+    Banknote,
+    QrCode,
+    CreditCard,
+    PackageX,
+    ShoppingBag,
+    LayoutGrid,
 } from 'lucide-vue-next';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
@@ -69,10 +77,12 @@ const isScannerDetected = ref(false);
 const scannerStatusText = ref('Scanner tidak terdeteksi');
 const selectedCategory = ref('');
 const cartItems = ref<CartItem[]>([]);
+const cartOpen = ref(false);
 const scannerBuffer = ref('');
 const lastScannerTime = ref(0);
 const SCANNER_TIMEOUT_MS = 150;
 const SCANNER_MIN_LENGTH = 3;
+const QUICK_DENOMS = [5000, 10000, 20000, 50000, 100000];
 
 interface HidDeviceInfo {
     productName?: string;
@@ -93,6 +103,17 @@ const form = useForm({
     bayar: '',
     id_promo: null as number | null,
     items: [] as Array<{ id_produk: number; jumlah: number }>,
+});
+
+const categories = computed(() => {
+    const set = new Set<string>();
+    props.produks.forEach((product) => {
+        if (product.kategori) {
+            set.add(product.kategori);
+        }
+    });
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id-ID'));
 });
 
 const filteredProduks = computed(() => {
@@ -237,6 +258,15 @@ function updateItemQuantity(item: CartItem, delta: number) {
     item.subtotal = item.harga * item.qty;
 }
 
+const cartCount = computed(() => cartItems.value.reduce((sum, item) => sum + item.qty, 0));
+
+const cartQtyById = computed(() => {
+    const map = new Map<number, number>();
+    cartItems.value.forEach((item) => map.set(item.id_produk, item.qty));
+
+    return map;
+});
+
 const totalHarga = computed(() => {
     return cartItems.value.reduce((sum, item) => sum + item.subtotal, 0);
 });
@@ -296,6 +326,30 @@ const kembalian = computed(() => {
     const bayar = Number(form.bayar) || 0;
 
     return Math.max(0, bayar - totalAfterDiscount.value);
+});
+
+const isPaid = computed(() => (Number(form.bayar) || 0) >= totalAfterDiscount.value);
+
+const paymentMethods = [
+    { value: 'cash', label: 'Tunai', icon: Banknote },
+    { value: 'qris', label: 'QRIS', icon: QrCode },
+    { value: 'transfer', label: 'Transfer', icon: CreditCard },
+] as const;
+
+const cashSuggestions = computed(() => {
+    const total = totalAfterDiscount.value;
+
+    if (total <= 0) {
+        return [];
+    }
+
+    const rounded = Math.ceil(total / 10000) * 10000;
+    const set = new Set<number>([rounded, ...QUICK_DENOMS.filter((denom) => denom >= total)]);
+
+    return Array.from(set)
+        .filter((value) => value >= total)
+        .sort((a, b) => a - b)
+        .slice(0, 3);
 });
 
 function handleScannerKeydown(event: KeyboardEvent) {
@@ -399,6 +453,7 @@ function submitTransaction() {
             cartItems.value = [];
             form.bayar = '';
             form.id_promo = null;
+            cartOpen.value = false;
         },
     });
 }
@@ -407,290 +462,451 @@ function submitTransaction() {
 <template>
     <Head title="Transaksi Baru - Kasir" />
 
-    <div class="flex h-full flex-1 flex-col lg:flex-row gap-6 p-6 overflow-hidden">
-        <div class="flex-1 flex flex-col gap-6 overflow-y-auto pr-1">
-            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h1 class="text-3xl font-extrabold tracking-tight">Transaksi Baru</h1>
-                    <p class="text-sm text-muted-foreground mt-1">
-                        Pilih produk di bawah untuk dimasukkan ke keranjang belanja pelanggan.
+    <div class="relative flex h-full flex-1 flex-col overflow-hidden lg:flex-row lg:gap-6 lg:p-6">
+        <!-- ============ PRODUK ============ -->
+        <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <!-- Header + pencarian + kategori (tetap di atas, tidak ikut scroll) -->
+            <div class="shrink-0 space-y-4 px-4 pt-4 sm:px-6 sm:pt-6 lg:px-0 lg:pt-0">
+                <div class="flex flex-col gap-1">
+                    <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">Transaksi Baru</h1>
+                    <p class="hidden text-sm text-muted-foreground sm:block">
+                        Pilih produk atau scan barcode untuk menambahkannya ke keranjang.
                     </p>
                 </div>
-            </div>
 
-            <div class="grid gap-4 lg:grid-cols-[1fr_auto]">
-                <div class="relative">
-                    <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                        v-model="searchQuery"
-                        type="text"
-                        placeholder="Cari produk..."
-                        class="w-full rounded-lg border border-sidebar-border/70 bg-background pl-9 pr-4 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                    />
-                </div>
-                <div
-                    role="status"
-                    :class="[
-                        'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold',
-                        isScannerDetected
-                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                            : 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-400',
-                    ]"
-                >
-                    <Barcode class="h-4 w-4" />
-                    <span
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div class="relative flex-1">
+                        <Search class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            v-model="searchQuery"
+                            type="text"
+                            placeholder="Cari produk..."
+                            class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2.5 pl-10 pr-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                        />
+                    </div>
+                    <div
+                        role="status"
                         :class="[
-                            'h-2 w-2 rounded-full',
-                            isScannerDetected ? 'bg-emerald-500' : 'bg-rose-500',
+                            'inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold sm:text-sm',
+                            isScannerDetected
+                                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                : 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-400',
                         ]"
-                    ></span>
-                    <span>{{ scannerStatusText }}</span>
-                    <span
-                        v-if="isScannerDetected"
-                        class="hidden text-xs font-medium opacity-80 xl:inline"
                     >
-                        Scan langsung masuk keranjang
-                    </span>
+                        <Barcode class="h-4 w-4" />
+                        <span
+                            :class="[
+                                'h-2 w-2 rounded-full',
+                                isScannerDetected ? 'bg-emerald-500' : 'bg-rose-500',
+                            ]"
+                        ></span>
+                        <span class="hidden sm:inline">{{ scannerStatusText }}</span>
+                    </div>
+                </div>
+
+                <!-- Filter kategori -->
+                <div v-if="categories.length" class="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+                    <button
+                        type="button"
+                        :class="[
+                            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition',
+                            selectedCategory === ''
+                                ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                : 'border-sidebar-border/70 bg-background text-muted-foreground hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800',
+                        ]"
+                        @click="selectedCategory = ''"
+                    >
+                        <LayoutGrid class="h-3.5 w-3.5" />
+                        Semua
+                    </button>
+                    <button
+                        v-for="cat in categories"
+                        :key="cat"
+                        type="button"
+                        :class="[
+                            'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition',
+                            selectedCategory === cat
+                                ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                : 'border-sidebar-border/70 bg-background text-muted-foreground hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800',
+                        ]"
+                        @click="selectedCategory = cat"
+                    >
+                        {{ cat }}
+                    </button>
                 </div>
             </div>
 
-
-            <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                <div
-                    v-for="product in paginatedProduks"
-                    :key="product.id_produk"
-                    :class="[
-                        'group overflow-hidden rounded-3xl border p-4 transition-all duration-200 shadow-sm',
-                        product.stok > 0
-                            ? 'border-sidebar-border/70 bg-card hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/30 cursor-pointer'
-                            : 'border-sidebar-border/40 bg-slate-50/50 dark:bg-zinc-950/30 opacity-70',
-                    ]"
-                >
-                    <div class="flex flex-col h-full">
-                        <div class="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900">
+            <!-- Grid produk (area scroll) -->
+            <div class="flex-1 overflow-y-auto px-4 pt-4 pb-28 sm:px-6 lg:px-0 lg:pb-4">
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
+                    <button
+                        v-for="product in paginatedProduks"
+                        :key="product.id_produk"
+                        type="button"
+                        :disabled="product.stok === 0"
+                        :class="[
+                            'group relative flex flex-col overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-all duration-200',
+                            product.stok > 0
+                                ? 'border-sidebar-border/70 hover:-translate-y-0.5 hover:border-indigo-500/40 hover:shadow-md active:scale-[0.98] dark:border-sidebar-border'
+                                : 'cursor-not-allowed border-sidebar-border/40 opacity-60',
+                        ]"
+                        @click="addToCart(product)"
+                    >
+                        <div class="relative aspect-square w-full overflow-hidden bg-slate-100 dark:bg-zinc-900">
                             <img
                                 v-if="resolveFoto(product.foto_url ?? product.foto)"
                                 :src="resolveFoto(product.foto_url ?? product.foto) ?? undefined"
                                 :alt="product.nama"
-                                class="h-40 w-full object-cover"
+                                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                             <div
                                 v-else
-                                class="flex h-40 w-full items-center justify-center text-sm font-medium text-muted-foreground"
+                                class="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground"
                             >
-                                Foto produk
+                                <PackageX class="h-7 w-7 opacity-40" />
+                            </div>
+
+                            <!-- Badge promo -->
+                            <span
+                                v-if="activeProductPromos.get(product.id_produk)"
+                                class="absolute left-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow"
+                            >
+                                <Percent class="h-2.5 w-2.5" />
+                                {{ activeProductPromos.get(product.id_produk)?.tipe === 'persen' ? `${activeProductPromos.get(product.id_produk)?.nilai}%` : 'Promo' }}
+                            </span>
+
+                            <!-- Badge qty di keranjang -->
+                            <span
+                                v-if="cartQtyById.get(product.id_produk)"
+                                class="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-xs font-bold text-white shadow-md ring-2 ring-white dark:ring-zinc-900"
+                            >
+                                {{ cartQtyById.get(product.id_produk) }}
+                            </span>
+
+                            <!-- Overlay habis -->
+                            <div
+                                v-if="product.stok === 0"
+                                class="absolute inset-0 flex items-center justify-center bg-slate-900/40"
+                            >
+                                <span class="rounded-full bg-rose-600 px-3 py-1 text-xs font-bold text-white">Stok Habis</span>
                             </div>
                         </div>
 
-                        <div class="mt-4 flex flex-1 flex-col justify-between">
-                            <div class="space-y-3">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-full bg-slate-100 dark:bg-zinc-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                        {{ product.kategori ?? 'Umum' }}
-                                    </span>
-                                    <span v-if="activeProductPromos.get(product.id_produk)"
-                                        class="inline-flex rounded-full bg-emerald-100 text-emerald-700 px-2 py-1 text-[10px] font-semibold"
-                                    >
-                                        Promo {{ activeProductPromos.get(product.id_produk)?.tipe === 'persen' ? `${activeProductPromos.get(product.id_produk)?.nilai}%` : formatRupiah(activeProductPromos.get(product.id_produk)?.nilai || 0) }}
-                                    </span>
-                                    <span
+                        <div class="flex flex-1 flex-col p-3">
+                            <span class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {{ product.kategori ?? 'Umum' }}
+                            </span>
+                            <h3 class="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+                                {{ product.nama }}
+                            </h3>
+                            <div class="mt-2 flex items-end justify-between gap-2 pt-1">
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                                        {{ formatRupiah(product.harga_jual) }}
+                                    </p>
+                                    <p
                                         :class="[
-                                            'inline-flex rounded-full px-2 py-1 text-[10px] font-semibold',
+                                            'text-[10px] font-medium',
                                             product.stok > 10
-                                                ? 'bg-emerald-100 text-emerald-700 dark:text-emerald-400'
+                                                ? 'text-muted-foreground'
                                                 : product.stok > 0
-                                                ? 'bg-amber-100 text-amber-700 dark:text-amber-400'
-                                                : 'bg-rose-100 text-rose-700 dark:text-rose-400',
+                                                ? 'text-amber-600 dark:text-amber-400'
+                                                : 'text-rose-600 dark:text-rose-400',
                                         ]"
                                     >
                                         {{ product.stok > 0 ? `Stok ${product.stok}` : 'Habis' }}
-                                    </span>
-                                </div>
-
-                                <div>
-                                    <h3 class="font-semibold text-base text-foreground leading-tight line-clamp-2">
-                                        {{ product.nama }}
-                                    </h3>
-                                    <p class="mt-2 text-sm text-muted-foreground line-clamp-2">
-                                        {{ formatRupiah(product.harga_jual) }}
                                     </p>
                                 </div>
+                                <span
+                                    v-if="product.stok > 0"
+                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm transition group-hover:bg-indigo-500"
+                                >
+                                    <Plus class="h-4 w-4" />
+                                </span>
                             </div>
-
-                            <button
-                                type="button"
-                                class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                :disabled="product.stok === 0"
-                                @click="addToCart(product)"
-                            >
-                                <Plus class="h-4 w-4" />
-                                Tambah
-                            </button>
                         </div>
-                    </div>
+                    </button>
                 </div>
-            </div>
 
-            <div v-if="paginatedProduks.length === 0 && filteredProduks.length === 0" class="py-12 text-center text-muted-foreground">
-                <p class="font-medium">Tidak ada produk yang sesuai pencarian.</p>
-            </div>
+                <div v-if="filteredProduks.length === 0" class="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
+                    <PackageX class="h-10 w-10 opacity-40" />
+                    <p class="font-medium">Tidak ada produk yang sesuai pencarian.</p>
+                </div>
 
-            <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
-                :visible-pages="visiblePages"
-                @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
-            />
+                <Pagination
+                    v-if="filteredProduks.length > 0"
+                    class="mt-4 rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
+                    :current-page="currentPage"
+                    :total-pages="totalPages"
+                    :total-items="totalItems"
+                    :start-index="startIndex"
+                    :end-index="endIndex"
+                    :per-page="perPage"
+                    :visible-pages="visiblePages"
+                    @update:current-page="goToPage"
+                    @update:per-page="perPage = $event"
+                />
+            </div>
         </div>
 
-        <div class="w-full lg:w-[380px] rounded-xl border border-sidebar-border/70 bg-card dark:border-sidebar-border flex flex-col justify-between shadow-sm overflow-hidden lg:sticky lg:top-6 lg:h-[calc(100vh-120px)]">
-            <div>
-                <div class="flex items-center justify-between border-b border-sidebar-border/70 p-4 dark:border-sidebar-border">
-                    <div class="flex items-center gap-2">
-                        <ShoppingCart class="h-5 w-5 text-indigo-600" />
-                        <h2 class="font-bold tracking-tight">Keranjang Belanja</h2>
-                    </div>
-                    <span class="inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                        {{ cartItems.length }} Items
-                    </span>
-                </div>
+        <!-- ============ Backdrop drawer (mobile) ============ -->
+        <Transition
+            enter-active-class="transition-opacity duration-300"
+            enter-from-class="opacity-0"
+            leave-active-class="transition-opacity duration-200"
+            leave-to-class="opacity-0"
+        >
+            <div
+                v-if="cartOpen"
+                class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+                @click="cartOpen = false"
+            ></div>
+        </Transition>
 
-                <div class="divide-y divide-sidebar-border/70 max-h-[calc(100vh-420px)] overflow-y-auto dark:divide-sidebar-border">
-                    <div
-                        v-if="cartItems.length === 0"
-                        class="p-6 text-center text-sm text-muted-foreground"
-                    >
-                        Belum ada produk di keranjang.
+        <!-- ============ KERANJANG (kolom desktop / drawer mobile) ============ -->
+        <aside
+            :class="[
+                'flex flex-col bg-card shadow-2xl transition-transform duration-300 ease-out',
+                'fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-3xl border-t border-sidebar-border/70 dark:border-sidebar-border',
+                cartOpen ? 'translate-y-0' : 'translate-y-full',
+                'lg:static lg:z-auto lg:max-h-none lg:w-[380px] lg:translate-y-0 lg:rounded-2xl lg:border lg:shadow-sm',
+            ]"
+        >
+            <!-- Header keranjang -->
+            <div class="shrink-0">
+                <!-- handle drawer (mobile) -->
+                <div class="flex justify-center pt-2.5 lg:hidden">
+                    <span class="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-zinc-700"></span>
+                </div>
+                <div class="flex items-center justify-between border-b border-sidebar-border/70 px-4 py-3.5 dark:border-sidebar-border">
+                    <div class="flex items-center gap-2">
+                        <ShoppingCart class="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                        <h2 class="font-bold tracking-tight">Keranjang</h2>
+                        <span class="inline-flex items-center rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                            {{ cartCount }}
+                        </span>
                     </div>
-                    <div
-                        v-for="item in cartItems"
-                        :key="item.id_produk"
-                        class="p-4 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-zinc-800/10 transition-colors"
+                    <button
+                        type="button"
+                        class="rounded-lg p-1.5 text-muted-foreground transition hover:bg-slate-100 lg:hidden dark:hover:bg-zinc-800"
+                        @click="cartOpen = false"
                     >
-                        <div class="flex min-w-0 flex-1 items-center gap-3 pr-3">
-                            <img
-                                v-if="resolveFoto(item.foto_url ?? item.foto)"
-                                :src="resolveFoto(item.foto_url ?? item.foto) ?? undefined"
-                                :alt="item.nama"
-                                class="h-11 w-11 shrink-0 rounded-lg border border-sidebar-border/70 object-cover dark:border-sidebar-border"
-                            />
-                            <div
-                                v-else
-                                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-sidebar-border/70 bg-slate-100 text-[10px] font-medium text-muted-foreground dark:border-sidebar-border dark:bg-zinc-800"
-                            >
-                                Foto
-                            </div>
-                            <div class="min-w-0">
-                                <h4 class="font-semibold text-sm truncate text-foreground">{{ item.nama }}</h4>
-                                <p class="text-xs text-muted-foreground mt-0.5">{{ formatRupiah(item.harga) }} / item</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
+                        <X class="h-5 w-5" />
+                    </button>
+                </div>
+            </div>
+
+            <!-- Daftar item (scroll) -->
+            <div class="flex-1 divide-y divide-sidebar-border/70 overflow-y-auto dark:divide-sidebar-border">
+                <div
+                    v-if="cartItems.length === 0"
+                    class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center"
+                >
+                    <div class="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-800">
+                        <ShoppingBag class="h-7 w-7 text-muted-foreground" />
+                    </div>
+                    <p class="text-sm font-medium text-muted-foreground">Keranjang masih kosong</p>
+                    <p class="text-xs text-muted-foreground">Pilih produk atau scan barcode untuk memulai.</p>
+                </div>
+                <div
+                    v-for="item in cartItems"
+                    :key="item.id_produk"
+                    class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50/60 dark:hover:bg-zinc-800/20"
+                >
+                    <img
+                        v-if="resolveFoto(item.foto_url ?? item.foto)"
+                        :src="resolveFoto(item.foto_url ?? item.foto) ?? undefined"
+                        :alt="item.nama"
+                        class="h-12 w-12 shrink-0 rounded-xl border border-sidebar-border/70 object-cover dark:border-sidebar-border"
+                    />
+                    <div
+                        v-else
+                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-sidebar-border/70 bg-slate-100 text-muted-foreground dark:border-sidebar-border dark:bg-zinc-800"
+                    >
+                        <PackageX class="h-5 w-5 opacity-50" />
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                        <h4 class="truncate text-sm font-semibold text-foreground">{{ item.nama }}</h4>
+                        <p class="text-xs text-muted-foreground">{{ formatRupiah(item.harga) }}</p>
+                        <p class="text-sm font-bold text-indigo-600 dark:text-indigo-400">{{ formatRupiah(item.subtotal) }}</p>
+                    </div>
+
+                    <div class="flex flex-col items-end gap-1.5">
+                        <button
+                            type="button"
+                            class="rounded-lg p-1 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+                            @click="removeCartItem(item.id_produk)"
+                        >
+                            <Trash2 class="h-4 w-4" />
+                        </button>
+                        <div class="flex items-center gap-1 rounded-lg border border-sidebar-border/70 p-0.5 dark:border-sidebar-border">
                             <button
                                 type="button"
-                                class="rounded-lg border border-sidebar-border/70 bg-background p-1 hover:bg-slate-100 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                                class="flex h-7 w-7 items-center justify-center rounded-md text-foreground transition hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
                                 @click="updateItemQuantity(item, -1)"
                             >
-                                <Minus class="h-3 w-3" />
+                                <Minus class="h-3.5 w-3.5" />
                             </button>
-                            <span class="px-2 text-xs font-bold select-none">{{ item.qty }}</span>
+                            <span class="min-w-7 text-center text-sm font-bold tabular-nums select-none">{{ item.qty }}</span>
                             <button
                                 type="button"
-                                class="rounded-lg border border-sidebar-border/70 bg-background p-1 hover:bg-slate-100 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                                class="flex h-7 w-7 items-center justify-center rounded-md text-foreground transition hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+                                :disabled="item.qty >= item.stock"
                                 @click="updateItemQuantity(item, 1)"
                             >
-                                <Plus class="h-3 w-3" />
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded-lg p-1.5 text-muted-foreground hover:bg-slate-100 dark:hover:bg-zinc-800"
-                                @click="removeCartItem(item.id_produk)"
-                            >
-                                <Trash2 class="h-4 w-4" />
+                                <Plus class="h-3.5 w-3.5" />
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="border-t border-sidebar-border/70 p-4 bg-slate-50/50 dark:bg-zinc-800/10 dark:border-sidebar-border space-y-4">
+            <!-- Ringkasan + pembayaran -->
+            <div class="shrink-0 space-y-3 border-t border-sidebar-border/70 bg-slate-50/60 p-4 dark:border-sidebar-border dark:bg-zinc-900/40">
+                <!-- Metode pembayaran -->
+                <div class="grid grid-cols-3 gap-2">
+                    <button
+                        v-for="method in paymentMethods"
+                        :key="method.value"
+                        type="button"
+                        :class="[
+                            'flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-xs font-semibold transition',
+                            form.metode_pembayaran === method.value
+                                ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                : 'border-sidebar-border/70 bg-background text-muted-foreground hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800',
+                        ]"
+                        @click="form.metode_pembayaran = method.value"
+                    >
+                        <component :is="method.icon" class="h-4 w-4" />
+                        {{ method.label }}
+                    </button>
+                </div>
+
+                <!-- Promo -->
+                <select
+                    v-model.number="form.id_promo"
+                    class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3 py-2 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                >
+                    <option :value="null">Tanpa promo tambahan</option>
+                    <option
+                        v-for="promo in globalPromos"
+                        :key="promo.id_promo"
+                        :value="promo.id_promo"
+                    >
+                        {{ promo.nama }}
+                    </option>
+                </select>
+                <p v-if="selectedPromo && selectedPromo.minimal_belanja && totalHarga < selectedPromo.minimal_belanja" class="-mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    Minimal belanja {{ formatRupiah(selectedPromo.minimal_belanja) }} untuk promo ini.
+                </p>
+
+                <!-- Input bayar -->
                 <div class="space-y-2">
+                    <div class="relative">
+                        <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">Rp</span>
+                        <input
+                            v-model="form.bayar"
+                            type="number"
+                            min="0"
+                            inputmode="numeric"
+                            placeholder="Jumlah uang diterima"
+                            class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2.5 pl-9 pr-3 text-sm font-semibold transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                        />
+                    </div>
+                    <div v-if="form.metode_pembayaran === 'cash' && cashSuggestions.length" class="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            class="rounded-lg border border-indigo-500/30 bg-indigo-500/5 px-2.5 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-500/10 dark:text-indigo-400"
+                            @click="form.bayar = String(totalAfterDiscount)"
+                        >
+                            Uang Pas
+                        </button>
+                        <button
+                            v-for="amount in cashSuggestions"
+                            :key="amount"
+                            type="button"
+                            class="rounded-lg border border-sidebar-border/70 bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition hover:bg-slate-100 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                            @click="form.bayar = String(amount)"
+                        >
+                            {{ formatRupiah(amount) }}
+                        </button>
+                    </div>
+                    <p v-if="form.errors.bayar" class="text-xs text-rose-600">{{ form.errors.bayar }}</p>
+                </div>
+
+                <!-- Rincian harga -->
+                <div class="space-y-1.5 rounded-xl border border-sidebar-border/70 bg-background p-3 dark:border-sidebar-border">
                     <div class="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Subtotal</span>
-                        <span>{{ formatRupiah(totalHarga) }}</span>
+                        <span class="tabular-nums">{{ formatRupiah(totalHarga) }}</span>
                     </div>
-                    <div class="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Diskon Produk</span>
-                        <span class="text-emerald-500">-{{ formatRupiah(productPromoDiscount) }}</span>
-                    </div>
-                    <div class="flex items-center justify-between text-xs text-muted-foreground">
-                        <span class="flex items-center gap-1">Diskon Promo <Percent class="h-3 w-3 text-emerald-500" /></span>
-                        <span class="text-emerald-500">-{{ formatRupiah(globalPromoDiscount) }}</span>
+                    <div v-if="totalDiscount > 0" class="flex items-center justify-between text-xs">
+                        <span class="text-muted-foreground">Diskon</span>
+                        <span class="font-medium text-emerald-600 tabular-nums dark:text-emerald-400">-{{ formatRupiah(totalDiscount) }}</span>
                     </div>
                     <div class="flex items-center justify-between border-t border-sidebar-border/70 pt-2 dark:border-sidebar-border">
-                        <span class="font-bold text-sm">Total Tagihan</span>
-                        <span class="font-extrabold text-lg text-indigo-600 dark:text-indigo-400">
-                            {{ formatRupiah(totalAfterDiscount) }}
+                        <span class="text-sm font-bold">Total</span>
+                        <span class="text-xl font-extrabold text-indigo-600 tabular-nums dark:text-indigo-400">{{ formatRupiah(totalAfterDiscount) }}</span>
+                    </div>
+                    <div v-if="Number(form.bayar) > 0" class="flex items-center justify-between text-xs">
+                        <span class="text-muted-foreground">Kembalian</span>
+                        <span
+                            :class="[
+                                'font-semibold tabular-nums',
+                                isPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
+                            ]"
+                        >
+                            {{ isPaid ? formatRupiah(kembalian) : 'Uang kurang' }}
                         </span>
                     </div>
                 </div>
 
-                <div class="grid gap-3">
-                        <label class="block text-sm font-medium">Promo Tambahan</label>
-                        <select
-                            v-model.number="form.id_promo"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                        >
-                            <option :value="null">Tidak ada promo</option>
-                            <option
-                                v-for="promo in globalPromos"
-                                :key="promo.id_promo"
-                                :value="promo.id_promo"
-                            >
-                                {{ promo.nama }}
-                            </option>
-                        </select>
-                        <p v-if="selectedPromo && selectedPromo.minimal_belanja && totalHarga < selectedPromo.minimal_belanja" class="text-xs text-amber-600">
-                            Minimal belanja {{ formatRupiah(selectedPromo.minimal_belanja) }} untuk promo ini.
-                        </p>
-
-                    <select
-                        v-model="form.metode_pembayaran"
-                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                    >
-                        <option value="cash">Tunai</option>
-                        <option value="qris">QRIS / E-Wallet</option>
-                        <option value="transfer">Transfer</option>
-                    </select>
-
-                    <label class="block text-sm font-medium">Bayar</label>
-                    <input
-                        v-model="form.bayar"
-                        type="number"
-                        min="0"
-                        inputmode="numeric"
-                        placeholder="Masukkan jumlah bayar"
-                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                    />
-                    <p v-if="form.errors.bayar" class="text-xs text-rose-600">{{ form.errors.bayar }}</p>
-                    <p class="text-xs text-muted-foreground">Kembalian: {{ formatRupiah(kembalian) }}</p>
-                </div>
-
                 <button
                     type="button"
-                    class="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-indigo-500 transition-colors"
+                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                     :disabled="cartItems.length === 0 || form.processing"
                     @click="submitTransaction"
                 >
-                    Proses Pembayaran
-                    <ArrowRight class="h-4 w-4" />
+                    {{ form.processing ? 'Memproses...' : 'Proses Pembayaran' }}
+                    <ArrowRight v-if="!form.processing" class="h-4 w-4" />
                 </button>
             </div>
+        </aside>
+
+        <!-- ============ Bottom bar keranjang (mobile) ============ -->
+        <div class="fixed inset-x-0 bottom-0 z-30 border-t border-sidebar-border/70 bg-card/95 p-3 backdrop-blur lg:hidden dark:border-sidebar-border">
+            <button
+                type="button"
+                class="flex w-full items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-3 text-white shadow-lg transition active:scale-[0.99]"
+                @click="cartOpen = true"
+            >
+                <span class="relative flex items-center gap-2">
+                    <ShoppingCart class="h-5 w-5" />
+                    <span class="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-indigo-600">
+                        {{ cartCount }}
+                    </span>
+                </span>
+                <span class="flex flex-1 flex-col items-start leading-tight">
+                    <span class="text-[11px] font-medium text-indigo-100">{{ cartItems.length }} produk</span>
+                    <span class="text-base font-extrabold tabular-nums">{{ formatRupiah(totalAfterDiscount) }}</span>
+                </span>
+                <span class="flex items-center gap-1 text-sm font-bold">
+                    Lihat
+                    <ChevronUp class="h-4 w-4" />
+                </span>
+            </button>
         </div>
     </div>
 </template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+</style>
