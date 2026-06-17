@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\DetailTransaksi;
 use App\Models\Pengeluaran;
+use App\Models\Produk;
+use App\Models\Promo;
 use App\Models\Transaksi;
 use DateInterval;
 use DatePeriod;
@@ -225,6 +227,47 @@ class DashboardController extends Controller
             $previous,
         );
 
+        // --- Produk jarang laku (slow-mover) + saran promo ---
+        // Jendela tetap 30 hari terakhir agar bermakna, terlepas dari filter periode di atas.
+        $slowDays = 30;
+        $slowStart = Carbon::today()->subDays($slowDays - 1)->startOfDay();
+        $slowEnd = Carbon::today()->endOfDay();
+
+        $soldQtyWindow = DetailTransaksi::whereNotNull('id_produk')
+            ->whereHas('transaksi', function ($query) use ($slowStart, $slowEnd): void {
+                $query->whereBetween('created_at', [$slowStart, $slowEnd]);
+            })
+            ->selectRaw('id_produk, SUM(jumlah) as qty')
+            ->groupBy('id_produk')
+            ->pluck('qty', 'id_produk');
+
+        $now = now();
+        $activePromoProdukIds = Promo::where('aktif', true)
+            ->whereNotNull('id_produk')
+            ->where('tanggal_mulai', '<=', $now)
+            ->where('tanggal_selesai', '>=', $now)
+            ->pluck('id_produk')
+            ->all();
+
+        // Hanya produk berstok & bukan jasa; sertakan yang 0 terjual. Urut paling sedikit laku.
+        $slowMovers = Produk::query()
+            ->where('tipe_jual', '!=', 'jasa')
+            ->where('stok', '>', 0)
+            ->get()
+            ->map(fn (Produk $produk) => [
+                'id_produk' => $produk->id_produk,
+                'nama' => $produk->nama,
+                'stok' => (float) $produk->stok,
+                'satuan' => $produk->satuan,
+                'harga_jual' => $produk->harga_jual,
+                'terjual' => (float) ($soldQtyWindow[$produk->id_produk] ?? 0),
+                'sudah_promo' => in_array($produk->id_produk, $activePromoProdukIds, true),
+                'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
+            ])
+            ->sortBy([['terjual', 'asc'], ['nama', 'asc']])
+            ->values()
+            ->take(8);
+
         return Inertia::render('admin/Dashboard', [
             'stats' => [
                 'total_revenue' => $totalRevenue,
@@ -241,6 +284,8 @@ class DashboardController extends Controller
             'sales_trend' => $salesTrend,
             'best_selling_products' => $bestSellingProducts,
             'worst_selling_products' => $worstSellingProducts,
+            'slow_movers' => $slowMovers,
+            'slow_mover_days' => $slowDays,
             'best_profit_products' => $bestProfitProducts,
             'top_sales_dates' => $topSalesDates,
             'top_sales_hours' => $topSalesHours,
@@ -306,7 +351,7 @@ class DashboardController extends Controller
 
     private function rupiah(int $value): string
     {
-        return ($value < 0 ? '−' : '') . 'Rp' . number_format(abs($value), 0, ',', '.');
+        return ($value < 0 ? '−' : '').'Rp'.number_format(abs($value), 0, ',', '.');
     }
 
     /**
@@ -318,29 +363,29 @@ class DashboardController extends Controller
     {
         if ($netProfit >= 0) {
             $tone = 'success';
-            $message = 'Bisnis untung ' . $this->rupiah($netProfit) . ' (margin ' . number_format($margin, 1, ',', '.') . '%) pada periode ini.';
+            $message = 'Bisnis untung '.$this->rupiah($netProfit).' (margin '.number_format($margin, 1, ',', '.').'%) pada periode ini.';
         } elseif ($grossProfit < 0) {
             $tone = 'danger';
-            $message = 'HPP (' . $this->rupiah($cogs) . ') melebihi omzet (' . $this->rupiah($revenue) . ') — ada produk terjual di bawah modal. Bisnis rugi ' . $this->rupiah(abs($netProfit)) . '.';
+            $message = 'HPP ('.$this->rupiah($cogs).') melebihi omzet ('.$this->rupiah($revenue).') — ada produk terjual di bawah modal. Bisnis rugi '.$this->rupiah(abs($netProfit)).'.';
         } else {
             $tone = 'danger';
             $topText = $topExpense !== null
-                ? ' — terutama ' . $topExpense['label'] . ' (' . $this->rupiah($topExpense['nominal']) . ')'
+                ? ' — terutama '.$topExpense['label'].' ('.$this->rupiah($topExpense['nominal']).')'
                 : '';
-            $message = 'Laba kotor masih positif (' . $this->rupiah($grossProfit) . '), tapi biaya operasional ' . $this->rupiah($expenses) . $topText . ' melebihinya, jadi bisnis rugi ' . $this->rupiah(abs($netProfit)) . '.';
+            $message = 'Laba kotor masih positif ('.$this->rupiah($grossProfit).'), tapi biaya operasional '.$this->rupiah($expenses).$topText.' melebihinya, jadi bisnis rugi '.$this->rupiah(abs($netProfit)).'.';
         }
 
         $changes = [];
         if ($previous['revenue'] > 0) {
             $revenuePct = (($revenue - $previous['revenue']) / $previous['revenue']) * 100;
-            $changes[] = 'omzet ' . ($revenuePct >= 0 ? 'naik' : 'turun') . ' ' . number_format(abs($revenuePct), 0) . '%';
+            $changes[] = 'omzet '.($revenuePct >= 0 ? 'naik' : 'turun').' '.number_format(abs($revenuePct), 0).'%';
         }
         if ($previous['expenses'] > 0) {
             $expensePct = (($expenses - $previous['expenses']) / $previous['expenses']) * 100;
-            $changes[] = 'biaya operasional ' . ($expensePct >= 0 ? 'naik' : 'turun') . ' ' . number_format(abs($expensePct), 0) . '%';
+            $changes[] = 'biaya operasional '.($expensePct >= 0 ? 'naik' : 'turun').' '.number_format(abs($expensePct), 0).'%';
         }
         if ($changes !== []) {
-            $message .= ' Dibanding periode sebelumnya: ' . implode(' & ', $changes) . '.';
+            $message .= ' Dibanding periode sebelumnya: '.implode(' & ', $changes).'.';
         }
 
         return ['tone' => $tone, 'message' => $message];

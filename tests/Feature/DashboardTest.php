@@ -219,3 +219,41 @@ test('admin dashboard shows analytics and filters by date range', function () {
         ->has('top_cashiers_by_transactions', 2)
     );
 });
+
+test('admin dashboard lists slow-moving in-stock products and excludes jasa', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $laku = Produk::factory()->create(['nama' => 'Produk Laku', 'stok' => 50]);
+    Produk::factory()->create(['nama' => 'Produk Sepi', 'stok' => 30]); // 0 terjual, masih berstok
+    Produk::factory()->create(['nama' => 'Transfer Bank', 'tipe_jual' => 'jasa', 'stok' => 0]); // dikecualikan
+
+    $trx = Transaksi::factory()->create([
+        'id_user' => $admin->id,
+        'total_harga' => 20000,
+        'bayar' => 20000,
+        'kembalian' => 0,
+    ]);
+    DetailTransaksi::factory()->create([
+        'id_transaksi' => $trx->id_transaksi,
+        'id_produk' => $laku->id_produk,
+        'jumlah' => 5,
+        'harga' => 4000,
+        'subtotal' => 20000,
+    ]);
+
+    $this->actingAs($admin);
+
+    $response = $this->get(route('admin.dashboard'));
+
+    $response->assertOk();
+    $response->assertInertia(fn (AssertableInertia $page) => $page
+        ->component('admin/Dashboard')
+        ->where('slow_mover_days', 30)
+        ->has('slow_movers', 2) // jasa dikecualikan; 2 produk berstok
+        // Diurut paling sedikit terjual dulu → "Produk Sepi" (0) sebelum "Produk Laku" (5)
+        ->where('slow_movers.0.nama', 'Produk Sepi')
+        ->where('slow_movers.0.terjual', fn ($v) => (float) $v === 0.0)
+        ->where('slow_movers.1.nama', 'Produk Laku')
+        ->where('slow_movers.1.terjual', fn ($v) => (float) $v === 5.0)
+    );
+});

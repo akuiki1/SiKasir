@@ -149,7 +149,13 @@ Keduanya bisa dipenuhi.
 
 ---
 
-### Fase 5 — Dashboard produk jarang laku + saran promo — kebutuhan #3
+### Fase 5 — Dashboard produk jarang laku + saran promo — kebutuhan #3 ✅ SELESAI (17 Jun 2026)
+
+> **Status:** terimplementasi & teruji (123 test/120 hijau, build sukses, lint bersih). Ditaruh di **dashboard admin** (ranah manajemen).
+> - `DashboardController`: `slow_movers` = produk `stok > 0` & bukan jasa, diurut paling sedikit terjual dalam **30 hari terakhir** (jendela tetap, termasuk yang **0 terjual** — beda dari `worst_selling_products` lama yang hanya yang sempat terjual). Sertakan flag `sudah_promo`.
+> - Widget tabel "Produk Jarang Laku" di `admin/Dashboard.vue`: foto, terjual (merah bila 0), stok, tombol **Buat Promo** (atau badge "Sudah promo").
+> - "Buat Promo" → `/admin/promos?produk=ID`; `Promos.vue` membaca query → buka modal tambah, pilih produk, prefill nama "Promo {produk}".
+> - Test: `DashboardTest` (slow_movers urut, jasa dikecualikan).
 - Query slow-mover dari `detail_transaksis` + tanggal: produk dengan qty terjual
   rendah/0 dalam N hari terakhir **padahal `stok > 0`**.
 - Widget dashboard: daftar produk lambat + tombol **"Buat Promo"** yang prefilled

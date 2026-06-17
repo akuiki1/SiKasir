@@ -15,7 +15,7 @@ import {
     CheckCircle2,
     XCircle,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { store as promoStore, update as promoUpdate, destroy as promoDestroy } from '@/routes/admin/promos';
 import { usePagination } from '@/composables/usePagination';
 import Pagination from '@/components/Pagination.vue';
@@ -178,6 +178,25 @@ function hapusPromo(promo: Promo) {
         router.delete(promoDestroy(promo.id_promo).url);
     }
 }
+
+// Prefill dari dashboard "Buat Promo" (?produk=ID): buka modal tambah & pilih produk.
+onMounted(() => {
+    const produkId = new URLSearchParams(window.location.search).get('produk');
+
+    if (!produkId) {
+        return;
+    }
+
+    const produk = props.produks.find((p) => String(p.id_produk) === produkId);
+
+    if (!produk) {
+        return;
+    }
+
+    openTambah();
+    form.id_produk = produkId;
+    form.nama = `Promo ${produk.nama}`;
+});
 </script>
 
 <template>

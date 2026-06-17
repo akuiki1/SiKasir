@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     ArrowDownRight,
@@ -63,6 +63,17 @@ interface WorstProductItem {
     revenue: number;
 }
 
+interface SlowMover {
+    id_produk: number;
+    nama: string;
+    stok: number;
+    satuan: string;
+    harga_jual: number;
+    terjual: number;
+    sudah_promo: boolean;
+    foto_url: string | null;
+}
+
 interface WaterfallStep {
     label: string;
     type: 'income' | 'deduction' | 'subtotal' | 'result';
@@ -102,6 +113,8 @@ const props = defineProps<{
     top_sales_hours: ChartPoint[];
     best_selling_products: ProductItem[];
     worst_selling_products: WorstProductItem[];
+    slow_movers: SlowMover[];
+    slow_mover_days: number;
     best_profit_products: ProfitProductItem[];
     cashier_achievements: CashierItem[];
     top_cashiers_by_transactions: CashierItem[];
@@ -341,6 +354,11 @@ function formatRupiah(value: number): string {
         currency: 'IDR',
         minimumFractionDigits: 0,
     }).format(value);
+}
+
+// Kuantitas bisa pecahan (produk curah) — tampilkan tanpa nol berlebih.
+function formatQty(value: number): string {
+    return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 }).format(Number(value) || 0);
 }
 
 function formatCompactRupiah(value: number): string {
@@ -973,6 +991,82 @@ function printSection(section: string): void {
                 </div>
             </section>
         </div>
+
+        <!-- Produk jarang laku + saran promo -->
+        <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div class="flex items-start justify-between gap-4 border-b border-slate-200 pb-4 dark:border-zinc-800">
+                <div>
+                    <h2 class="text-lg font-semibold">Produk Jarang Laku</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        Stok masih ada tapi paling sedikit terjual dalam {{ slow_mover_days }} hari terakhir — pertimbangkan beri promo.
+                    </p>
+                </div>
+                <AlertTriangle class="h-5 w-5 shrink-0 text-amber-500" />
+            </div>
+
+            <div class="mt-5 overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-zinc-800 dark:text-slate-400">
+                            <th class="pb-2 pr-3 font-semibold">Produk</th>
+                            <th class="px-3 pb-2 text-right font-semibold">Terjual</th>
+                            <th class="px-3 pb-2 text-right font-semibold">Stok</th>
+                            <th class="pb-2 pl-3 text-right font-semibold">Saran</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800">
+                        <tr v-for="p in slow_movers" :key="p.id_produk">
+                            <td class="py-3 pr-3">
+                                <div class="flex items-center gap-3">
+                                    <img
+                                        v-if="p.foto_url"
+                                        :src="p.foto_url"
+                                        :alt="p.nama"
+                                        class="h-9 w-9 rounded-md border border-slate-200 object-cover dark:border-zinc-700"
+                                    />
+                                    <div
+                                        v-else
+                                        class="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-slate-400 dark:border-zinc-700 dark:bg-zinc-800"
+                                    >
+                                        <Package class="h-4 w-4" />
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="truncate font-semibold">{{ p.nama }}</p>
+                                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ formatRupiah(p.harga_jual) }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-3 text-right">
+                                <span :class="p.terjual === 0 ? 'font-bold text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'">
+                                    {{ formatQty(p.terjual) }}
+                                </span>
+                            </td>
+                            <td class="px-3 text-right text-slate-600 dark:text-slate-300">{{ formatQty(p.stok) }} {{ p.satuan }}</td>
+                            <td class="pl-3 text-right">
+                                <span
+                                    v-if="p.sudah_promo"
+                                    class="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                                >
+                                    <Percent class="h-3 w-3" /> Sudah promo
+                                </span>
+                                <Link
+                                    v-else
+                                    :href="`/admin/promos?produk=${p.id_produk}`"
+                                    class="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-indigo-500"
+                                >
+                                    <Percent class="h-3 w-3" /> Buat Promo
+                                </Link>
+                            </td>
+                        </tr>
+                        <tr v-if="slow_movers.length === 0">
+                            <td colspan="4" class="py-6 text-center text-slate-500 dark:text-slate-400">
+                                Tidak ada produk berstok untuk dianalisis.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
         <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-zinc-800 md:flex-row md:items-center md:justify-between">
