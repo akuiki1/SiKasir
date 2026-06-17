@@ -85,6 +85,7 @@ interface CartItem {
 
 const props = defineProps<{
     produks: Produk[];
+    favorite_ids: number[];
     pelanggans: Pelanggan[];
     promos: Promo[];
 }>();
@@ -175,6 +176,13 @@ const categories = computed(() => {
 
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'id-ID'));
 });
+
+// Produk "sering dibeli" untuk quick-pick (urutan dari backend = top seller, masih berstok).
+const favoriteProducts = computed(() =>
+    props.favorite_ids
+        .map((id) => props.produks.find((p) => p.id_produk === id))
+        .filter((p): p is Produk => !!p && p.stok > 0),
+);
 
 // Map promo per-produk. Dideklarasikan sebelum filteredProduks/usePagination karena
 // watch() di dalam usePagination meng-evaluasi getter source secara eager saat setup;
@@ -672,6 +680,27 @@ function submitTransaction() {
                     </button>
                 </div>
 
+                <!-- Sering dibeli: quick-pick barang kecil tanpa scan/cari (mis. permen) -->
+                <div
+                    v-if="favoriteProducts.length && !searchQuery"
+                    class="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+                >
+                    <span class="flex shrink-0 items-center text-xs font-semibold text-muted-foreground">Sering dibeli:</span>
+                    <button
+                        v-for="fav in favoriteProducts"
+                        :key="fav.id_produk"
+                        type="button"
+                        class="inline-flex shrink-0 items-center gap-2 rounded-full border border-sidebar-border/70 bg-background px-3 py-1.5 text-xs font-semibold transition hover:border-indigo-500/40 hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                        @click="addToCart(fav)"
+                    >
+                        <span class="max-w-[8rem] truncate">{{ fav.nama }}</span>
+                        <span class="text-indigo-600 dark:text-indigo-400">{{ formatRupiah(fav.harga_jual) }}</span>
+                        <span
+                            v-if="cartQtyById.get(fav.id_produk)"
+                            class="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white"
+                        >{{ formatQty(cartQtyById.get(fav.id_produk)!) }}</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Grid produk (area scroll) -->

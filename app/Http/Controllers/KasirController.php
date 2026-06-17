@@ -224,6 +224,21 @@ class KasirController extends Controller
                 'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
             ]);
 
+        // Produk "sering dibeli" untuk quick-pick (barang kecil tanpa barcode, mis. permen).
+        // Top seller 30 hari terakhir, masih berstok & bukan jasa.
+        $favoriteIds = DetailTransaksi::query()
+            ->join('transaksis', 'detail_transaksis.id_transaksi', '=', 'transaksis.id_transaksi')
+            ->join('produks', 'detail_transaksis.id_produk', '=', 'produks.id_produk')
+            ->where('produks.tipe_jual', '!=', 'jasa')
+            ->where('produks.stok', '>', 0)
+            ->where('transaksis.created_at', '>=', now()->subDays(30))
+            ->groupBy('detail_transaksis.id_produk')
+            ->orderByRaw('SUM(detail_transaksis.jumlah) DESC')
+            ->limit(8)
+            ->pluck('detail_transaksis.id_produk')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         // Pelanggan untuk pemilih di keranjang (default "Umum"); reseller dapat potongan harga.
         $pelanggans = Pelanggan::orderBy('nama')
             ->get()
@@ -251,6 +266,7 @@ class KasirController extends Controller
 
         return Inertia::render('kasir/Transaksi', [
             'produks' => $produks,
+            'favorite_ids' => $favoriteIds,
             'pelanggans' => $pelanggans,
             'promos' => $promos,
         ]);

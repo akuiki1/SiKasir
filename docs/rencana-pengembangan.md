@@ -164,7 +164,12 @@ Keduanya bisa dipenuhi.
 
 ---
 
-### Fase 6 — UX quick-pick untuk barang tanpa barcode (permen) — kebutuhan #6
+### Fase 6 — UX quick-pick untuk barang tanpa barcode (permen) — kebutuhan #6 ✅ SELESAI (17 Jun 2026)
+
+> **Status:** terimplementasi & teruji (125 test/122 hijau, build sukses, lint bersih).
+> - `KasirController::transaksi`: kirim `favorite_ids` = top seller 30 hari terakhir (stok > 0, bukan jasa).
+> - `Transaksi.vue`: strip **"Sering dibeli"** (chip nama+harga, satu-tap `addToCart`, badge qty-di-keranjang) di header, tampil saat tidak sedang mencari. Barang kecil tanpa barcode cukup di-tap, tanpa scan.
+> - Test: `tests/Feature/QuickPickTest.php`.
 - Barcode sudah `nullable` (migrasi 16 Jun) → secara data sudah didukung.
 - Tambah **grid favorit / pencarian cepat** di halaman Transaksi kasir agar barang
   kecil bisa ditambah tanpa scan. Mostly frontend, tanpa skema baru.
