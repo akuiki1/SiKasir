@@ -194,13 +194,13 @@ const resetQuiz = () => {
     quizCompleted.value = false;
 };
 
-// Nomor WhatsApp tujuan (admin KriukKita)
-const WHATSAPP_NUMBER = '6281234567890';
+// Nomor WhatsApp tujuan (admin Cemilan Mba Tutut)
+const WHATSAPP_NUMBER = '6281254744177';
 
 // WhatsApp Direct Link Generator
 const getWhatsAppLink = (productName: string) => {
     const message = encodeURIComponent(
-        `Halo Kak! Saya tertarik untuk memesan produk Cemilan "${productName}" dari KriukKita. Bagaimana cara memesannya ya?`,
+        `Halo Kak! Saya tertarik untuk memesan produk Cemilan "${productName}" dari Cemilan Mba Tutut. Bagaimana cara memesannya ya?`,
     );
 
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
@@ -208,7 +208,7 @@ const getWhatsAppLink = (productName: string) => {
 
 const getGeneralWhatsAppLink = () => {
     const message = encodeURIComponent(
-        'Halo KriukKita! Saya ingin tahu lebih lanjut tentang menu cemilan premium dan ingin memesan paket hemat.',
+        'Halo Cemilan Mba Tutut! Saya ingin tahu lebih lanjut tentang aneka cemilan & frozen food yang tersedia. Boleh minta daftar menunya?',
     );
 
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
@@ -320,7 +320,7 @@ const checkoutViaWhatsApp = () => {
     );
 
     const message =
-        `Halo KriukKita! 👋\nSaya ingin memesan cemilan berikut:\n\n` +
+        `Halo Cemilan Mba Tutut! 👋\nSaya ingin memesan cemilan berikut:\n\n` +
         `${lines.join('\n')}\n\n` +
         `*Total Pesanan: ${formatPrice(cartTotal.value)}*\n\n` +
         `Mohon info ketersediaan dan ongkos kirimnya ya. Terima kasih! 🙏`;
@@ -353,7 +353,7 @@ const promoSisaText = (sisaHari: number) => {
 </script>
 
 <template>
-    <Head title="KriukKita - Cemilan Premium UMKM Indonesia">
+    <Head title="Cemilan Mba Tutut - Aneka Cemilan & Frozen Food Barabai">
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
         <link
@@ -403,14 +403,14 @@ const promoSisaText = (sisaHari: number) => {
                             <Cookie class="h-6 w-6 animate-pulse" />
                         </div>
                         <span
-                            class="bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500 bg-clip-text font-['Outfit',sans-serif] text-2xl font-extrabold tracking-tight text-transparent"
+                            class="bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500 bg-clip-text font-['Outfit',sans-serif] text-xl font-extrabold tracking-tight text-transparent sm:text-2xl"
                         >
-                            KriukKita
+                            Cemilan Mba Tutut
                         </span>
                         <span
                             class="hidden rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-orange-600 sm:inline-block dark:bg-amber-400/10 dark:text-amber-400"
                         >
-                            UMKM Unggulan
+                            UMKM Barabai
                         </span>
                     </div>
 
@@ -612,10 +612,10 @@ const promoSisaText = (sisaHari: number) => {
                         <p
                             class="mx-auto max-w-xl text-base leading-relaxed text-neutral-600 md:text-lg lg:mx-0 dark:text-neutral-300"
                         >
-                            Nikmati kelezatan aneka keripik premium hasil olahan
-                            bahan baku lokal terbaik. Diolah secara higienis
-                            dengan resep nusantara asli yang menghasilkan
-                            kerenyahan tiada tanding.
+                            Nikmati aneka cemilan serba 10 ribuan, dari yang
+                            jadul sampai kekinian, plus frozen food seperti
+                            pancake durian & ice cream. Cemilan rumahan khas
+                            Barabai yang bikin nagih.
                         </p>
 
                         <!-- CTA Actions -->
@@ -647,11 +647,11 @@ const promoSisaText = (sisaHari: number) => {
                             >
                                 <span
                                     class="text-2xl font-bold text-orange-600 dark:text-amber-400"
-                                    >10k+</span
+                                    >10K</span
                                 >
                                 <span
                                     class="text-xs text-neutral-500 dark:text-neutral-400"
-                                    >Pecinta Cemilan</span
+                                    >Aneka Cemilan</span
                                 >
                             </div>
                             <div
@@ -659,11 +659,11 @@ const promoSisaText = (sisaHari: number) => {
                             >
                                 <span
                                     class="text-2xl font-bold text-orange-600 dark:text-amber-400"
-                                    >4.9/5</span
+                                    >Frozen</span
                                 >
                                 <span
                                     class="text-xs text-neutral-500 dark:text-neutral-400"
-                                    >Rating Google</span
+                                    >Food Tersedia</span
                                 >
                             </div>
                             <div
@@ -675,7 +675,7 @@ const promoSisaText = (sisaHari: number) => {
                                 >
                                 <span
                                     class="text-xs text-neutral-500 dark:text-neutral-400"
-                                    >Bahan Alami</span
+                                    >Homemade</span
                                 >
                             </div>
                         </div>
@@ -696,7 +696,7 @@ const promoSisaText = (sisaHari: number) => {
                             <!-- The generated Hero Snack Packaging Image -->
                             <img
                                 src="/images/hero.png"
-                                alt="KriukKita Premium Snacks"
+                                alt="Aneka Cemilan Mba Tutut Barabai"
                                 class="h-full w-full transform object-cover transition-all duration-700 hover:scale-105"
                             />
 
@@ -706,10 +706,10 @@ const promoSisaText = (sisaHari: number) => {
                             >
                                 <span
                                     class="block text-xs font-semibold tracking-widest text-orange-600 uppercase dark:text-amber-400"
-                                    >Diskon Spesial</span
+                                    >Harga Hemat</span
                                 >
                                 <span class="block text-xl font-extrabold"
-                                    >Beli 3 Gratis 1</span
+                                    >Serba 10 Ribu</span
                                 >
                             </div>
                         </div>
@@ -780,14 +780,15 @@ const promoSisaText = (sisaHari: number) => {
                             <ShieldCheck class="h-6 w-6" />
                         </div>
                         <h3 class="mb-3 text-xl font-bold">
-                            Higienis & Bersertifikat Halal
+                            Higienis & Selalu Fresh
                         </h3>
                         <p
                             class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400"
                         >
-                            Proses produksi dijamin super bersih, sesuai standar
-                            kesehatan makanan, dan pastinya 100% Halal untuk
-                            dikonsumsi siapa saja.
+                            Diolah dengan proses yang bersih dan rapi. Cemilan
+                            selalu dibuat fresh, dan frozen food disimpan dengan
+                            baik agar kualitasnya tetap terjaga sampai ke tangan
+                            Anda.
                         </p>
                     </div>
 
@@ -801,14 +802,14 @@ const promoSisaText = (sisaHari: number) => {
                             <Award class="h-6 w-6" />
                         </div>
                         <h3 class="mb-3 text-xl font-bold">
-                            Resep Nusantara Otentik
+                            Pilihan Lengkap & Kekinian
                         </h3>
                         <p
                             class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400"
                         >
-                            Racikan bumbu tradisional istimewa yang melimpah dan
-                            menempel sempurna di setiap kepingan cemilan,
-                            menjamin rasa gurih merata.
+                            Dari cemilan jadul yang bikin kangen sampai varian
+                            kekinian, ditambah frozen food seperti pancake durian
+                            dan ice cream. Lengkap untuk segala suasana.
                         </p>
                     </div>
                 </div>
@@ -832,8 +833,8 @@ const promoSisaText = (sisaHari: number) => {
                             Menu Cemilan Terfavorit
                         </h2>
                         <p class="text-neutral-600 dark:text-neutral-300">
-                            Paling banyak dipesan oleh ribuan pelanggan setia
-                            KriukKita. Yuk pilih kriuk favoritmu hari ini!
+                            Paling banyak dipesan oleh pelanggan setia Cemilan
+                            Mba Tutut. Yuk pilih kriuk favoritmu hari ini!
                         </p>
                     </div>
                     <div>
@@ -1308,11 +1309,11 @@ const promoSisaText = (sisaHari: number) => {
                     <h2
                         class="font-['Outfit',sans-serif] text-3xl font-bold text-neutral-900 sm:text-4xl dark:text-white"
                     >
-                        Apa Kata Pecinta KriukKita?
+                        Apa Kata Pelanggan Kami?
                     </h2>
                     <p class="text-neutral-600 dark:text-neutral-300">
-                        Lebih dari ribuan testimoni bintang 5 telah terkumpul
-                        dari seluruh penjuru Indonesia.
+                        Cerita dari pelanggan setia di Barabai dan sekitarnya
+                        yang sudah mencoba cemilan kami.
                     </p>
                 </div>
 
@@ -1342,14 +1343,14 @@ const promoSisaText = (sisaHari: number) => {
                             <div
                                 class="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 font-bold text-orange-600"
                             >
-                                ND
+                                NJ
                             </div>
                             <div>
                                 <h4 class="text-sm font-bold">
-                                    Nabila Dewanti
+                                    Norjannah
                                 </h4>
                                 <span class="text-xs text-neutral-400"
-                                    >Ibu Rumah Tangga, Jakarta</span
+                                    >Ibu Rumah Tangga, Barabai</span
                                 >
                             </div>
                         </div>
@@ -1370,22 +1371,22 @@ const promoSisaText = (sisaHari: number) => {
                             <p
                                 class="text-sm leading-relaxed text-neutral-600 italic dark:text-neutral-400"
                             >
-                                "Gokil pisang cokelat lumernya! Saya biasa beli
-                                pisang cokelat yang bikin seret, tapi punya
-                                KriukKita ini cokelat Belgia-nya premium banget.
-                                Manisnya pas, ga bikin nek. Nagih!"
+                                "Langganan frozen food-nya, pancake duriannya
+                                enak banget dan duriannya berasa! Cemilan serba
+                                10 ribunya juga banyak pilihan. Cocok buat stok
+                                di rumah. Mantap Mba Tutut!"
                             </p>
                         </div>
                         <div class="flex items-center gap-3">
                             <div
                                 class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 font-bold text-amber-600"
                             >
-                                RP
+                                MR
                             </div>
                             <div>
-                                <h4 class="text-sm font-bold">Rian Prasetya</h4>
+                                <h4 class="text-sm font-bold">M. Rizki</h4>
                                 <span class="text-xs text-neutral-400"
-                                    >Mahasiswa, Bandung</span
+                                    >Mahasiswa, Kandangan</span
                                 >
                             </div>
                         </div>
@@ -1406,22 +1407,22 @@ const promoSisaText = (sisaHari: number) => {
                             <p
                                 class="text-sm leading-relaxed text-neutral-600 italic dark:text-neutral-400"
                             >
-                                "Pelayanan ramah banget dan pengiriman super
-                                cepat. Paket dibungkus pakai bubble wrap tebal
-                                jadi keripiknya aman ga remuk pas nyampe.
-                                Basreng pedasnya mantap abis!"
+                                "Pelayanan ramah banget dan ordernya gampang
+                                lewat WhatsApp. Cemilannya fresh, basreng
+                                pedasnya mantap abis. Sering jadi langganan kalau
+                                ada acara keluarga!"
                             </p>
                         </div>
                         <div class="flex items-center gap-3">
                             <div
                                 class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-600"
                             >
-                                AF
+                                HW
                             </div>
                             <div>
-                                <h4 class="text-sm font-bold">Amelia Fitri</h4>
+                                <h4 class="text-sm font-bold">Hesti Wulandari</h4>
                                 <span class="text-xs text-neutral-400"
-                                    >Karyawan Swasta, Surabaya</span
+                                    >Karyawan Swasta, Amuntai</span
                                 >
                             </div>
                         </div>
@@ -1448,9 +1449,9 @@ const promoSisaText = (sisaHari: number) => {
                             Mau Ngemil Enak Tanpa Ribet?
                         </h2>
                         <p class="font-medium text-orange-50 md:text-lg">
-                            Dapatkan harga promo khusus minggu ini untuk
-                            pemesanan minimal 3 bungkus varian apa saja. Kami
-                            siap kirim ke seluruh Indonesia!
+                            Pesan cemilan & frozen food favoritmu langsung lewat
+                            WhatsApp. Bisa diantar di area Barabai & sekitarnya,
+                            atau ambil langsung di tempat. Praktis!
                         </p>
                         <div
                             class="flex flex-col items-center justify-center gap-4 pt-4 sm:flex-row"
@@ -1467,7 +1468,7 @@ const promoSisaText = (sisaHari: number) => {
                             </a>
                             <span
                                 class="text-xs font-semibold opacity-90 sm:text-sm"
-                                >atau hubungi admin kami (0812-3456-7890)</span
+                                >atau hubungi admin kami (0812-5474-4177)</span
                             >
                         </div>
                     </div>
@@ -1493,13 +1494,14 @@ const promoSisaText = (sisaHari: number) => {
                             </div>
                             <span
                                 class="font-['Outfit',sans-serif] text-xl font-black tracking-tight text-white"
-                                >KriukKita</span
+                                >Cemilan Mba Tutut</span
                             >
                         </div>
                         <p class="text-xs leading-relaxed text-neutral-400">
-                            KriukKita adalah usaha mikro kuliner nusantara yang
-                            berfokus menyajikan aneka keripik kering premium
-                            tradisional dengan kemasan modern berkelas.
+                            Cemilan Mba Tutut adalah UMKM asal Barabai yang
+                            menyajikan aneka cemilan serba 10 ribuan, kue kering,
+                            dan frozen food rumahan. Enak, terjangkau, dan bikin
+                            nagih.
                         </p>
                     </div>
 
@@ -1559,16 +1561,17 @@ const promoSisaText = (sisaHari: number) => {
                         <ul class="space-y-2 text-xs text-neutral-400">
                             <li class="flex items-center gap-2">
                                 <PhoneCall class="h-3.5 w-3.5 text-amber-400" />
-                                <span>+62 812-3456-7890</span>
+                                <span>+62 812-5474-4177</span>
                             </li>
                             <li class="flex items-center gap-2">
                                 <MessageCircle
                                     class="h-3.5 w-3.5 text-amber-400"
                                 />
-                                <span>kriukkita@umkm.co.id</span>
+                                <span>@rumahcemilan_mbatutut12barabai</span>
                             </li>
                             <li>
-                                Jl. Cemilan Lezat No. 99, Bandung, Jawa Barat
+                                Jl. Putera Harapan, Matang Ginalun, Barabai, Hulu
+                                Sungai Tengah, Kalimantan Selatan
                             </li>
                         </ul>
                     </div>
@@ -1597,7 +1600,7 @@ const promoSisaText = (sisaHari: number) => {
                     class="flex flex-col items-center justify-between gap-4 pt-8 text-xs text-neutral-500 sm:flex-row"
                 >
                     <p>
-                        &copy; 2026 KriukKita Snacks. Seluruh Hak Cipta
+                        &copy; 2026 Cemilan Mba Tutut Barabai. Seluruh Hak Cipta
                         Dilindungi Undang-Undang.
                     </p>
                     <div class="flex gap-4">
