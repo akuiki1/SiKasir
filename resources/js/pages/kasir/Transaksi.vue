@@ -116,6 +116,16 @@ const categories = computed(() => {
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'id-ID'));
 });
 
+// Map promo per-produk. Dideklarasikan sebelum filteredProduks/usePagination karena
+// watch() di dalam usePagination meng-evaluasi getter source secara eager saat setup;
+// jika ditaruh di bawah, terkena temporal dead zone (Cannot access before initialization).
+const activeProductPromos = computed(() =>
+    new Map(props.promos
+        .filter((promo) => promo.id_produk !== null)
+        .map((promo) => [promo.id_produk as number, promo]),
+    ),
+);
+
 const filteredProduks = computed(() => {
     const query = searchQuery.value.toLowerCase().trim();
     const promoIds = activeProductPromos.value;
@@ -279,13 +289,6 @@ const cartQtyById = computed(() => {
 const totalHarga = computed(() => {
     return cartItems.value.reduce((sum, item) => sum + item.subtotal, 0);
 });
-
-const activeProductPromos = computed(() =>
-    new Map(props.promos
-        .filter((promo) => promo.id_produk !== null)
-        .map((promo) => [promo.id_produk as number, promo]),
-    ),
-);
 
 const globalPromos = computed(() => props.promos.filter((promo) => promo.id_produk === null));
 
