@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import {
-    Cookie,
     Flame,
     Sparkles,
     MessageCircle,
@@ -31,6 +30,7 @@ import {
     Tag,
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { useAppearance } from '@/composables/useAppearance';
 import { dashboard, login } from '@/routes';
 
@@ -400,7 +400,7 @@ const promoSisaText = (sisaHari: number) => {
                         <div
                             class="flex h-10 w-10 transform items-center justify-center rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 text-white shadow-md shadow-orange-500/20 transition-all hover:scale-105"
                         >
-                            <Cookie class="h-6 w-6 animate-pulse" />
+                            <AppLogoIcon class="h-6 w-6" />
                         </div>
                         <span
                             class="bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500 bg-clip-text font-['Outfit',sans-serif] text-xl font-extrabold tracking-tight text-transparent sm:text-2xl"
@@ -1490,7 +1490,7 @@ const promoSisaText = (sisaHari: number) => {
                             <div
                                 class="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500 text-white"
                             >
-                                <Cookie class="h-5 w-5" />
+                                <AppLogoIcon class="h-5 w-5" />
                             </div>
                             <span
                                 class="font-['Outfit',sans-serif] text-xl font-black tracking-tight text-white"
