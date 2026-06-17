@@ -1,5 +1,6 @@
 import Admin from './Admin'
 import KategoriController from './KategoriController'
+import PelangganController from './PelangganController'
 import ProdukController from './ProdukController'
 import TransaksiController from './TransaksiController'
 import PengeluaranController from './PengeluaranController'
@@ -10,6 +11,7 @@ import Settings from './Settings'
 const Controllers = {
     Admin: Object.assign(Admin, Admin),
 KategoriController: Object.assign(KategoriController, KategoriController),
+PelangganController: Object.assign(PelangganController, PelangganController),
 ProdukController: Object.assign(ProdukController, ProdukController),
 TransaksiController: Object.assign(TransaksiController, TransaksiController),
 PengeluaranController: Object.assign(PengeluaranController, PengeluaranController),

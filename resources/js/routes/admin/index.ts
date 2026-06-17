@@ -1,6 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../wayfinder'
 import users48860f from './users'
 import kategori627be3 from './kategori'
+import pelangganDe1373 from './pelanggan'
 import products237d17 from './products'
 import transactionsBbd80d from './transactions'
 import pengeluaransC7d7ce from './pengeluarans'
@@ -240,6 +241,84 @@ kategori.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
     
     kategori.form = kategoriForm
+/**
+* @see \App\Http\Controllers\PelangganController::pelanggan
+ * @see app/Http/Controllers/PelangganController.php:17
+ * @route '/admin/pelanggan'
+ */
+export const pelanggan = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: pelanggan.url(options),
+    method: 'get',
+})
+
+pelanggan.definition = {
+    methods: ["get","head"],
+    url: '/admin/pelanggan',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\PelangganController::pelanggan
+ * @see app/Http/Controllers/PelangganController.php:17
+ * @route '/admin/pelanggan'
+ */
+pelanggan.url = (options?: RouteQueryOptions) => {
+    return pelanggan.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\PelangganController::pelanggan
+ * @see app/Http/Controllers/PelangganController.php:17
+ * @route '/admin/pelanggan'
+ */
+pelanggan.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: pelanggan.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\PelangganController::pelanggan
+ * @see app/Http/Controllers/PelangganController.php:17
+ * @route '/admin/pelanggan'
+ */
+pelanggan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: pelanggan.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\PelangganController::pelanggan
+ * @see app/Http/Controllers/PelangganController.php:17
+ * @route '/admin/pelanggan'
+ */
+    const pelangganForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: pelanggan.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\PelangganController::pelanggan
+ * @see app/Http/Controllers/PelangganController.php:17
+ * @route '/admin/pelanggan'
+ */
+        pelangganForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: pelanggan.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\PelangganController::pelanggan
+ * @see app/Http/Controllers/PelangganController.php:17
+ * @route '/admin/pelanggan'
+ */
+        pelangganForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: pelanggan.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    pelanggan.form = pelangganForm
 /**
 * @see \App\Http\Controllers\ProdukController::products
  * @see app/Http/Controllers/ProdukController.php:17
@@ -634,6 +713,7 @@ const admin = {
     dashboard: Object.assign(dashboard, dashboard),
 users: Object.assign(users, users48860f),
 kategori: Object.assign(kategori, kategori627be3),
+pelanggan: Object.assign(pelanggan, pelangganDe1373),
 products: Object.assign(products, products237d17),
 transactions: Object.assign(transactions, transactionsBbd80d),
 pengeluarans: Object.assign(pengeluarans, pengeluaransC7d7ce),

@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\KasirController;
 use App\Http\Controllers\KategoriController;
+use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\ProduksiController;
@@ -116,6 +117,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('admin/kategori', [KategoriController::class, 'store'])->name('admin.kategori.store');
         Route::put('admin/kategori/{kategori}', [KategoriController::class, 'update'])->name('admin.kategori.update');
         Route::delete('admin/kategori/{kategori}', [KategoriController::class, 'destroy'])->name('admin.kategori.destroy');
+
+        // Pelanggan (umum & reseller)
+        Route::get('admin/pelanggan', [PelangganController::class, 'index'])->name('admin.pelanggan');
+        Route::post('admin/pelanggan', [PelangganController::class, 'store'])->name('admin.pelanggan.store');
+        Route::put('admin/pelanggan/{pelanggan}', [PelangganController::class, 'update'])->name('admin.pelanggan.update');
+        Route::delete('admin/pelanggan/{pelanggan}', [PelangganController::class, 'destroy'])->name('admin.pelanggan.destroy');
 
         // Produk
         Route::get('admin/products', [ProdukController::class, 'index'])->name('admin.products');

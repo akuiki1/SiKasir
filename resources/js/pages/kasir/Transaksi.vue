@@ -18,7 +18,7 @@ import {
     ShoppingBag,
     LayoutGrid,
 } from 'lucide-vue-next';
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 import { toast } from 'vue-sonner';
 import { usePagination } from '@/composables/usePagination';
@@ -42,6 +42,7 @@ interface Produk {
     nama: string;
     kategori: string | null;
     harga_jual: number;
+    potongan_reseller: number;
     stok: number;
     tipe_jual: TipeJual;
     satuan: string;
@@ -66,10 +67,18 @@ interface Layanan {
     satuan: string;
 }
 
+interface Pelanggan {
+    id_pelanggan: number;
+    nama: string;
+    tipe: 'umum' | 'reseller';
+}
+
 interface CartItem {
     id_produk: number;
     nama: string;
-    harga: number;
+    harga: number; // harga efektif (sudah memperhitungkan potongan reseller bila berlaku)
+    harga_base: number; // harga jual asli (sebelum potongan)
+    potongan_reseller: number;
     qty: number;
     subtotal: number;
     stock: number;
@@ -84,6 +93,7 @@ interface CartItem {
 const props = defineProps<{
     produks: Produk[];
     layanan: Layanan[];
+    pelanggans: Pelanggan[];
     promos: Promo[];
 }>();
 
@@ -116,9 +126,52 @@ interface HidDeviceApi {
 const form = useForm({
     metode_pembayaran: 'cash',
     bayar: '',
+    id_pelanggan: null as number | null,
     id_promo: null as number | null,
     items: [] as Array<{ id_produk: number; jumlah: number; nominal?: number; fee?: number }>,
 });
+
+const selectedPelanggan = computed(() => props.pelanggans.find((p) => p.id_pelanggan === form.id_pelanggan) ?? null);
+const isReseller = computed(() => selectedPelanggan.value?.tipe === 'reseller');
+
+// Harga efektif per item: reseller dipotong rupiah per produk; jasa tak terpengaruh.
+function effectiveHarga(item: CartItem): number {
+    if (isReseller.value && item.tipe_jual !== 'jasa') {
+        return Math.max(0, item.harga_base - (item.potongan_reseller || 0));
+    }
+
+    return item.harga_base;
+}
+
+// Field harga awal saat produk ditambahkan ke keranjang (ikut status reseller saat itu).
+function basePricing(product: Produk): { harga: number; harga_base: number; potongan_reseller: number } {
+    const potongan = product.potongan_reseller ?? 0;
+
+    return {
+        harga_base: product.harga_jual,
+        potongan_reseller: potongan,
+        harga: isReseller.value ? Math.max(0, product.harga_jual - potongan) : product.harga_jual,
+    };
+}
+
+// Hitung ulang harga & subtotal seluruh keranjang saat pelanggan berubah.
+function applyPricing(): void {
+    cartItems.value.forEach((item) => {
+        if (item.tipe_jual === 'jasa') {
+            return;
+        }
+
+        item.harga = effectiveHarga(item);
+
+        if (item.tipe_jual === 'curah') {
+            recomputeCurahItem(item);
+        } else {
+            item.subtotal = item.harga * item.qty;
+        }
+    });
+}
+
+watch(() => form.id_pelanggan, applyPricing);
 
 const categories = computed(() => {
     const set = new Set<string>();
@@ -282,7 +335,7 @@ function addToCart(product: Produk) {
             cartItems.value.push({
                 id_produk: product.id_produk,
                 nama: product.nama,
-                harga: product.harga_jual,
+                ...basePricing(product),
                 qty: 0,
                 subtotal: 0,
                 stock: product.stok,
@@ -313,12 +366,14 @@ function addToCart(product: Produk) {
         return;
     }
 
+    const pricing = basePricing(product);
+
     cartItems.value.push({
         id_produk: product.id_produk,
         nama: product.nama,
-        harga: product.harga_jual,
+        ...pricing,
         qty: 1,
-        subtotal: product.harga_jual,
+        subtotal: pricing.harga,
         stock: product.stok,
         tipe_jual: product.tipe_jual,
         satuan: product.satuan,
@@ -338,6 +393,8 @@ function addLayanan(item: Layanan) {
             id_produk: item.id_produk,
             nama: item.nama,
             harga: 0,
+            harga_base: 0,
+            potongan_reseller: 0,
             qty: 1,
             subtotal: 0,
             stock: Number.POSITIVE_INFINITY,
@@ -594,6 +651,7 @@ function submitTransaction() {
             cartItems.value = [];
             form.bayar = '';
             form.id_promo = null;
+            form.id_pelanggan = null;
             cartOpen.value = false;
         },
     });
@@ -1019,6 +1077,22 @@ function submitTransaction() {
                         <component :is="method.icon" class="h-4 w-4" />
                         {{ method.label }}
                     </button>
+                </div>
+
+                <!-- Pelanggan (default Umum; reseller dapat potongan harga per produk) -->
+                <div>
+                    <select
+                        v-model.number="form.id_pelanggan"
+                        class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3 py-2 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                    >
+                        <option :value="null">Pelanggan: Umum</option>
+                        <option v-for="p in pelanggans" :key="p.id_pelanggan" :value="p.id_pelanggan">
+                            {{ p.nama }}{{ p.tipe === 'reseller' ? ' (Reseller)' : '' }}
+                        </option>
+                    </select>
+                    <p v-if="isReseller" class="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        Harga reseller diterapkan ke produk yang punya potongan.
+                    </p>
                 </div>
 
                 <!-- Promo -->

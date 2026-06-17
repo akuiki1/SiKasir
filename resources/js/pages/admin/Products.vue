@@ -58,6 +58,7 @@ interface Produk {
     id_kategori: number;
     harga_jual: number;
     harga_modal: number;
+    potongan_reseller: number;
     stok: number;
     barcode: string | null;
     sku: string | null;
@@ -187,9 +188,19 @@ const form = useForm({
     foto_upload: null as File | null,
     harga_jual: '',
     harga_modal: '',
+    potongan_reseller: '',
     stok: '',
     barcode: '',
     sku: '',
+});
+
+// Harga setelah potongan reseller & peringatan bila di bawah modal (jual rugi).
+const hargaReseller = computed(() => Math.max(0, Number(form.harga_jual || 0) - Number(form.potongan_reseller || 0)));
+const resellerBelowModal = computed(() => {
+    const potongan = Number(form.potongan_reseller || 0);
+    if (potongan <= 0) return false;
+
+    return hargaReseller.value < Number(form.harga_modal || 0);
 });
 
 const tipeJualOptions: { value: TipeJual; label: string; hint: string }[] = [
@@ -227,6 +238,7 @@ function openEdit(produk: Produk) {
     form.foto_upload = null;
     form.harga_jual = String(produk.harga_jual);
     form.harga_modal = String(produk.harga_modal);
+    form.potongan_reseller = String(produk.potongan_reseller ?? 0);
     form.stok = String(produk.stok);
     form.barcode = produk.barcode ?? '';
     form.sku = produk.sku ?? '';
@@ -350,8 +362,9 @@ function submitForm() {
         foto: form.foto || null,
         harga_jual: Number(form.harga_jual),
         harga_modal: form.jenis === 'produksi' ? 0 : Number(form.harga_modal || 0),
-        // Jasa tidak punya stok fisik; backend juga memaksanya ke 0.
+        // Jasa tidak punya stok fisik / potongan reseller; backend juga memaksanya ke 0.
         stok: form.tipe_jual === 'jasa' ? 0 : Number(form.stok || 0),
+        potongan_reseller: form.tipe_jual === 'jasa' ? 0 : Number(form.potongan_reseller || 0),
         satuan: form.satuan || 'pcs',
     };
 
@@ -1187,6 +1200,35 @@ const statusClass: Record<string, string> = {
                     </div>
                     <div v-else class="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-2.5 text-xs text-muted-foreground">
                         Produk <strong>jasa</strong> tidak menyimpan stok. Pendapatan dihitung dari fee/biaya admin.
+                    </div>
+
+                    <!-- Potongan reseller (rupiah per produk) -->
+                    <div v-if="form.tipe_jual !== 'jasa'">
+                        <label class="mb-1.5 block text-sm font-medium" for="prod-potongan">
+                            Potongan Reseller (Rp)
+                        </label>
+                        <input
+                            id="prod-potongan"
+                            v-model="form.potongan_reseller"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            :class="{ 'border-rose-500': form.errors.potongan_reseller }"
+                        />
+                        <p v-if="Number(form.potongan_reseller) > 0" class="mt-1 text-xs text-muted-foreground">
+                            Harga untuk reseller: <strong>{{ formatRupiah(hargaReseller) }}</strong>
+                            (dari {{ formatRupiah(Number(form.harga_jual || 0)) }}).
+                        </p>
+                        <p v-else class="mt-1 text-xs text-muted-foreground">
+                            Kosongkan / 0 bila produk ini tidak diberi potongan untuk reseller.
+                        </p>
+                        <p v-if="resellerBelowModal" class="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                            <AlertCircle class="h-3 w-3" /> Harga reseller di bawah modal ({{ formatRupiah(Number(form.harga_modal || 0)) }}) — berisiko rugi.
+                        </p>
+                        <p v-if="form.errors.potongan_reseller" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                            <AlertCircle class="h-3 w-3" />{{ form.errors.potongan_reseller }}
+                        </p>
                     </div>
 
                     <!-- Barcode & SKU -->

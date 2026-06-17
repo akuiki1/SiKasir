@@ -127,7 +127,15 @@ Keduanya bisa dipenuhi.
 
 ---
 
-### Fase 4 — Reseller & pelanggan — kebutuhan #4
+### Fase 4 — Reseller & pelanggan — kebutuhan #4 ✅ SELESAI (17 Jun 2026)
+
+> **Status:** terimplementasi & teruji (121 test/118 hijau, build sukses, lint bersih). Keputusan: **potongan rupiah per produk**; pemilihan pelanggan via dropdown di keranjang (default "Umum").
+> - Migrasi `100005` (tabel `pelanggans`: nama/telp/tipe umum|reseller), `100006` (`produks.potongan_reseller`), `100007` (`transaksis.id_pelanggan` nullOnDelete).
+> - Model `Pelanggan`; `PelangganController` CRUD; route `admin.pelanggan*`; nav sidebar "Pelanggan"; halaman `admin/Pelanggan.vue`.
+> - Form produk: field **Potongan Reseller (Rp)** + peringatan bila harga reseller < modal (jual rugi).
+> - `KasirController::store`: `id_pelanggan`; bila reseller, harga efektif = max(0, harga_jual − potongan_reseller), di-snapshot ke `detail.harga` (modal tetap → laba akurat). Berlaku ke satuan & curah; jasa tidak.
+> - Kasir UI: dropdown **Pelanggan** di keranjang; memilih reseller otomatis menghitung ulang harga seluruh keranjang.
+> - Test: `tests/Feature/ResellerTest.php`.
 - Buat tabel **`pelanggan`**: `id, nama, telp (nullable), tipe (umum|reseller),
   timestamps`. Pendaftaran reseller jadi resmi (ganti "ka aku mau jadi reseller ya").
 - **Potongan reseller = rupiah per produk** (keputusan klien): tambah kolom

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DetailTransaksi;
+use App\Models\Pelanggan;
 use App\Models\Produk;
 use App\Models\Promo;
 use App\Models\Transaksi;
@@ -214,6 +215,7 @@ class KasirController extends Controller
                 'nama' => $produk->nama,
                 'kategori' => $produk->kategori?->nama_kategori,
                 'harga_jual' => $produk->harga_jual,
+                'potongan_reseller' => $produk->potongan_reseller,
                 'stok' => $produk->stok,
                 'tipe_jual' => $produk->tipe_jual,
                 'satuan' => $produk->satuan,
@@ -231,6 +233,15 @@ class KasirController extends Controller
                 'id_produk' => $produk->id_produk,
                 'nama' => $produk->nama,
                 'satuan' => $produk->satuan,
+            ]);
+
+        // Pelanggan untuk pemilih di keranjang (default "Umum"); reseller dapat potongan harga.
+        $pelanggans = Pelanggan::orderBy('nama')
+            ->get()
+            ->map(fn (Pelanggan $pelanggan) => [
+                'id_pelanggan' => $pelanggan->id_pelanggan,
+                'nama' => $pelanggan->nama,
+                'tipe' => $pelanggan->tipe,
             ]);
 
         $now = now();
@@ -252,6 +263,7 @@ class KasirController extends Controller
         return Inertia::render('kasir/Transaksi', [
             'produks' => $produks,
             'layanan' => $layanan,
+            'pelanggans' => $pelanggans,
             'promos' => $promos,
         ]);
     }
@@ -261,6 +273,7 @@ class KasirController extends Controller
         $validated = $request->validate([
             'metode_pembayaran' => ['required', Rule::in(['cash', 'qris', 'transfer'])],
             'bayar' => ['required', 'integer', 'min:0'],
+            'id_pelanggan' => ['nullable', 'exists:pelanggans,id_pelanggan'],
             'id_promo' => ['nullable', 'exists:promos,id_promo'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
@@ -283,9 +296,18 @@ class KasirController extends Controller
                 ->where('tanggal_selesai', '>=', $now)
                 ->get();
 
+            // Reseller dapat potongan harga rupiah per produk.
+            $pelanggan = ! empty($validated['id_pelanggan'])
+                ? Pelanggan::find($validated['id_pelanggan'])
+                : null;
+            $isReseller = $pelanggan?->tipe === 'reseller';
+
             foreach ($validated['items'] as $item) {
                 $produk = Produk::lockForUpdate()->findOrFail($item['id_produk']);
-                $harga = $produk->harga_jual;
+                // Harga efektif: reseller dipotong per produk; jasa pakai fee (di-override di bawah).
+                $harga = $isReseller
+                    ? max(0, $produk->harga_jual - $produk->potongan_reseller)
+                    : $produk->harga_jual;
                 $nominalRef = null; // diisi hanya untuk jasa (pass-through)
 
                 if ($produk->tipe_jual === 'jasa') {
@@ -413,6 +435,7 @@ class KasirController extends Controller
 
             $transaksi = Transaksi::create([
                 'id_user' => Auth::id(),
+                'id_pelanggan' => $pelanggan?->id_pelanggan,
                 'id_promo' => $appliedPromoId,
                 'total_harga' => $totalHarga,
                 'diskon' => $totalDiskon,

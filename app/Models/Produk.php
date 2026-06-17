@@ -23,6 +23,7 @@ class Produk extends Model
         'foto',
         'harga_jual',
         'harga_modal',
+        'potongan_reseller',
         'stok',
         'barcode',
         'sku',
@@ -31,6 +32,7 @@ class Produk extends Model
     protected $casts = [
         'harga_jual' => 'integer',
         'harga_modal' => 'integer',
+        'potongan_reseller' => 'integer',
         // Stok bisa pecahan untuk produk curah (liter/kg). Rupiah tetap integer.
         'stok' => 'float',
     ];

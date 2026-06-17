@@ -30,6 +30,7 @@ class ProdukController extends Controller
                     'id_kategori' => $produk->id_kategori,
                     'harga_jual' => $produk->harga_jual,
                     'harga_modal' => $produk->harga_modal,
+                    'potongan_reseller' => $produk->potongan_reseller,
                     'stok' => $produk->stok,
                     'barcode' => $produk->barcode,
                     'sku' => $produk->sku,
@@ -69,6 +70,7 @@ class ProdukController extends Controller
             'nama' => ['required', 'string', 'max:255'],
             'harga_jual' => ['required', 'integer', 'min:0'],
             'harga_modal' => ['nullable', 'integer', 'min:0'],
+            'potongan_reseller' => ['nullable', 'integer', 'min:0'],
             // numeric agar produk curah bisa berstok pecahan (mis. 12.5 liter).
             'stok' => ['required', 'numeric', 'min:0'],
             'barcode' => ['nullable', 'string', 'max:255', 'unique:produks,barcode'],
@@ -81,9 +83,12 @@ class ProdukController extends Controller
         $validated['tipe_jual'] = $validated['tipe_jual'] ?? 'satuan';
         $validated['satuan'] = $validated['satuan'] ?? 'pcs';
 
-        // Produk jasa (tarik tunai/transfer) tidak punya stok fisik.
+        // Produk jasa (tarik tunai/transfer) tidak punya stok fisik / potongan reseller.
         if ($validated['tipe_jual'] === 'jasa') {
             $validated['stok'] = 0;
+            $validated['potongan_reseller'] = 0;
+        } else {
+            $validated['potongan_reseller'] = (int) ($validated['potongan_reseller'] ?? 0);
         }
 
         if ($request->hasFile('foto_upload')) {
@@ -123,6 +128,7 @@ class ProdukController extends Controller
             'nama' => ['required', 'string', 'max:255'],
             'harga_jual' => ['required', 'integer', 'min:0'],
             'harga_modal' => ['nullable', 'integer', 'min:0'],
+            'potongan_reseller' => ['nullable', 'integer', 'min:0'],
             // numeric agar produk curah bisa berstok pecahan (mis. 12.5 liter).
             'stok' => ['required', 'numeric', 'min:0'],
             'barcode' => ['nullable', 'string', 'max:255', 'unique:produks,barcode,'.$produk->id_produk.',id_produk'],
@@ -135,9 +141,12 @@ class ProdukController extends Controller
         $validated['tipe_jual'] = $validated['tipe_jual'] ?? $produk->tipe_jual;
         $validated['satuan'] = $validated['satuan'] ?? $produk->satuan;
 
-        // Produk jasa tidak punya stok fisik.
+        // Produk jasa tidak punya stok fisik / potongan reseller.
         if ($validated['tipe_jual'] === 'jasa') {
             $validated['stok'] = 0;
+            $validated['potongan_reseller'] = 0;
+        } else {
+            $validated['potongan_reseller'] = (int) ($validated['potongan_reseller'] ?? 0);
         }
 
         $stokLama = (float) $produk->stok;

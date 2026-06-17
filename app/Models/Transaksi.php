@@ -17,6 +17,7 @@ class Transaksi extends Model
 
     protected $fillable = [
         'id_user',
+        'id_pelanggan',
         'id_promo',
         'total_harga',
         'diskon',
@@ -42,6 +43,13 @@ class Transaksi extends Model
     public function promo(): BelongsTo
     {
         return $this->belongsTo(Promo::class, 'id_promo', 'id_promo');
+    }
+
+    public function pelanggan(): BelongsTo
+    {
+        return $this->belongsTo(Pelanggan::class, 'id_pelanggan', 'id_pelanggan')->withDefault([
+            'nama' => 'Umum',
+        ]);
     }
 
     public function detailTransaksis(): HasMany
