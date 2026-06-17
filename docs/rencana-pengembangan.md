@@ -1,0 +1,159 @@
+# Rencana Pengembangan SiKasir — Hasil Briefing Klien 17 Jun 2026
+
+Dokumen ini menerjemahkan hasil briefing dengan klien (Cemilan Mba Tutut) menjadi
+rencana teknis bertahap. **Belum ada kode yang ditulis** — ini peta jalan untuk
+disepakati dulu sebelum eksekusi.
+
+---
+
+## 1. Akar masalah & prinsip desain
+
+Semua kebutuhan baru sebelumnya dipaksa masuk ke **satu model `Produk` dengan satu
+cara jual**: per biji, `stok` integer, di-scan barcode, omzet = harga × jumlah.
+Model ini pecah begitu ketemu bensin, bawang timbang, dan jasa transfer.
+
+**Prinsip:** pisahkan **cara jual** menjadi 3 model. Sisanya (modal, kartu stok,
+slow-mover, reseller) adalah fitur lintas-model di atasnya.
+
+Pisahkan dua konsep yang sekarang menempel:
+- `jenis` (sudah ada: `beli` / `produksi`) = **sumber modal/HPP**.
+- `tipe_jual` (BARU: `satuan` / `curah` / `jasa`) = **cara jual**. Tegak lurus,
+  jangan dicampur.
+
+| Model | Contoh | Kunci | Stok | Yang dicatat sebagai omzet |
+|---|---|---|---|---|
+| `satuan` | cemilan, kue, frozen, permen | hitung per biji | integer (desimal aman) | harga × jumlah |
+| `curah` | bensin (/liter), bawang (/kg) | qty **desimal**, bisa input **rupiah** | desimal | harga/satuan × qty |
+| `jasa` | tarik tunai, transfer | **tanpa stok**, fee = pendapatan | — | **hanya fee**, nominal pass-through |
+
+---
+
+## 2. Fase pengembangan (urut berdasarkan ketergantungan)
+
+### Fase 0 — Fondasi: pemisahan model jual + kartu stok ⭐ kerjakan pertama
+Semua fase lain berdiri di atas ini.
+
+**Migrasi:**
+- `produks`: tambah `tipe_jual` enum(`satuan`,`curah`,`jasa`) default `satuan`;
+  tambah `satuan` string default `pcs` (mis. `pcs`, `liter`, `kg`, `gram`, `bungkus`).
+- `produks.stok`: `integer` → `decimal(12,3)` (data lama aman, ikut terkonversi).
+- `detail_transaksis.jumlah`: `integer` → `decimal(12,3)`.
+- Buat tabel **`stok_mutasi`** (kartu stok):
+  `id, id_produk, tipe (masuk|keluar|penyesuaian|produksi|jual|retur),
+  jumlah (decimal, signed), stok_sebelum, stok_sesudah, keterangan,
+  id_user, id_referensi (nullable), ref_tipe (nullable), timestamps`.
+
+**Model / logika:**
+- `Produk`: update `$casts` (`stok` => `decimal:3`), tambah scope per `tipe_jual`.
+- `StokMutasi` model + relasi `produk()`.
+- **Sisipkan pencatatan mutasi** di SEMUA titik perubahan stok yang sudah ada:
+  penjualan kasir, batch produksi, dan edit stok manual di admin. Idealnya lewat
+  satu helper `Produk::ubahStok($delta, $tipe, $ref, $keterangan)` agar konsisten.
+
+**Hasil:** update stok tercatat (kebutuhan klien #2) + fondasi data untuk
+slow-mover & curah.
+
+---
+
+### Fase 1 — Produk curah (bensin & bawang) — kebutuhan #5
+Bergantung pada desimal di Fase 0.
+
+- `harga_jual` untuk `curah` dimaknai **per satuan** (per liter / per kg).
+  Bensin: `harga_modal`/liter + margin Rp1.000 → `harga_jual`/liter.
+- UI kasir untuk item `curah`: toggle **input by-qty** atau **input by-rupiah**.
+  - by-rupiah ("isi 20rb"): `qty = nominal ÷ harga_jual`, dibulatkan 3 desimal.
+  - subtotal = nominal (atau `qty × harga`, tentukan aturan pembulatan — lihat §4).
+- Tampilan menunjukkan qty + satuan (mis. `1.429 liter`).
+- `modal` per baris = `qty × harga_modal/satuan` (snapshot, sama seperti sekarang).
+
+**Hasil:** bensin & bawang bisa dijual sesuai kebiasaan pelanggan (beli per rupiah).
+
+---
+
+### Fase 2 — Jasa: transfer & tarik tunai — kebutuhan #7 (paling rawan laporan)
+- Produk ber-`tipe_jual=jasa`: **tanpa stok, tanpa HPP normal**.
+- `detail_transaksis`: tambah kolom `nominal` (nullable) = uang pokok yang
+  ditransfer/ditarik (**pass-through, BUKAN omzet**). `subtotal` baris = **fee**.
+- **Jebakan akunting (wajib benar):** pelanggan transfer Rp500.000 + fee Rp5.000.
+  Uang masuk laci Rp505.000, tapi Rp500.000 keluar lagi (saldo agen berkurang).
+  **Omzet toko = Rp5.000 saja.** `nominal` HANYA referensi.
+- Penyesuaian laporan (lihat §3): dashboard & analisis laba HARUS menghitung omzet
+  jasa = fee, mengecualikan `nominal`.
+- Fee MVP: input manual. Lanjutan opsional: tabel aturan fee bertingkat
+  (mis. <100rb=3rb, 100–500rb=5rb, dst) + tracking saldo float agen.
+- Catatan: `metode_pembayaran` transaksi (cash/qris/transfer) ≠ jenis jasa.
+  Pelanggan biasanya bayar jasa transfer pakai **cash**. Jangan tertukar.
+
+---
+
+### Fase 3 — Modal produksi disederhanakan — kebutuhan #1
+Rekonsiliasi: klien mau "keluar segini, jadi segini"; kita mau data akurat.
+Keduanya bisa dipenuhi.
+
+- Modul Produksi sekarang minta rincian bahan (`produksi_biayas`) → itu yang bikin
+  klien malas. Tambah **mode sederhana**: klien cukup isi **1 angka** total biaya +
+  jumlah hasil → `modal/unit = total ÷ hasil` otomatis.
+- Rincian bahan jadi **opsional**, bukan wajib. Tetap akurat (uang riil ÷ unit riil).
+- **Aturan anti double-count tetap berlaku**: biaya bahan masuk lewat Produksi,
+  BUKAN lewat Pengeluaran (tipe `bahan_baku`/`kemasan` tetap dikecualikan dari
+  biaya operasional dashboard).
+
+---
+
+### Fase 4 — Reseller & pelanggan — kebutuhan #4
+- Buat tabel **`pelanggan`**: `id, nama, telp (nullable), tipe (umum|reseller),
+  timestamps`. Pendaftaran reseller jadi resmi (ganti "ka aku mau jadi reseller ya").
+- **Potongan reseller = rupiah per produk** (keputusan klien): tambah kolom
+  `produks.potongan_reseller` unsignedBigInteger default 0.
+  - Saat checkout pelanggan `reseller`: `harga baris = harga_jual − potongan_reseller`.
+  - **Beri peringatan** bila `harga setelah potong < harga_modal` (jual rugi).
+- `transaksis`: tambah `id_pelanggan` (nullable, default = umum).
+- Laba tetap akurat karena `harga` & `modal` sudah di-snapshot per baris.
+
+---
+
+### Fase 5 — Dashboard produk jarang laku + saran promo — kebutuhan #3
+- Query slow-mover dari `detail_transaksis` + tanggal: produk dengan qty terjual
+  rendah/0 dalam N hari terakhir **padahal `stok > 0`**.
+- Widget dashboard: daftar produk lambat + tombol **"Buat Promo"** yang prefilled
+  ke form Promo yang sudah ada.
+- Tidak butuh skema inti baru (opsional: kolom `tanggal_masuk` untuk hitung umur stok).
+
+---
+
+### Fase 6 — UX quick-pick untuk barang tanpa barcode (permen) — kebutuhan #6
+- Barcode sudah `nullable` (migrasi 16 Jun) → secara data sudah didukung.
+- Tambah **grid favorit / pencarian cepat** di halaman Transaksi kasir agar barang
+  kecil bisa ditambah tanpa scan. Mostly frontend, tanpa skema baru.
+
+---
+
+## 3. Dampak lintas-fase: LAPORAN (paling penting untuk akurasi)
+Tiga titik agregasi yang WAJIB ditinjau ulang setiap menyentuh Fase 2 & 4:
+- `KasirController::dashboard` (omzet hari ini, payment breakdown).
+- Dashboard admin + section **Analisis Laba & Rugi** (waterfall, perbandingan periode).
+- Aturan:
+  - Jasa: omzet = fee, **kecualikan `nominal`** dari semua perhitungan omzet/laba.
+  - Reseller: omzet = harga setelah potongan; HPP tetap dari `modal` snapshot.
+  - Curah: pastikan qty desimal tidak merusak penjumlahan integer lama.
+
+## 4. Keputusan teknis yang masih terbuka
+1. **Pembulatan curah by-rupiah:** subtotal = nominal persis (qty desimal panjang)
+   ATAU qty dibulatkan dulu lalu subtotal = qty × harga (ada selisih recehan)?
+   → Rekomendasi: subtotal = **nominal persis**, qty disimpan 3 desimal sbg catatan.
+2. **Jasa — produk atau tabel sendiri?** Pakai `produks.tipe_jual=jasa` (cepat,
+   reuse UI) ATAU tabel `layanan` terpisah (lebih bersih, tapi lebih banyak kerja)?
+   → Rekomendasi: mulai dari `tipe_jual=jasa`, pisah nanti bila perlu.
+3. **Saldo float agen** (Fase 2 lanjutan): dilacak sekarang atau ditunda? → tunda.
+4. **Ambang slow-mover** (N hari & batas qty): default berapa? perlu UI setting?
+
+## 5. Hal operasional (dari memori proyek)
+- Setiap perubahan frontend → **wajib `npm run build`** (Laragon mode production).
+- Update test: `KasirTransaksiTest`, `ProduksiTest` akan terdampak; tambah test baru
+  per fase (kartu stok, curah by-rupiah, fee jasa, potongan reseller).
+- Migrasi `decimal` pada tabel berisi data → uji di DB salinan dulu.
+
+## 6. Urutan eksekusi yang disarankan
+Fase 0 → 1 → 2 → 4 → 3 → 5 → 6.
+(0 fondasi; 1 & 2 bagian paling "bikin bingung" & rawan; 4 paling sering dipakai
+harian; 3/5/6 pelengkap.)
