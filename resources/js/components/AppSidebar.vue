@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { LayoutGrid, Users, Package, ShoppingCart, History, DollarSign, Tag, Factory, Contact, CreditCard } from 'lucide-vue-next';
+import { LayoutGrid, Users, Package, ShoppingCart, History, DollarSign, Tag, Tags, Factory, Contact, CreditCard } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -15,84 +15,124 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import type { NavItem } from '@/types';
+import type { NavGroup, NavItem } from '@/types';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 
-const mainNavItems = computed<NavItem[]>(() => {
+const mainNavGroups = computed<NavGroup[]>(() => {
     const role = user.value?.role;
 
     if (role === 'admin') {
         return [
             {
-                title: 'Dashboard',
-                href: '/admin/dashboard',
-                icon: LayoutGrid,
+                label: 'Ringkasan',
+                items: [
+                    {
+                        title: 'Dashboard',
+                        href: '/admin/dashboard',
+                        icon: LayoutGrid,
+                    },
+                ],
             },
             {
-                title: 'Data User',
-                href: '/admin/users',
-                icon: Users,
+                label: 'Produk & Stok',
+                items: [
+                    {
+                        title: 'Kategori',
+                        href: '/admin/kategori',
+                        icon: Tags,
+                    },
+                    {
+                        title: 'Data Produk',
+                        href: '/admin/products',
+                        icon: Package,
+                    },
+                    {
+                        title: 'Produksi',
+                        href: '/admin/produksi',
+                        icon: Factory,
+                    },
+                ],
             },
             {
-                title: 'Kategori',
-                href: '/admin/kategori',
-                icon: Users,
+                label: 'Penjualan',
+                items: [
+                    {
+                        title: 'Data Transaksi',
+                        href: '/admin/transactions',
+                        icon: ShoppingCart,
+                    },
+                    {
+                        title: 'Pelanggan',
+                        href: '/admin/pelanggan',
+                        icon: Contact,
+                    },
+                    {
+                        title: 'Promo',
+                        href: '/admin/promos',
+                        icon: Tag,
+                    },
+                ],
             },
             {
-                title: 'Data Produk',
-                href: '/admin/products',
-                icon: Package,
+                label: 'Keuangan',
+                items: [
+                    {
+                        title: 'Pengeluaran',
+                        href: '/admin/pengeluarans',
+                        icon: DollarSign,
+                    },
+                ],
             },
             {
-                title: 'Pelanggan',
-                href: '/admin/pelanggan',
-                icon: Contact,
-            },
-            {
-                title: 'Produksi',
-                href: '/admin/produksi',
-                icon: Factory,
-            },
-            {
-                title: 'Data Transaksi',
-                href: '/admin/transactions',
-                icon: ShoppingCart,
-            },
-            {
-                title: 'Pengeluaran',
-                href: '/admin/pengeluarans',
-                icon: DollarSign,
-            },
-            {
-                title: 'Promo',
-                href: '/admin/promos',
-                icon: Tag,
+                label: 'Pengaturan',
+                items: [
+                    {
+                        title: 'Data User',
+                        href: '/admin/users',
+                        icon: Users,
+                    },
+                ],
             },
         ];
     }
 
     return [
         {
-            title: 'Dashboard',
-            href: '/kasir/dashboard',
-            icon: LayoutGrid,
+            label: 'Ringkasan',
+            items: [
+                {
+                    title: 'Dashboard',
+                    href: '/kasir/dashboard',
+                    icon: LayoutGrid,
+                },
+            ],
         },
         {
-            title: 'Transaksi',
-            href: '/kasir/transaksi',
-            icon: ShoppingCart,
+            label: 'Penjualan',
+            items: [
+                {
+                    title: 'Transaksi',
+                    href: '/kasir/transaksi',
+                    icon: ShoppingCart,
+                },
+                {
+                    title: 'Layanan / Jasa',
+                    href: '/kasir/layanan',
+                    icon: CreditCard,
+                },
+            ],
         },
         {
-            title: 'Layanan / Jasa',
-            href: '/kasir/layanan',
-            icon: CreditCard,
-        },
-        {
-            title: 'Riwayat Transaksi',
-            href: '/kasir/riwayat',
-            icon: History,
+            label: 'Riwayat',
+            items: [
+                {
+                    title: 'Riwayat Transaksi',
+                    href: '/kasir/riwayat',
+                    icon: History,
+                },
+            ],
         },
     ];
 });
@@ -116,7 +156,7 @@ const footerNavItems: NavItem[] = [];
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
+            <NavMain :groups="mainNavGroups" />
         </SidebarContent>
 
         <SidebarFooter>
