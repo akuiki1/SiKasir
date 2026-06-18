@@ -271,6 +271,32 @@ const decreaseQty = (id: number) => {
     }
 };
 
+// Qty diketik langsung: ambil hanya digit, minimal 1.
+const setCartQuantity = (item: CartItem, event: Event) => {
+    const el = event.target as HTMLInputElement;
+    const digits = el.value.replace(/\D/g, '');
+
+    // Biarkan kosong sementara saat pelanggan mengetik ulang.
+    if (digits === '') {
+        el.value = '';
+        return;
+    }
+
+    let next = parseInt(digits, 10);
+    if (next < 1) next = 1;
+    item.quantity = next;
+    el.value = String(next);
+};
+
+// Saat input kehilangan fokus: pastikan qty minimal 1.
+const normalizeCartQuantity = (item: CartItem, event: Event) => {
+    const el = event.target as HTMLInputElement;
+    let next = parseInt(el.value.replace(/\D/g, ''), 10);
+    if (!Number.isFinite(next) || next < 1) next = 1;
+    item.quantity = next;
+    el.value = String(next);
+};
+
 const removeFromCart = (id: number) => {
     cart.value = cart.value.filter((i) => i.id_produk !== id);
 };
@@ -1740,10 +1766,17 @@ const promoSisaText = (sisaHari: number) => {
                                         >
                                             <Minus class="h-3.5 w-3.5" />
                                         </button>
-                                        <span
-                                            class="w-7 text-center text-sm font-extrabold text-neutral-900 dark:text-white"
-                                            >{{ item.quantity }}</span
-                                        >
+                                        <input
+                                            type="text"
+                                            inputmode="numeric"
+                                            :value="item.quantity"
+                                            :aria-label="`Jumlah ${item.nama}`"
+                                            class="w-9 rounded-md bg-transparent text-center text-sm font-extrabold text-neutral-900 outline-none focus:ring-2 focus:ring-orange-400/40 dark:text-white"
+                                            @focus="($event.target as HTMLInputElement).select()"
+                                            @input="setCartQuantity(item, $event)"
+                                            @blur="normalizeCartQuantity(item, $event)"
+                                            @keyup.enter="($event.target as HTMLInputElement).blur()"
+                                        />
                                         <button
                                             @click="increaseQty(item.id_produk)"
                                             class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors hover:text-orange-600 dark:bg-neutral-700 dark:text-neutral-200"
