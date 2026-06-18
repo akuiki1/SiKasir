@@ -5,6 +5,7 @@ import pelangganDe1373 from './pelanggan'
 import products237d17 from './products'
 import transactionsBbd80d from './transactions'
 import pengeluaransC7d7ce from './pengeluarans'
+import stok67e4e1 from './stok'
 import produksi22b192 from './produksi'
 import promosFc23d1 from './promos'
 /**
@@ -554,6 +555,84 @@ pengeluarans.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     pengeluarans.form = pengeluaransForm
 /**
+* @see \App\Http\Controllers\StokController::stok
+ * @see app/Http/Controllers/StokController.php:41
+ * @route '/admin/stok'
+ */
+export const stok = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: stok.url(options),
+    method: 'get',
+})
+
+stok.definition = {
+    methods: ["get","head"],
+    url: '/admin/stok',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\StokController::stok
+ * @see app/Http/Controllers/StokController.php:41
+ * @route '/admin/stok'
+ */
+stok.url = (options?: RouteQueryOptions) => {
+    return stok.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\StokController::stok
+ * @see app/Http/Controllers/StokController.php:41
+ * @route '/admin/stok'
+ */
+stok.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: stok.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\StokController::stok
+ * @see app/Http/Controllers/StokController.php:41
+ * @route '/admin/stok'
+ */
+stok.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: stok.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\StokController::stok
+ * @see app/Http/Controllers/StokController.php:41
+ * @route '/admin/stok'
+ */
+    const stokForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: stok.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\StokController::stok
+ * @see app/Http/Controllers/StokController.php:41
+ * @route '/admin/stok'
+ */
+        stokForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: stok.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\StokController::stok
+ * @see app/Http/Controllers/StokController.php:41
+ * @route '/admin/stok'
+ */
+        stokForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: stok.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    stok.form = stokForm
+/**
 * @see \App\Http\Controllers\ProduksiController::produksi
  * @see app/Http/Controllers/ProduksiController.php:22
  * @route '/admin/produksi'
@@ -717,6 +796,7 @@ pelanggan: Object.assign(pelanggan, pelangganDe1373),
 products: Object.assign(products, products237d17),
 transactions: Object.assign(transactions, transactionsBbd80d),
 pengeluarans: Object.assign(pengeluarans, pengeluaransC7d7ce),
+stok: Object.assign(stok, stok67e4e1),
 produksi: Object.assign(produksi, produksi22b192),
 promos: Object.assign(promos, promosFc23d1),
 }

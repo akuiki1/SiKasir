@@ -16,17 +16,17 @@ import {
     Printer,
     SlidersHorizontal,
     ChevronDown,
-    Check,
     ArrowUpAZ,
     ArrowDownAZ,
     TrendingDown,
     TrendingUp,
     PackageMinus,
     PackagePlus,
+    Sparkles,
 } from 'lucide-vue-next';
 import { ref, computed, nextTick, onBeforeUnmount, watch, onMounted } from 'vue';
 import JsBarcode from 'jsbarcode';
-import { store as productStore, update as productUpdate, destroy as productDestroy } from '@/routes/admin/products';
+import { store as productStore, update as productUpdate, destroy as productDestroy, generateAll as productGenerateAll } from '@/routes/admin/products';
 import { usePagination } from '@/composables/usePagination';
 import Pagination from '@/components/Pagination.vue';
 
@@ -354,6 +354,58 @@ watch(
         }
     },
 );
+
+// Check digit (digit ke-13) EAN-13 dari 12 digit awal.
+function ean13CheckDigit(base12: string): string {
+    let sum = 0;
+    for (let i = 0; i < base12.length; i++) {
+        sum += Number(base12[i]) * (i % 2 === 0 ? 1 : 3);
+    }
+    return String((10 - (sum % 10)) % 10);
+}
+
+// Barcode EAN-13 internal toko: prefix "2" (in-store) + 11 digit acak + check digit.
+function generateEan13(): string {
+    let base = '2';
+    for (let i = 0; i < 11; i++) {
+        base += Math.floor(Math.random() * 10);
+    }
+    return base + ean13CheckDigit(base);
+}
+
+// Tombol "Generate Otomatis" pada form: isi barcode sekaligus SKU turunannya.
+function generateBarcodeAndSku(): void {
+    stopBarcodeScan(false);
+    const barcode = generateEan13();
+    const sku = generateSKUFromBarcode(barcode);
+    form.barcode = barcode;
+    form.sku = sku;
+    lastGeneratedSku.value = sku;
+    form.clearErrors('barcode', 'sku');
+    barcodeScanMessage.value = `Barcode & SKU otomatis dibuat: ${barcode}`;
+}
+
+// Tombol massal: minta backend membuat barcode + SKU untuk semua produk tanpa barcode.
+const generatingAll = ref(false);
+
+function runGenerateAllBarcodes(): void {
+    const tanpaBarcode = props.produks.filter((p) => p.tipe_jual !== 'jasa' && !p.barcode).length;
+
+    if (tanpaBarcode === 0) {
+        alert('Semua produk (non-jasa) sudah memiliki barcode. Tidak ada yang perlu dibuat.');
+        return;
+    }
+
+    if (!confirm(`Buat barcode & SKU otomatis untuk ${tanpaBarcode} produk yang belum memiliki barcode? Produk jasa dilewati.`)) {
+        return;
+    }
+
+    router.post(productGenerateAll().url, {}, {
+        preserveScroll: true,
+        onStart: () => (generatingAll.value = true),
+        onFinish: () => (generatingAll.value = false),
+    });
+}
 
 function submitForm() {
     const data = {
@@ -706,6 +758,17 @@ const statusClass: Record<string, string> = {
                                 </div>
                             </Transition>
                         </div>
+
+                        <!-- Generate All Barcodes & SKU -->
+                        <button
+                            class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:text-emerald-400"
+                            title="Buat barcode & SKU otomatis untuk produk yang belum punya barcode"
+                            :disabled="generatingAll"
+                            @click="runGenerateAllBarcodes"
+                        >
+                            <Sparkles class="h-4 w-4" />
+                            {{ generatingAll ? 'Membuat...' : 'Generate Barcode Semua' }}
+                        </button>
 
                         <!-- Print All Barcodes -->
                         <button
@@ -1232,63 +1295,82 @@ const statusClass: Record<string, string> = {
                     </div>
 
                     <!-- Barcode & SKU -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium" for="prod-barcode">
-                                Barcode
-                            </label>
-                            <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
-                                <input
-                                    id="prod-barcode"
-                                    ref="barcodeInput"
-                                    v-model="form.barcode"
-                                    type="text"
-                                    placeholder="Barcode unik"
-                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                    :class="{ 'border-rose-500': form.errors.barcode }"
-                                />
-                                <button
-                                    type="button"
-                                    :class="[
-                                        'inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors',
-                                        isScanningBarcode
-                                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                                            : 'border-sidebar-border/70 bg-background text-slate-700 hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40',
-                                    ]"
-                                    @click="startBarcodeScan"
-                                >
-                                    <Barcode class="h-4 w-4" />
-                                    Scan
-                                </button>
-                            </div>
-                            <p
-                                v-if="barcodeScanMessage"
-                                :class="[
-                                    'mt-1 text-xs',
-                                    isScanningBarcode ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
-                                ]"
+                    <div class="rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20">
+                        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-sm font-semibold">Barcode & SKU</span>
+                            <button
+                                type="button"
+                                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
+                                title="Buat barcode EAN-13 & SKU otomatis"
+                                @click="generateBarcodeAndSku"
                             >
-                                {{ barcodeScanMessage }}
-                            </p>
-                            <p v-if="form.errors.barcode" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                <AlertCircle class="h-3 w-3" />{{ form.errors.barcode }}
-                            </p>
+                                <Sparkles class="h-3.5 w-3.5" />
+                                Generate Otomatis
+                            </button>
                         </div>
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium" for="prod-sku">
-                                SKU
-                            </label>
-                            <input
-                                id="prod-sku"
-                                v-model="form.sku"
-                                type="text"
-                                placeholder="SKU unik"
-                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                :class="{ 'border-rose-500': form.errors.sku }"
-                            />
-                            <p v-if="form.errors.sku" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                <AlertCircle class="h-3 w-3" />{{ form.errors.sku }}
-                            </p>
+                        <p class="mb-3 text-xs text-muted-foreground">
+                            Boleh dikosongkan dulu jika produk belum punya barcode. Klik
+                            <strong>Generate Otomatis</strong> untuk membuat barcode &amp; SKU sekaligus,
+                            atau scan / isi manual.
+                        </p>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="mb-1.5 block text-sm font-medium" for="prod-barcode">
+                                    Barcode
+                                </label>
+                                <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+                                    <input
+                                        id="prod-barcode"
+                                        ref="barcodeInput"
+                                        v-model="form.barcode"
+                                        type="text"
+                                        placeholder="Barcode unik"
+                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                        :class="{ 'border-rose-500': form.errors.barcode }"
+                                    />
+                                    <button
+                                        type="button"
+                                        :class="[
+                                            'inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors',
+                                            isScanningBarcode
+                                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                                : 'border-sidebar-border/70 bg-background text-slate-700 hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40',
+                                        ]"
+                                        @click="startBarcodeScan"
+                                    >
+                                        <Barcode class="h-4 w-4" />
+                                        Scan
+                                    </button>
+                                </div>
+                                <p
+                                    v-if="barcodeScanMessage"
+                                    :class="[
+                                        'mt-1 text-xs',
+                                        isScanningBarcode ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
+                                    ]"
+                                >
+                                    {{ barcodeScanMessage }}
+                                </p>
+                                <p v-if="form.errors.barcode" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                    <AlertCircle class="h-3 w-3" />{{ form.errors.barcode }}
+                                </p>
+                            </div>
+                            <div>
+                                <label class="mb-1.5 block text-sm font-medium" for="prod-sku">
+                                    SKU
+                                </label>
+                                <input
+                                    id="prod-sku"
+                                    v-model="form.sku"
+                                    type="text"
+                                    placeholder="SKU unik"
+                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                    :class="{ 'border-rose-500': form.errors.sku }"
+                                />
+                                <p v-if="form.errors.sku" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                    <AlertCircle class="h-3 w-3" />{{ form.errors.sku }}
+                                </p>
+                            </div>
                         </div>
                     </div>
 

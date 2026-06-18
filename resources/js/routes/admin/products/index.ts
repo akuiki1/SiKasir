@@ -55,6 +55,61 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     
     store.form = storeForm
 /**
+* @see \App\Http\Controllers\ProdukController::generateAll
+ * @see app/Http/Controllers/ProdukController.php:184
+ * @route '/admin/products/generate-all-barcodes'
+ */
+export const generateAll = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: generateAll.url(options),
+    method: 'post',
+})
+
+generateAll.definition = {
+    methods: ["post"],
+    url: '/admin/products/generate-all-barcodes',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\ProdukController::generateAll
+ * @see app/Http/Controllers/ProdukController.php:184
+ * @route '/admin/products/generate-all-barcodes'
+ */
+generateAll.url = (options?: RouteQueryOptions) => {
+    return generateAll.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\ProdukController::generateAll
+ * @see app/Http/Controllers/ProdukController.php:184
+ * @route '/admin/products/generate-all-barcodes'
+ */
+generateAll.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: generateAll.url(options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\ProdukController::generateAll
+ * @see app/Http/Controllers/ProdukController.php:184
+ * @route '/admin/products/generate-all-barcodes'
+ */
+    const generateAllForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: generateAll.url(options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\ProdukController::generateAll
+ * @see app/Http/Controllers/ProdukController.php:184
+ * @route '/admin/products/generate-all-barcodes'
+ */
+        generateAllForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: generateAll.url(options),
+            method: 'post',
+        })
+    
+    generateAll.form = generateAllForm
+/**
 * @see \App\Http\Controllers\ProdukController::update
  * @see app/Http/Controllers/ProdukController.php:121
  * @route '/admin/products/{produk}'
@@ -145,7 +200,7 @@ update.put = (args: { produk: number | { id_produk: number } } | [produk: number
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:183
+ * @see app/Http/Controllers/ProdukController.php:214
  * @route '/admin/products/{produk}'
  */
 export const destroy = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -160,7 +215,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:183
+ * @see app/Http/Controllers/ProdukController.php:214
  * @route '/admin/products/{produk}'
  */
 destroy.url = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions) => {
@@ -193,7 +248,7 @@ destroy.url = (args: { produk: number | { id_produk: number } } | [produk: numbe
 
 /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:183
+ * @see app/Http/Controllers/ProdukController.php:214
  * @route '/admin/products/{produk}'
  */
 destroy.delete = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -203,7 +258,7 @@ destroy.delete = (args: { produk: number | { id_produk: number } } | [produk: nu
 
     /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:183
+ * @see app/Http/Controllers/ProdukController.php:214
  * @route '/admin/products/{produk}'
  */
     const destroyForm = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -218,7 +273,7 @@ destroy.delete = (args: { produk: number | { id_produk: number } } | [produk: nu
 
             /**
 * @see \App\Http\Controllers\ProdukController::destroy
- * @see app/Http/Controllers/ProdukController.php:183
+ * @see app/Http/Controllers/ProdukController.php:214
  * @route '/admin/products/{produk}'
  */
         destroyForm.delete = (args: { produk: number | { id_produk: number } } | [produk: number | { id_produk: number } ] | number | { id_produk: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -234,6 +289,7 @@ destroy.delete = (args: { produk: number | { id_produk: number } } | [produk: nu
     destroy.form = destroyForm
 const products = {
     store: Object.assign(store, store),
+generateAll: Object.assign(generateAll, generateAll),
 update: Object.assign(update, update),
 destroy: Object.assign(destroy, destroy),
 }

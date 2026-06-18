@@ -128,6 +128,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Produk
         Route::get('admin/products', [ProdukController::class, 'index'])->name('admin.products');
         Route::post('admin/products', [ProdukController::class, 'store'])->name('admin.products.store');
+        Route::post('admin/products/generate-all-barcodes', [ProdukController::class, 'generateAllBarcodes'])->name('admin.products.generate-all');
         Route::put('admin/products/{produk}', [ProdukController::class, 'update'])->name('admin.products.update');
         Route::delete('admin/products/{produk}', [ProdukController::class, 'destroy'])->name('admin.products.destroy');
 

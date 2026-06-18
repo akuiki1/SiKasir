@@ -178,6 +178,37 @@ class ProdukController extends Controller
     }
 
     /**
+     * Buat barcode + SKU otomatis untuk semua produk yang belum punya barcode.
+     * Produk jasa dilewati karena tidak ada barang fisik untuk discan.
+     */
+    public function generateAllBarcodes(): RedirectResponse
+    {
+        $produks = Produk::where('tipe_jual', '!=', 'jasa')
+            ->where(fn ($q) => $q->whereNull('barcode')->orWhere('barcode', ''))
+            ->get();
+
+        $dibuat = 0;
+        foreach ($produks as $produk) {
+            $barcode = Produk::generateUniqueBarcode();
+            // SKU lama dipertahankan; kalau kosong baru diturunkan dari barcode.
+            $sku = filled($produk->sku) ? $produk->sku : Produk::generateUniqueSku($barcode);
+
+            $produk->update([
+                'barcode' => $barcode,
+                'sku' => $sku,
+            ]);
+
+            $dibuat++;
+        }
+
+        $pesan = $dibuat > 0
+            ? "Barcode & SKU otomatis dibuat untuk {$dibuat} produk."
+            : 'Semua produk (non-jasa) sudah memiliki barcode. Tidak ada yang perlu dibuat.';
+
+        return redirect()->route('admin.products')->with('success', $pesan);
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy(Produk $produk): RedirectResponse

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class Produk extends Model
 {
@@ -57,6 +58,58 @@ class Produk extends Model
     public function stokMutasis(): HasMany
     {
         return $this->hasMany(StokMutasi::class, 'id_produk', 'id_produk');
+    }
+
+    /**
+     * Buat barcode EAN-13 unik untuk penomoran internal toko.
+     * Prefix "2" memakai rentang in-store/restricted distribution GS1 (aman dipakai
+     * sendiri, tidak bentrok barcode pabrikan), diikuti 11 digit acak lalu satu
+     * check digit EAN-13 agar tetap valid saat discan.
+     */
+    public static function generateUniqueBarcode(): string
+    {
+        do {
+            $base = '2';
+            for ($i = 0; $i < 11; $i++) {
+                $base .= random_int(0, 9);
+            }
+            $barcode = $base.static::ean13CheckDigit($base);
+        } while (static::where('barcode', $barcode)->exists());
+
+        return $barcode;
+    }
+
+    /**
+     * Hitung check digit (digit ke-13) dari 12 digit awal sesuai standar EAN-13.
+     */
+    public static function ean13CheckDigit(string $base12): string
+    {
+        $sum = 0;
+        foreach (str_split($base12) as $i => $digit) {
+            $sum += (int) $digit * ($i % 2 === 0 ? 1 : 3);
+        }
+
+        return (string) ((10 - ($sum % 10)) % 10);
+    }
+
+    /**
+     * Turunkan SKU unik dari sebuah barcode. Pola "SKU-<12 digit>" selaras dengan
+     * generator SKU di form produk (resources/js/pages/admin/Products.vue); bila
+     * bentrok dengan SKU lama, ditambah sufiks angka agar tetap unik.
+     */
+    public static function generateUniqueSku(string $barcode): string
+    {
+        $normalized = substr(strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', $barcode)), 0, 12);
+        $base = $normalized !== '' ? "SKU-{$normalized}" : 'SKU-'.strtoupper(Str::random(8));
+
+        $sku = $base;
+        $suffix = 1;
+        while (static::where('sku', $sku)->exists()) {
+            $sku = $base.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $sku;
     }
 
     public function getStatusStokAttribute(): string
