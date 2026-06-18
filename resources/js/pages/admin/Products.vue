@@ -1367,15 +1367,36 @@ const statusClass: Record<string, string> = {
                     <div class="rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20">
                         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                             <span class="text-sm font-semibold">Barcode & SKU</span>
-                            <button
-                                type="button"
-                                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
-                                title="Buat barcode EAN-13 & SKU otomatis"
-                                @click="generateBarcodeAndSku"
-                            >
-                                <Sparkles class="h-3.5 w-3.5" />
-                                Generate Otomatis
-                            </button>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <div
+                                    role="status"
+                                    :class="[
+                                        'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
+                                        isScannerDetected
+                                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                            : 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-400',
+                                    ]"
+                                    :title="scannerStatusText"
+                                >
+                                    <Barcode class="h-3.5 w-3.5" />
+                                    <span
+                                        :class="[
+                                            'h-2 w-2 rounded-full',
+                                            isScannerDetected ? 'bg-emerald-500' : 'bg-rose-500',
+                                        ]"
+                                    ></span>
+                                    {{ scannerStatusText }}
+                                </div>
+                                <button
+                                    type="button"
+                                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
+                                    title="Buat barcode EAN-13 & SKU otomatis"
+                                    @click="generateBarcodeAndSku"
+                                >
+                                    <Sparkles class="h-3.5 w-3.5" />
+                                    Generate Otomatis
+                                </button>
+                            </div>
                         </div>
                         <p class="mb-3 text-xs text-muted-foreground">
                             Boleh dikosongkan dulu jika produk belum punya barcode. Klik
@@ -1387,34 +1408,14 @@ const statusClass: Record<string, string> = {
                                 <label class="mb-1.5 block text-sm font-medium" for="prod-barcode">
                                     Barcode
                                 </label>
-                                <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
-                                    <input
-                                        id="prod-barcode"
-                                        v-model="form.barcode"
-                                        type="text"
-                                        placeholder="Barcode unik"
-                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                        :class="{ 'border-rose-500': form.errors.barcode }"
-                                    />
-                                    <div
-                                        role="status"
-                                        :class="[
-                                            'inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold',
-                                            isScannerDetected
-                                                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                                                : 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-400',
-                                        ]"
-                                    >
-                                        <Barcode class="h-4 w-4" />
-                                        <span
-                                            :class="[
-                                                'h-2 w-2 rounded-full',
-                                                isScannerDetected ? 'bg-emerald-500' : 'bg-rose-500',
-                                            ]"
-                                        ></span>
-                                        {{ scannerStatusText }}
-                                    </div>
-                                </div>
+                                <input
+                                    id="prod-barcode"
+                                    v-model="form.barcode"
+                                    type="text"
+                                    placeholder="Barcode unik"
+                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                    :class="{ 'border-rose-500': form.errors.barcode }"
+                                />
                                 <p v-if="form.errors.barcode" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
                                     <AlertCircle class="h-3 w-3" />{{ form.errors.barcode }}
                                 </p>
