@@ -23,6 +23,16 @@ import {
     PackageMinus,
     PackagePlus,
     Sparkles,
+    Scale,
+    HandCoins,
+    ShoppingBag,
+    ChefHat,
+    Tag,
+    Wallet,
+    Info,
+    ScanLine,
+    Check,
+    Upload,
 } from 'lucide-vue-next';
 import { ref, computed, nextTick, onBeforeUnmount, watch, onMounted } from 'vue';
 import JsBarcode from 'jsbarcode';
@@ -216,10 +226,15 @@ const resellerBelowModal = computed(() => {
     return hargaReseller.value < Number(form.harga_modal || 0);
 });
 
-const tipeJualOptions: { value: TipeJual; label: string; hint: string }[] = [
-    { value: 'satuan', label: 'Satuan (per biji)', hint: 'Dihitung per buah/bungkus. Cocok untuk cemilan, kue, permen.' },
-    { value: 'curah', label: 'Curah (per takaran)', hint: 'Dijual per liter/kg, boleh pecahan. Kasir bisa input rupiah (mis. bensin, bawang).' },
-    { value: 'jasa', label: 'Jasa (biaya admin)', hint: 'Tanpa stok. Harga = fee/biaya admin (mis. transfer, tarik tunai).' },
+const tipeJualOptions: { value: TipeJual; label: string; short: string; hint: string; icon: typeof Package }[] = [
+    { value: 'satuan', label: 'Satuan', short: 'per biji', hint: 'Dihitung per buah/bungkus. Cocok untuk cemilan, kue, permen.', icon: Package },
+    { value: 'curah', label: 'Curah', short: 'per takaran', hint: 'Dijual per liter/kg, boleh pecahan. Kasir bisa input rupiah (mis. bensin, bawang).', icon: Scale },
+    { value: 'jasa', label: 'Jasa', short: 'biaya admin', hint: 'Tanpa stok. Harga = fee/biaya admin (mis. transfer, tarik tunai).', icon: HandCoins },
+];
+
+const jenisOptions: { value: 'beli' | 'produksi'; label: string; hint: string; icon: typeof Package }[] = [
+    { value: 'beli', label: 'Beli Jadi', hint: 'Dibeli dari agen / supplier', icon: ShoppingBag },
+    { value: 'produksi', label: 'Buatan Sendiri', hint: 'Modal dihitung dari produksi', icon: ChefHat },
 ];
 
 // Saran satuan sesuai tipe jual (tetap bisa diketik bebas).
@@ -231,10 +246,28 @@ const satuanSuggestions = computed<string[]>(() => {
 
 const fotoUploadName = computed(() => form.foto_upload?.name ?? '');
 
+// Preview object-URL untuk file yang baru dipilih (di-revoke saat ganti/tutup).
+const fotoUploadPreview = ref<string | null>(null);
+
+function setFotoUploadPreview(file: File | null) {
+    if (fotoUploadPreview.value) {
+        URL.revokeObjectURL(fotoUploadPreview.value);
+        fotoUploadPreview.value = null;
+    }
+
+    if (file) {
+        fotoUploadPreview.value = URL.createObjectURL(file);
+    }
+}
+
+// Gambar yang ditampilkan di kotak preview: prioritaskan file baru, lalu URL/path.
+const fotoPreviewUrl = computed<string | null>(() => fotoUploadPreview.value ?? resolveFoto(form.foto));
+
 function openTambah() {
     editingProduk.value = null;
     form.reset();
     form.foto_upload = null;
+    setFotoUploadPreview(null);
     showModal.value = true;
     startScannerListening();
 }
@@ -254,6 +287,7 @@ function openEdit(produk: Produk) {
     form.stok = String(produk.stok);
     form.barcode = produk.barcode ?? '';
     form.sku = produk.sku ?? '';
+    setFotoUploadPreview(null);
     showModal.value = true;
     startScannerListening();
 }
@@ -263,6 +297,7 @@ function closeModal() {
     stopScannerListening();
     form.reset();
     form.foto_upload = null;
+    setFotoUploadPreview(null);
     form.clearErrors();
 }
 
@@ -271,10 +306,17 @@ function handleFileUpload(event: Event) {
     const file = input.files?.[0] ?? null;
 
     form.foto_upload = file;
+    setFotoUploadPreview(file);
 
     if (file) {
         form.foto = '';
     }
+}
+
+function clearFoto() {
+    form.foto = '';
+    form.foto_upload = null;
+    setFotoUploadPreview(null);
 }
 
 function getHidApi(): HidDeviceApi | null {
@@ -392,6 +434,7 @@ function stopScannerListening(): void {
 
 onBeforeUnmount(() => {
     stopScannerListening();
+    setFotoUploadPreview(null);
     document.removeEventListener('mousedown', handleClickOutsideFilter);
 });
 
@@ -1100,370 +1143,506 @@ const statusClass: Record<string, string> = {
 
     <!-- Modal Tambah / Edit Produk -->
     <Teleport to="body">
-        <div
-            v-if="showModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            @click.self="closeModal"
+        <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
         >
             <div
-                class="w-full max-w-lg rounded-2xl border border-sidebar-border/70 bg-card p-6 shadow-2xl dark:border-sidebar-border"
-                style="max-height: 90vh; overflow-y: auto"
+                v-if="showModal"
+                class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
+                @click.self="closeModal"
             >
-                <div class="mb-5 flex items-center justify-between">
-                    <h2 class="text-lg font-bold">
-                        {{ editingProduk ? 'Edit Produk' : 'Tambah Produk Baru' }}
-                    </h2>
-                    <button
-                        class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeModal"
-                    >
-                        <X class="h-5 w-5" />
-                    </button>
-                </div>
-
-                <form class="flex flex-col gap-4" @submit.prevent="submitForm">
-                    <!-- Nama -->
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-nama">
-                            Nama Produk
-                        </label>
-                        <input
-                            id="prod-nama"
-                            v-model="form.nama"
-                            type="text"
-                            placeholder="Nama produk"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                            :class="{ 'border-rose-500': form.errors.nama }"
-                        />
-                        <p v-if="form.errors.nama" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.nama }}
-                        </p>
-                    </div>
-
-                    <!-- Foto -->
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-foto">
-                            Foto Produk
-                        </label>
-                        <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
-                            <input
-                                id="prod-foto"
-                                v-model="form.foto"
-                                type="text"
-                                placeholder="/images/produk/kopi.jpg atau https://..."
-                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                :class="{ 'border-rose-500': form.errors.foto }"
-                            />
-                            <label
-                                class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900 dark:text-slate-200 dark:hover:bg-zinc-800"
-                            >
-                                <ImageIcon class="h-4 w-4" />
-                                Upload
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    class="hidden"
-                                    @change="handleFileUpload"
-                                />
-                            </label>
-                        </div>
-                        <p class="mt-2 text-xs text-muted-foreground">
-                            Unggah gambar produk atau masukkan URL jika sudah tersedia.
-                        </p>
-                        <p v-if="fotoUploadName" class="text-xs text-slate-600">
-                            File dipilih: {{ fotoUploadName }}
-                        </p>
-                        <p v-if="form.errors.foto" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.foto }}
-                        </p>
-                    </div>
-
-                    <!-- Kategori -->
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-kategori">
-                            Kategori
-                        </label>
-                        <select
-                            id="prod-kategori"
-                            v-model="form.id_kategori"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                            :class="{ 'border-rose-500': form.errors.id_kategori }"
-                        >
-                            <option value="">Pilih kategori</option>
-                            <option
-                                v-for="kat in kategoris"
-                                :key="kat.id_kategori"
-                                :value="String(kat.id_kategori)"
-                            >
-                                {{ kat.nama_kategori }}
-                            </option>
-                        </select>
-                        <p v-if="form.errors.id_kategori" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.id_kategori }}
-                        </p>
-                    </div>
-
-                    <!-- Jenis Produk -->
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-jenis">
-                            Jenis Produk
-                        </label>
-                        <select
-                            id="prod-jenis"
-                            v-model="form.jenis"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                        >
-                            <option value="beli">Beli Jadi (dari agen)</option>
-                            <option value="produksi">Buatan Sendiri (produksi)</option>
-                        </select>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            <template v-if="form.jenis === 'produksi'">
-                                Modal dihitung otomatis dari batch produksi, bukan diisi manual.
-                            </template>
-                            <template v-else>
-                                Modal = harga beli dari agen (isi di bawah).
-                            </template>
-                        </p>
-                    </div>
-
-                    <!-- Tipe Jual + Satuan -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium" for="prod-tipe-jual">
-                                Tipe Jual
-                            </label>
-                            <select
-                                id="prod-tipe-jual"
-                                v-model="form.tipe_jual"
-                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                            >
-                                <option v-for="opt in tipeJualOptions" :key="opt.value" :value="opt.value">
-                                    {{ opt.label }}
-                                </option>
-                            </select>
-                            <p class="mt-1 text-xs text-muted-foreground">
-                                {{ tipeJualOptions.find((o) => o.value === form.tipe_jual)?.hint }}
-                            </p>
-                        </div>
-                        <div v-if="form.tipe_jual !== 'jasa'">
-                            <label class="mb-1.5 block text-sm font-medium" for="prod-satuan">
-                                Satuan
-                            </label>
-                            <input
-                                id="prod-satuan"
-                                v-model="form.satuan"
-                                type="text"
-                                list="satuan-suggestions"
-                                placeholder="pcs / liter / kg"
-                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                :class="{ 'border-rose-500': form.errors.satuan }"
-                            />
-                            <datalist id="satuan-suggestions">
-                                <option v-for="s in satuanSuggestions" :key="s" :value="s" />
-                            </datalist>
-                            <p v-if="form.errors.satuan" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                <AlertCircle class="h-3 w-3" />{{ form.errors.satuan }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Harga Jual -->
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-harga-jual">
-                            {{ form.tipe_jual === 'jasa' ? 'Biaya / Fee (Rp)' : form.tipe_jual === 'curah' ? `Harga Jual per ${form.satuan || 'satuan'} (Rp)` : 'Harga Jual (Rp)' }}
-                        </label>
-                        <input
-                            id="prod-harga-jual"
-                            v-model="form.harga_jual"
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                            :class="{ 'border-rose-500': form.errors.harga_jual }"
-                        />
-                        <p v-if="form.errors.harga_jual" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.harga_jual }}
-                        </p>
-                    </div>
-
-                    <!-- Harga Modal (hanya untuk produk beli-jadi) -->
-                    <div v-if="form.jenis === 'beli'">
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-harga-modal">
-                            Harga Modal / Beli (Rp)
-                        </label>
-                        <input
-                            id="prod-harga-modal"
-                            v-model="form.harga_modal"
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                            :class="{ 'border-rose-500': form.errors.harga_modal }"
-                        />
-                        <p v-if="form.errors.harga_modal" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.harga_modal }}
-                        </p>
-                    </div>
-                    <div v-else class="rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-4 py-2.5 text-xs text-muted-foreground">
-                        Modal produk ini dikelola lewat menu <strong>Produksi</strong>.
-                    </div>
-
-                    <!-- Stok (jasa tidak punya stok) -->
-                    <div v-if="form.tipe_jual !== 'jasa'">
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-stok">
-                            Stok{{ form.satuan ? ` (${form.satuan})` : '' }}
-                        </label>
-                        <input
-                            id="prod-stok"
-                            v-model="form.stok"
-                            type="number"
-                            min="0"
-                            :step="form.tipe_jual === 'curah' ? 'any' : '1'"
-                            placeholder="0"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                            :class="{ 'border-rose-500': form.errors.stok }"
-                        />
-                        <p v-if="form.tipe_jual === 'curah'" class="mt-1 text-xs text-muted-foreground">
-                            Boleh pecahan, mis. 12.5 {{ form.satuan || 'satuan' }}.
-                        </p>
-                        <p v-if="form.errors.stok" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.stok }}
-                        </p>
-                    </div>
-                    <div v-else class="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-2.5 text-xs text-muted-foreground">
-                        Produk <strong>jasa</strong> tidak menyimpan stok. Pendapatan dihitung dari fee/biaya admin.
-                    </div>
-
-                    <!-- Potongan reseller (rupiah per produk) -->
-                    <div v-if="form.tipe_jual !== 'jasa'">
-                        <label class="mb-1.5 block text-sm font-medium" for="prod-potongan">
-                            Potongan Reseller (Rp)
-                        </label>
-                        <input
-                            id="prod-potongan"
-                            v-model="form.potongan_reseller"
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                            :class="{ 'border-rose-500': form.errors.potongan_reseller }"
-                        />
-                        <p v-if="Number(form.potongan_reseller) > 0" class="mt-1 text-xs text-muted-foreground">
-                            Harga untuk reseller: <strong>{{ formatRupiah(hargaReseller) }}</strong>
-                            (dari {{ formatRupiah(Number(form.harga_jual || 0)) }}).
-                        </p>
-                        <p v-else class="mt-1 text-xs text-muted-foreground">
-                            Kosongkan / 0 bila produk ini tidak diberi potongan untuk reseller.
-                        </p>
-                        <p v-if="resellerBelowModal" class="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                            <AlertCircle class="h-3 w-3" /> Harga reseller di bawah modal ({{ formatRupiah(Number(form.harga_modal || 0)) }}) — berisiko rugi.
-                        </p>
-                        <p v-if="form.errors.potongan_reseller" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.potongan_reseller }}
-                        </p>
-                    </div>
-
-                    <!-- Barcode & SKU -->
-                    <div class="rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20">
-                        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <span class="text-sm font-semibold">Barcode & SKU</span>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <div
-                                    role="status"
-                                    :class="[
-                                        'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
-                                        isScannerDetected
-                                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                                            : 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-400',
-                                    ]"
-                                    :title="scannerStatusText"
-                                >
-                                    <Barcode class="h-3.5 w-3.5" />
-                                    <span
-                                        :class="[
-                                            'h-2 w-2 rounded-full',
-                                            isScannerDetected ? 'bg-emerald-500' : 'bg-rose-500',
-                                        ]"
-                                    ></span>
-                                    {{ scannerStatusText }}
+                <div
+                    class="flex h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-sidebar-border/70 bg-card shadow-2xl dark:border-sidebar-border sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl"
+                >
+                    <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="submitForm">
+                        <!-- Header (tetap terlihat saat scroll) -->
+                        <div class="shrink-0 border-b border-sidebar-border/70 bg-card px-5 pb-4 pt-3 dark:border-sidebar-border">
+                            <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-zinc-700 sm:hidden"></div>
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                                        <Package class="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h2 class="text-base font-bold leading-tight sm:text-lg">
+                                            {{ editingProduk ? 'Edit Produk' : 'Tambah Produk Baru' }}
+                                        </h2>
+                                        <p class="text-xs text-muted-foreground">
+                                            Kolom bertanda <span class="font-semibold text-rose-500">*</span> wajib diisi
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
-                                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
-                                    title="Buat barcode EAN-13 & SKU otomatis"
-                                    @click="generateBarcodeAndSku"
+                                    class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
+                                    @click="closeModal"
                                 >
-                                    <Sparkles class="h-3.5 w-3.5" />
-                                    Generate Otomatis
+                                    <X class="h-5 w-5" />
                                 </button>
                             </div>
                         </div>
-                        <p class="mb-3 text-xs text-muted-foreground">
-                            Boleh dikosongkan dulu jika produk belum punya barcode. Klik
-                            <strong>Generate Otomatis</strong> untuk membuat barcode &amp; SKU sekaligus,
-                            atau scan / isi manual.
-                        </p>
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div>
-                                <label class="mb-1.5 block text-sm font-medium" for="prod-barcode">
-                                    Barcode
-                                </label>
-                                <input
-                                    id="prod-barcode"
-                                    v-model="form.barcode"
-                                    type="text"
-                                    placeholder="Barcode unik"
-                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                    :class="{ 'border-rose-500': form.errors.barcode }"
-                                />
-                                <p v-if="form.errors.barcode" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                    <AlertCircle class="h-3 w-3" />{{ form.errors.barcode }}
-                                </p>
-                            </div>
-                            <div>
-                                <label class="mb-1.5 block text-sm font-medium" for="prod-sku">
-                                    SKU
-                                </label>
-                                <input
-                                    id="prod-sku"
-                                    v-model="form.sku"
-                                    type="text"
-                                    placeholder="SKU unik"
-                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                    :class="{ 'border-rose-500': form.errors.sku }"
-                                />
-                                <p v-if="form.errors.sku" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                    <AlertCircle class="h-3 w-3" />{{ form.errors.sku }}
-                                </p>
+
+                        <!-- Isi form (area yang bisa di-scroll) -->
+                        <div class="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-5">
+                            <!-- ====== Bagian 1: Informasi Produk ====== -->
+                            <section class="space-y-4">
+                                <div class="flex items-center gap-2">
+                                    <Package class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                    <h3 class="text-sm font-bold">Informasi Produk</h3>
+                                </div>
+
+                                <!-- Nama -->
+                                <div>
+                                    <label class="mb-1.5 block text-sm font-medium" for="prod-nama">
+                                        Nama Produk <span class="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        id="prod-nama"
+                                        v-model="form.nama"
+                                        type="text"
+                                        placeholder="mis. Kopi Sachet, Bensin Eceran…"
+                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                        :class="{ 'border-rose-500': form.errors.nama }"
+                                    />
+                                    <p v-if="form.errors.nama" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                        <AlertCircle class="h-3 w-3" />{{ form.errors.nama }}
+                                    </p>
+                                </div>
+
+                                <!-- Foto + preview -->
+                                <div>
+                                    <span class="mb-1.5 block text-sm font-medium">Foto Produk</span>
+                                    <div class="flex items-start gap-3">
+                                        <div class="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-800">
+                                            <img
+                                                v-if="fotoPreviewUrl"
+                                                :src="fotoPreviewUrl"
+                                                alt="Pratinjau foto produk"
+                                                class="h-full w-full object-cover"
+                                            />
+                                            <div v-else class="flex h-full w-full items-center justify-center text-muted-foreground">
+                                                <ImageIcon class="h-7 w-7" />
+                                            </div>
+                                            <button
+                                                v-if="fotoPreviewUrl"
+                                                type="button"
+                                                class="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white transition-colors hover:bg-black/80"
+                                                title="Hapus foto"
+                                                @click="clearFoto"
+                                            >
+                                                <X class="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                        <div class="flex min-w-0 flex-1 flex-col gap-2">
+                                            <label
+                                                class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900 dark:text-slate-200 dark:hover:bg-zinc-800"
+                                            >
+                                                <Upload class="h-4 w-4" />
+                                                {{ fotoUploadName ? 'Ganti Foto' : 'Upload dari Galeri' }}
+                                                <input type="file" accept="image/*" class="hidden" @change="handleFileUpload" />
+                                            </label>
+                                            <input
+                                                id="prod-foto"
+                                                v-model="form.foto"
+                                                type="text"
+                                                placeholder="atau tempel URL gambar…"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{ 'border-rose-500': form.errors.foto }"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p v-if="fotoUploadName" class="mt-1.5 truncate text-xs text-muted-foreground">
+                                        File dipilih: {{ fotoUploadName }}
+                                    </p>
+                                    <p v-if="form.errors.foto" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                        <AlertCircle class="h-3 w-3" />{{ form.errors.foto }}
+                                    </p>
+                                </div>
+
+                                <!-- Kategori -->
+                                <div>
+                                    <label class="mb-1.5 block text-sm font-medium" for="prod-kategori">
+                                        Kategori <span class="text-rose-500">*</span>
+                                    </label>
+                                    <select
+                                        id="prod-kategori"
+                                        v-model="form.id_kategori"
+                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                        :class="{ 'border-rose-500': form.errors.id_kategori }"
+                                    >
+                                        <option value="">Pilih kategori</option>
+                                        <option
+                                            v-for="kat in kategoris"
+                                            :key="kat.id_kategori"
+                                            :value="String(kat.id_kategori)"
+                                        >
+                                            {{ kat.nama_kategori }}
+                                        </option>
+                                    </select>
+                                    <p v-if="form.errors.id_kategori" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                        <AlertCircle class="h-3 w-3" />{{ form.errors.id_kategori }}
+                                    </p>
+                                </div>
+                            </section>
+
+                            <!-- ====== Bagian 2: Jenis & Cara Jual ====== -->
+                            <section class="space-y-4">
+                                <div class="flex items-center gap-2">
+                                    <Tag class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                    <h3 class="text-sm font-bold">Jenis &amp; Cara Jual</h3>
+                                </div>
+
+                                <!-- Asal produk (kartu pilihan) -->
+                                <div>
+                                    <span class="mb-2 block text-sm font-medium">Asal Produk</span>
+                                    <div class="grid grid-cols-2 gap-2.5">
+                                        <button
+                                            v-for="opt in jenisOptions"
+                                            :key="opt.value"
+                                            type="button"
+                                            class="flex items-center gap-2.5 rounded-xl border p-3 text-left transition-all"
+                                            :class="form.jenis === opt.value
+                                                ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:bg-indigo-500/10'
+                                                : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'"
+                                            @click="form.jenis = opt.value"
+                                        >
+                                            <component
+                                                :is="opt.icon"
+                                                class="h-5 w-5 shrink-0"
+                                                :class="form.jenis === opt.value ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'"
+                                            />
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold leading-tight" :class="{ 'text-indigo-700 dark:text-indigo-300': form.jenis === opt.value }">
+                                                    {{ opt.label }}
+                                                </p>
+                                                <p class="mt-0.5 text-[11px] leading-tight text-muted-foreground">{{ opt.hint }}</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Tipe jual (kartu pilihan) -->
+                                <div>
+                                    <span class="mb-2 block text-sm font-medium">Tipe Jual</span>
+                                    <div class="grid grid-cols-3 gap-2.5">
+                                        <button
+                                            v-for="opt in tipeJualOptions"
+                                            :key="opt.value"
+                                            type="button"
+                                            class="relative flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all"
+                                            :class="form.tipe_jual === opt.value
+                                                ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:bg-indigo-500/10'
+                                                : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'"
+                                            @click="form.tipe_jual = opt.value"
+                                        >
+                                            <Check
+                                                v-if="form.tipe_jual === opt.value"
+                                                class="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
+                                            />
+                                            <component
+                                                :is="opt.icon"
+                                                class="h-6 w-6"
+                                                :class="form.tipe_jual === opt.value ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'"
+                                            />
+                                            <div>
+                                                <p class="text-xs font-semibold leading-tight" :class="{ 'text-indigo-700 dark:text-indigo-300': form.tipe_jual === opt.value }">
+                                                    {{ opt.label }}
+                                                </p>
+                                                <p class="text-[10px] leading-tight text-muted-foreground">{{ opt.short }}</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                    <p class="mt-2 flex items-start gap-1.5 rounded-lg bg-indigo-50/70 px-3 py-2 text-xs text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+                                        <Info class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                        <span>{{ tipeJualOptions.find((o) => o.value === form.tipe_jual)?.hint }}</span>
+                                    </p>
+                                </div>
+
+                                <!-- Satuan -->
+                                <div v-if="form.tipe_jual !== 'jasa'">
+                                    <label class="mb-1.5 block text-sm font-medium" for="prod-satuan">
+                                        Satuan
+                                    </label>
+                                    <input
+                                        id="prod-satuan"
+                                        v-model="form.satuan"
+                                        type="text"
+                                        list="satuan-suggestions"
+                                        placeholder="pcs / liter / kg"
+                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                        :class="{ 'border-rose-500': form.errors.satuan }"
+                                    />
+                                    <datalist id="satuan-suggestions">
+                                        <option v-for="s in satuanSuggestions" :key="s" :value="s" />
+                                    </datalist>
+                                    <div class="mt-2 flex flex-wrap gap-1.5">
+                                        <button
+                                            v-for="s in satuanSuggestions"
+                                            :key="s"
+                                            type="button"
+                                            class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
+                                            :class="form.satuan === s
+                                                ? 'border-indigo-500 bg-indigo-600 text-white'
+                                                : 'border-sidebar-border/70 text-muted-foreground hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border'"
+                                            @click="form.satuan = s"
+                                        >
+                                            {{ s }}
+                                        </button>
+                                    </div>
+                                    <p v-if="form.errors.satuan" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                        <AlertCircle class="h-3 w-3" />{{ form.errors.satuan }}
+                                    </p>
+                                </div>
+                            </section>
+
+                            <!-- ====== Bagian 3: Harga & Stok ====== -->
+                            <section class="space-y-4">
+                                <div class="flex items-center gap-2">
+                                    <Wallet class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                    <h3 class="text-sm font-bold">Harga &amp; Stok</h3>
+                                </div>
+
+                                <div class="grid gap-4 sm:grid-cols-2">
+                                    <!-- Harga Jual -->
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-medium" for="prod-harga-jual">
+                                            {{ form.tipe_jual === 'jasa' ? 'Biaya / Fee' : form.tipe_jual === 'curah' ? `Harga per ${form.satuan || 'satuan'}` : 'Harga Jual' }}
+                                            <span class="text-rose-500">*</span>
+                                        </label>
+                                        <div class="relative">
+                                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">Rp</span>
+                                            <input
+                                                id="prod-harga-jual"
+                                                v-model="form.harga_jual"
+                                                type="number"
+                                                min="0"
+                                                placeholder="0"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{ 'border-rose-500': form.errors.harga_jual }"
+                                            />
+                                        </div>
+                                        <p v-if="form.errors.harga_jual" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                            <AlertCircle class="h-3 w-3" />{{ form.errors.harga_jual }}
+                                        </p>
+                                    </div>
+
+                                    <!-- Harga Modal (hanya untuk produk beli-jadi) -->
+                                    <div v-if="form.jenis === 'beli'">
+                                        <label class="mb-1.5 block text-sm font-medium" for="prod-harga-modal">
+                                            Harga Modal / Beli
+                                        </label>
+                                        <div class="relative">
+                                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">Rp</span>
+                                            <input
+                                                id="prod-harga-modal"
+                                                v-model="form.harga_modal"
+                                                type="number"
+                                                min="0"
+                                                placeholder="0"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{ 'border-rose-500': form.errors.harga_modal }"
+                                            />
+                                        </div>
+                                        <p v-if="form.errors.harga_modal" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                            <AlertCircle class="h-3 w-3" />{{ form.errors.harga_modal }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Info modal produksi -->
+                                <div v-if="form.jenis !== 'beli'" class="flex items-start gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
+                                    <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                                    <span>Modal produk ini dihitung otomatis lewat menu <strong>Produksi</strong>, jadi tidak perlu diisi manual.</span>
+                                </div>
+
+                                <template v-if="form.tipe_jual !== 'jasa'">
+                                    <div class="grid gap-4 sm:grid-cols-2">
+                                        <!-- Stok -->
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium" for="prod-stok">
+                                                Stok{{ form.satuan ? ` (${form.satuan})` : '' }}
+                                            </label>
+                                            <input
+                                                id="prod-stok"
+                                                v-model="form.stok"
+                                                type="number"
+                                                min="0"
+                                                :step="form.tipe_jual === 'curah' ? 'any' : '1'"
+                                                placeholder="0"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{ 'border-rose-500': form.errors.stok }"
+                                            />
+                                            <p v-if="form.tipe_jual === 'curah'" class="mt-1 text-xs text-muted-foreground">
+                                                Boleh pecahan, mis. 12.5 {{ form.satuan || 'satuan' }}.
+                                            </p>
+                                            <p v-if="form.errors.stok" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                                <AlertCircle class="h-3 w-3" />{{ form.errors.stok }}
+                                            </p>
+                                        </div>
+
+                                        <!-- Potongan reseller -->
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium" for="prod-potongan">
+                                                Potongan Reseller
+                                            </label>
+                                            <div class="relative">
+                                                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">Rp</span>
+                                                <input
+                                                    id="prod-potongan"
+                                                    v-model="form.potongan_reseller"
+                                                    type="number"
+                                                    min="0"
+                                                    placeholder="0"
+                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                    :class="{ 'border-rose-500': form.errors.potongan_reseller }"
+                                                />
+                                            </div>
+                                            <p v-if="form.errors.potongan_reseller" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                                <AlertCircle class="h-3 w-3" />{{ form.errors.potongan_reseller }}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Pratinjau harga reseller / peringatan rugi -->
+                                    <div
+                                        v-if="Number(form.potongan_reseller) > 0"
+                                        class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2.5 text-xs"
+                                    >
+                                        <span class="text-muted-foreground">Harga untuk reseller: </span>
+                                        <strong class="text-emerald-700 dark:text-emerald-400">{{ formatRupiah(hargaReseller) }}</strong>
+                                        <span class="text-muted-foreground"> (dari {{ formatRupiah(Number(form.harga_jual || 0)) }})</span>
+                                    </div>
+                                    <p v-else class="text-xs text-muted-foreground">
+                                        Kosongkan / 0 bila produk ini tidak diberi potongan untuk reseller.
+                                    </p>
+                                    <p v-if="resellerBelowModal" class="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                                        <AlertCircle class="h-3.5 w-3.5 shrink-0" /> Harga reseller di bawah modal ({{ formatRupiah(Number(form.harga_modal || 0)) }}) — berisiko rugi.
+                                    </p>
+                                </template>
+
+                                <!-- Info jasa tanpa stok -->
+                                <div v-else class="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
+                                    <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
+                                    <span>Produk <strong>jasa</strong> tidak menyimpan stok. Pendapatan dihitung dari fee/biaya admin.</span>
+                                </div>
+                            </section>
+
+                            <!-- ====== Bagian 4: Barcode & SKU ====== -->
+                            <section class="space-y-3">
+                                <div class="flex items-center gap-2">
+                                    <ScanLine class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                    <h3 class="text-sm font-bold">Barcode &amp; SKU</h3>
+                                    <span class="text-xs font-normal text-muted-foreground">(opsional)</span>
+                                </div>
+
+                                <div class="rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20">
+                                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                        <div
+                                            role="status"
+                                            :class="[
+                                                'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
+                                                isScannerDetected
+                                                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                                    : 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-400',
+                                            ]"
+                                            :title="scannerStatusText"
+                                        >
+                                            <Barcode class="h-3.5 w-3.5" />
+                                            <span
+                                                :class="[
+                                                    'h-2 w-2 rounded-full',
+                                                    isScannerDetected ? 'bg-emerald-500' : 'bg-rose-500',
+                                                ]"
+                                            ></span>
+                                            {{ scannerStatusText }}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
+                                            title="Buat barcode EAN-13 & SKU otomatis"
+                                            @click="generateBarcodeAndSku"
+                                        >
+                                            <Sparkles class="h-3.5 w-3.5" />
+                                            Generate Otomatis
+                                        </button>
+                                    </div>
+                                    <p class="mb-3 text-xs text-muted-foreground">
+                                        Boleh dikosongkan dulu jika produk belum punya barcode. Klik
+                                        <strong>Generate Otomatis</strong> untuk membuat barcode &amp; SKU sekaligus,
+                                        atau scan / isi manual.
+                                    </p>
+                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium" for="prod-barcode">
+                                                Barcode
+                                            </label>
+                                            <input
+                                                id="prod-barcode"
+                                                v-model="form.barcode"
+                                                type="text"
+                                                placeholder="Barcode unik"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{ 'border-rose-500': form.errors.barcode }"
+                                            />
+                                            <p v-if="form.errors.barcode" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                                <AlertCircle class="h-3 w-3" />{{ form.errors.barcode }}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium" for="prod-sku">
+                                                SKU
+                                            </label>
+                                            <input
+                                                id="prod-sku"
+                                                v-model="form.sku"
+                                                type="text"
+                                                placeholder="SKU unik"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{ 'border-rose-500': form.errors.sku }"
+                                            />
+                                            <p v-if="form.errors.sku" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                                <AlertCircle class="h-3 w-3" />{{ form.errors.sku }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+
+                        <!-- Footer (tombol aksi selalu terlihat) -->
+                        <div class="shrink-0 border-t border-sidebar-border/70 bg-card px-5 py-3.5 dark:border-sidebar-border">
+                            <div class="flex gap-3">
+                                <button
+                                    type="button"
+                                    class="rounded-lg border border-sidebar-border/70 bg-background px-5 py-3 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
+                                    @click="closeModal"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-60"
+                                    :disabled="form.processing"
+                                >
+                                    <Save class="h-4 w-4" />
+                                    {{
+                                        form.processing
+                                            ? 'Menyimpan...'
+                                            : editingProduk
+                                              ? 'Simpan Perubahan'
+                                              : 'Tambah Produk'
+                                    }}
+                                </button>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="flex justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            class="rounded-lg border border-sidebar-border/70 bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
-                            @click="closeModal"
-                        >
-                            Batal
-                        </button>
-                        <button
-                            type="submit"
-                            class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-60"
-                            :disabled="form.processing"
-                        >
-                            <Save class="h-4 w-4" />
-                            {{
-                                form.processing
-                                    ? 'Menyimpan...'
-                                    : editingProduk
-                                      ? 'Simpan Perubahan'
-                                      : 'Tambah Produk'
-                            }}
-                        </button>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
-        </div>
+        </Transition>
     </Teleport>
 </template>
