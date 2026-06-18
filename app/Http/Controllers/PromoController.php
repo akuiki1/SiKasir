@@ -35,7 +35,9 @@ class PromoController extends Controller
                 ];
             });
 
-        $produks = Produk::orderBy('nama')->get(['id_produk', 'nama']);
+        $produks = Produk::orderBy('nama')->get([
+            'id_produk', 'nama', 'jenis', 'tipe_jual', 'harga_jual', 'harga_modal',
+        ]);
 
         $totalPromo = $promos->count();
         $totalAktif = $promos->where('aktif', true)->count();

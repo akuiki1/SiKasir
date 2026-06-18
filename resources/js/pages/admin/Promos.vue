@@ -14,6 +14,10 @@ import {
     ShoppingBag,
     CheckCircle2,
     XCircle,
+    Wallet,
+    TrendingUp,
+    TrendingDown,
+    Info,
 } from 'lucide-vue-next';
 import { ref, computed, onMounted } from 'vue';
 import { store as promoStore, update as promoUpdate, destroy as promoDestroy } from '@/routes/admin/promos';
@@ -34,6 +38,10 @@ defineOptions({
 interface Produk {
     id_produk: number;
     nama: string;
+    jenis: string;
+    tipe_jual: string;
+    harga_jual: number;
+    harga_modal: number;
 }
 
 interface Promo {
@@ -117,6 +125,67 @@ const form = useForm({
     tanggal_mulai: '',
     tanggal_selesai: '',
     aktif: true,
+});
+
+// Produk spesifik yang sedang dipilih (untuk preview modal & laba di form).
+const selectedProduk = computed<Produk | null>(() => {
+    if (!form.id_produk) {
+        return null;
+    }
+
+    return props.produks.find((p) => String(p.id_produk) === String(form.id_produk)) ?? null;
+});
+
+// Hitung dampak promo ke laba per unit secara live, agar admin tahu apakah
+// promo masih untung sebelum disimpan. Untuk produk produksi, harga_modal =
+// modal bahan per unit dari batch terakhir (biaya gas/listrik/tenaga belum
+// termasuk), jadi peringatan "margin tipis" jadi penanda penting.
+const promoPreview = computed(() => {
+    const produk = selectedProduk.value;
+
+    if (!produk) {
+        return null;
+    }
+
+    const hargaJual = Number(produk.harga_jual) || 0;
+    const modal = Number(produk.harga_modal) || 0;
+    const nilai = Number(form.nilai) || 0;
+
+    let hargaSetelah = form.tipe === 'persen' ? hargaJual * (1 - nilai / 100) : hargaJual - nilai;
+    hargaSetelah = Math.max(0, Math.round(hargaSetelah));
+
+    const labaSetelah = hargaSetelah - modal;
+    const marginSetelah = hargaSetelah > 0 ? (labaSetelah / hargaSetelah) * 100 : -100;
+
+    let kind: 'jasa' | 'no-modal' | 'ok';
+    let status: 'rugi' | 'tipis' | 'aman' | 'none' = 'none';
+
+    if (produk.tipe_jual === 'jasa') {
+        kind = 'jasa';
+    } else if (modal <= 0) {
+        kind = 'no-modal';
+    } else {
+        kind = 'ok';
+
+        if (labaSetelah < 0) {
+            status = 'rugi';
+        } else if (marginSetelah < 15) {
+            status = 'tipis';
+        } else {
+            status = 'aman';
+        }
+    }
+
+    return {
+        kind,
+        jenis: produk.jenis,
+        hargaJual,
+        modal,
+        hargaSetelah,
+        labaSetelah,
+        marginSetelah,
+        status,
+    };
 });
 
 function openTambah() {
@@ -533,6 +602,87 @@ onMounted(() => {
                         <p v-if="form.errors.id_produk" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
                             <AlertCircle class="h-3 w-3" />{{ form.errors.id_produk }}
                         </p>
+                    </div>
+
+                    <!-- Preview Modal & Laba per Unit (muncul saat produk spesifik dipilih) -->
+                    <div
+                        v-if="promoPreview"
+                        class="rounded-lg border border-sidebar-border/70 bg-slate-50/50 p-4 text-sm dark:border-sidebar-border dark:bg-zinc-800/20"
+                    >
+                        <!-- Produk jasa: tak punya modal barang -->
+                        <div
+                            v-if="promoPreview.kind === 'jasa'"
+                            class="flex items-start gap-2 text-muted-foreground"
+                        >
+                            <Info class="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>Produk jasa tidak memiliki modal barang. Promo dinilai dari fee, bukan margin produk.</span>
+                        </div>
+
+                        <!-- Modal belum tercatat -->
+                        <div
+                            v-else-if="promoPreview.kind === 'no-modal'"
+                            class="flex items-start gap-2 text-amber-600 dark:text-amber-400"
+                        >
+                            <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>
+                                Modal produk ini belum tercatat<template v-if="promoPreview.jenis === 'produksi'"> — catat batch produksi dulu</template>, jadi laba promo belum bisa dihitung.
+                            </span>
+                        </div>
+
+                        <!-- Perhitungan laba lengkap -->
+                        <div v-else class="flex flex-col gap-3">
+                            <div class="flex items-center gap-2 font-semibold text-foreground">
+                                <Wallet class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                Dampak ke Laba per Unit
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                                <span class="text-muted-foreground">Harga jual</span>
+                                <span class="text-right font-medium">{{ formatRupiah(promoPreview.hargaJual) }}</span>
+
+                                <span class="text-muted-foreground">
+                                    {{ promoPreview.jenis === 'produksi' ? 'Modal bahan / unit' : 'Modal / unit' }}
+                                </span>
+                                <span class="text-right font-medium">{{ formatRupiah(promoPreview.modal) }}</span>
+
+                                <span class="text-muted-foreground">Harga setelah promo</span>
+                                <span class="text-right font-bold text-indigo-600 dark:text-indigo-400">{{ formatRupiah(promoPreview.hargaSetelah) }}</span>
+
+                                <span class="text-muted-foreground">Laba / unit</span>
+                                <span
+                                    class="text-right font-bold"
+                                    :class="promoPreview.labaSetelah < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
+                                >
+                                    {{ formatRupiah(promoPreview.labaSetelah) }}
+                                    <span class="font-normal text-muted-foreground">({{ promoPreview.marginSetelah.toFixed(0) }}%)</span>
+                                </span>
+                            </div>
+
+                            <!-- Status warna -->
+                            <div
+                                v-if="promoPreview.status === 'rugi'"
+                                class="flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-rose-700 dark:text-rose-300"
+                            >
+                                <TrendingDown class="mt-0.5 h-4 w-4 shrink-0" />
+                                <span><strong>Jual rugi!</strong> Harga setelah promo di bawah modal. Pakai hanya kalau memang sedang cuci gudang.</span>
+                            </div>
+                            <div
+                                v-else-if="promoPreview.status === 'tipis'"
+                                class="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-300"
+                            >
+                                <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+                                <span>
+                                    <strong>Margin tipis.</strong> Masih di atas modal<template v-if="promoPreview.jenis === 'produksi'"> bahan, tapi biaya gas, listrik &amp; tenaga belum termasuk</template>. Pastikan tetap untung.
+                                </span>
+                            </div>
+                            <div
+                                v-else
+                                class="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-300"
+                            >
+                                <TrendingUp class="mt-0.5 h-4 w-4 shrink-0" />
+                                <span><strong>Margin aman.</strong> Promo ini masih memberi laba sehat.</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Minimal Belanja -->

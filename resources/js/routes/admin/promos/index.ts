@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PromoController::store
- * @see app/Http/Controllers/PromoController.php:58
+ * @see app/Http/Controllers/PromoController.php:60
  * @route '/admin/promos'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\PromoController::store
- * @see app/Http/Controllers/PromoController.php:58
+ * @see app/Http/Controllers/PromoController.php:60
  * @route '/admin/promos'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PromoController::store
- * @see app/Http/Controllers/PromoController.php:58
+ * @see app/Http/Controllers/PromoController.php:60
  * @route '/admin/promos'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\PromoController::store
- * @see app/Http/Controllers/PromoController.php:58
+ * @see app/Http/Controllers/PromoController.php:60
  * @route '/admin/promos'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\PromoController::store
- * @see app/Http/Controllers/PromoController.php:58
+ * @see app/Http/Controllers/PromoController.php:60
  * @route '/admin/promos'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\PromoController::update
- * @see app/Http/Controllers/PromoController.php:80
+ * @see app/Http/Controllers/PromoController.php:82
  * @route '/admin/promos/{promo}'
  */
 export const update = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -71,7 +71,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\PromoController::update
- * @see app/Http/Controllers/PromoController.php:80
+ * @see app/Http/Controllers/PromoController.php:82
  * @route '/admin/promos/{promo}'
  */
 update.url = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions) => {
@@ -104,7 +104,7 @@ update.url = (args: { promo: number | { id_promo: number } } | [promo: number | 
 
 /**
 * @see \App\Http\Controllers\PromoController::update
- * @see app/Http/Controllers/PromoController.php:80
+ * @see app/Http/Controllers/PromoController.php:82
  * @route '/admin/promos/{promo}'
  */
 update.put = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -114,7 +114,7 @@ update.put = (args: { promo: number | { id_promo: number } } | [promo: number | 
 
     /**
 * @see \App\Http\Controllers\PromoController::update
- * @see app/Http/Controllers/PromoController.php:80
+ * @see app/Http/Controllers/PromoController.php:82
  * @route '/admin/promos/{promo}'
  */
     const updateForm = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -129,7 +129,7 @@ update.put = (args: { promo: number | { id_promo: number } } | [promo: number | 
 
             /**
 * @see \App\Http\Controllers\PromoController::update
- * @see app/Http/Controllers/PromoController.php:80
+ * @see app/Http/Controllers/PromoController.php:82
  * @route '/admin/promos/{promo}'
  */
         updateForm.put = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -145,7 +145,7 @@ update.put = (args: { promo: number | { id_promo: number } } | [promo: number | 
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\PromoController::destroy
- * @see app/Http/Controllers/PromoController.php:102
+ * @see app/Http/Controllers/PromoController.php:104
  * @route '/admin/promos/{promo}'
  */
 export const destroy = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -160,7 +160,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\PromoController::destroy
- * @see app/Http/Controllers/PromoController.php:102
+ * @see app/Http/Controllers/PromoController.php:104
  * @route '/admin/promos/{promo}'
  */
 destroy.url = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions) => {
@@ -193,7 +193,7 @@ destroy.url = (args: { promo: number | { id_promo: number } } | [promo: number |
 
 /**
 * @see \App\Http\Controllers\PromoController::destroy
- * @see app/Http/Controllers/PromoController.php:102
+ * @see app/Http/Controllers/PromoController.php:104
  * @route '/admin/promos/{promo}'
  */
 destroy.delete = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -203,7 +203,7 @@ destroy.delete = (args: { promo: number | { id_promo: number } } | [promo: numbe
 
     /**
 * @see \App\Http\Controllers\PromoController::destroy
- * @see app/Http/Controllers/PromoController.php:102
+ * @see app/Http/Controllers/PromoController.php:104
  * @route '/admin/promos/{promo}'
  */
     const destroyForm = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -218,7 +218,7 @@ destroy.delete = (args: { promo: number | { id_promo: number } } | [promo: numbe
 
             /**
 * @see \App\Http\Controllers\PromoController::destroy
- * @see app/Http/Controllers/PromoController.php:102
+ * @see app/Http/Controllers/PromoController.php:104
  * @route '/admin/promos/{promo}'
  */
         destroyForm.delete = (args: { promo: number | { id_promo: number } } | [promo: number | { id_promo: number } ] | number | { id_promo: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
