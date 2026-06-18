@@ -57,11 +57,12 @@ Route::get('/', function () {
         'produks.id_produk',
         'produks.nama',
         'produks.harga_jual',
+        'produks.stok',
         'produks.foto'
     )
         ->selectRaw('COALESCE(SUM(detail_transaksis.jumlah), 0) as total_terjual')
         ->leftJoin('detail_transaksis', 'produks.id_produk', '=', 'detail_transaksis.id_produk')
-        ->groupBy('produks.id_produk', 'produks.nama', 'produks.harga_jual', 'produks.foto')
+        ->groupBy('produks.id_produk', 'produks.nama', 'produks.harga_jual', 'produks.stok', 'produks.foto')
         ->orderByDesc('total_terjual')
         ->take(5)
         ->get()
@@ -69,6 +70,7 @@ Route::get('/', function () {
             'id_produk' => $p->id_produk,
             'nama' => $p->nama,
             'harga_jual' => $p->harga_jual,
+            'stok' => (int) $p->stok,
             'foto_url' => $p->foto ? asset("storage/{$p->foto}") : null,
             'total_terjual' => (int) $p->total_terjual,
             'promo' => $promoFor($p->id_produk),

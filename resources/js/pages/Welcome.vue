@@ -47,6 +47,7 @@ interface BestSeller {
     id_produk: number;
     nama: string;
     harga_jual: number;
+    stok: number;
     foto_url: string | null;
     total_terjual: number;
     promo: Promo | null;
@@ -67,6 +68,7 @@ interface CartItem {
     nama: string;
     harga_jual: number;
     foto_url: string | null;
+    stok: number;
     quantity: number;
 }
 
@@ -230,15 +232,26 @@ const cartTotal = computed(() =>
 // keduanya berbagi field minimal yang dibutuhkan keranjang.
 type AddableProduct = Pick<
     CartItem,
-    'id_produk' | 'nama' | 'harga_jual' | 'foto_url'
+    'id_produk' | 'nama' | 'harga_jual' | 'foto_url' | 'stok'
 >;
 
 const addToCart = (product: AddableProduct) => {
+    // Tolak produk yang stoknya sudah habis.
+    if (product.stok <= 0) {
+        showToast(`Stok ${product.nama} habis`);
+        return;
+    }
+
     const existing = cart.value.find(
         (item) => item.id_produk === product.id_produk,
     );
 
     if (existing) {
+        // Jangan tambah melebihi stok yang tersedia di database.
+        if (existing.quantity >= existing.stok) {
+            showToast(`Stok ${product.nama} cuma ${existing.stok}`);
+            return;
+        }
         existing.quantity += 1;
     } else {
         cart.value.push({
@@ -246,6 +259,7 @@ const addToCart = (product: AddableProduct) => {
             nama: product.nama,
             harga_jual: product.harga_jual,
             foto_url: product.foto_url,
+            stok: product.stok,
             quantity: 1,
         });
     }
@@ -257,6 +271,10 @@ const addToCart = (product: AddableProduct) => {
 const increaseQty = (id: number) => {
     const item = cart.value.find((i) => i.id_produk === id);
     if (item) {
+        if (item.quantity >= item.stok) {
+            showToast(`Stok ${item.nama} cuma ${item.stok}`);
+            return;
+        }
         item.quantity += 1;
     }
 };
@@ -271,7 +289,7 @@ const decreaseQty = (id: number) => {
     }
 };
 
-// Qty diketik langsung: ambil hanya digit, minimal 1.
+// Qty diketik langsung: ambil hanya digit, clamp ke [1, stok].
 const setCartQuantity = (item: CartItem, event: Event) => {
     const el = event.target as HTMLInputElement;
     const digits = el.value.replace(/\D/g, '');
@@ -284,15 +302,24 @@ const setCartQuantity = (item: CartItem, event: Event) => {
 
     let next = parseInt(digits, 10);
     if (next < 1) next = 1;
+    if (next > item.stok) {
+        next = item.stok;
+        // Beri tahu sekali saat pertama kali mentok di batas stok (hindari spam tiap ketik).
+        if (item.quantity !== item.stok) {
+            showToast(`Stok ${item.nama} cuma ${item.stok}`);
+        }
+    }
+
     item.quantity = next;
     el.value = String(next);
 };
 
-// Saat input kehilangan fokus: pastikan qty minimal 1.
+// Saat input kehilangan fokus: pastikan qty minimal 1 dan tidak melebihi stok.
 const normalizeCartQuantity = (item: CartItem, event: Event) => {
     const el = event.target as HTMLInputElement;
     let next = parseInt(el.value.replace(/\D/g, ''), 10);
     if (!Number.isFinite(next) || next < 1) next = 1;
+    if (next > item.stok) next = item.stok;
     item.quantity = next;
     el.value = String(next);
 };
@@ -964,10 +991,11 @@ const promoSisaText = (sisaHari: number) => {
                                 <div class="flex items-center gap-2">
                                     <button
                                         @click="addToCart(product)"
-                                        class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95"
+                                        :disabled="product.stok <= 0"
+                                        class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:hover:bg-neutral-300 dark:disabled:bg-neutral-700"
                                     >
                                         <Plus class="h-4 w-4" />
-                                        <span>Keranjang</span>
+                                        <span>{{ product.stok <= 0 ? 'Stok habis' : 'Keranjang' }}</span>
                                     </button>
                                     <a
                                         :href="getWhatsAppLink(product.nama)"
@@ -1119,10 +1147,11 @@ const promoSisaText = (sisaHari: number) => {
 
                                 <button
                                     @click="addToCart(product)"
-                                    class="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95"
+                                    :disabled="product.stok <= 0"
+                                    class="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:hover:bg-neutral-300 dark:disabled:bg-neutral-700"
                                 >
                                     <Plus class="h-4 w-4" />
-                                    <span>Keranjang</span>
+                                    <span>{{ product.stok <= 0 ? 'Stok habis' : 'Keranjang' }}</span>
                                 </button>
                             </div>
                         </div>
@@ -1779,16 +1808,22 @@ const promoSisaText = (sisaHari: number) => {
                                         />
                                         <button
                                             @click="increaseQty(item.id_produk)"
-                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors hover:text-orange-600 dark:bg-neutral-700 dark:text-neutral-200"
-                                            title="Tambah"
+                                            :disabled="item.quantity >= item.stok"
+                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors hover:text-orange-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200"
+                                            :title="item.quantity >= item.stok ? `Stok cuma ${item.stok}` : 'Tambah'"
                                         >
                                             <Plus class="h-3.5 w-3.5" />
                                         </button>
                                     </div>
-                                    <span
-                                        class="text-sm font-extrabold text-orange-600 dark:text-amber-400"
-                                        >{{ formatPrice(item.harga_jual * item.quantity) }}</span
-                                    >
+                                    <div class="flex flex-col items-end">
+                                        <span
+                                            class="text-sm font-extrabold text-orange-600 dark:text-amber-400"
+                                            >{{ formatPrice(item.harga_jual * item.quantity) }}</span
+                                        >
+                                        <span class="text-[10px] font-medium text-neutral-400 dark:text-neutral-500"
+                                            >stok: {{ item.stok }}</span
+                                        >
+                                    </div>
                                 </div>
                             </div>
                         </div>
