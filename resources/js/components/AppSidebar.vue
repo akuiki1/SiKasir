@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { LayoutGrid, Users, Package, ShoppingCart, History, DollarSign, Tag, Tags, Factory, Contact, CreditCard } from 'lucide-vue-next';
+import { LayoutGrid, Users, Package, ShoppingCart, History, DollarSign, Tag, Tags, Factory, Contact, CreditCard, Warehouse } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -47,6 +47,11 @@ const mainNavGroups = computed<NavGroup[]>(() => {
                         title: 'Data Produk',
                         href: '/admin/products',
                         icon: Package,
+                    },
+                    {
+                        title: 'Manajemen Stok',
+                        href: '/admin/stok',
+                        icon: Warehouse,
                     },
                     {
                         title: 'Produksi',

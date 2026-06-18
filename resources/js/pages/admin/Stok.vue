@@ -1,0 +1,728 @@
+<script setup lang="ts">
+import { Head, useForm } from '@inertiajs/vue3';
+import {
+    Search,
+    Warehouse,
+    AlertTriangle,
+    PackageX,
+    PackagePlus,
+    PackageMinus,
+    ClipboardCheck,
+    X,
+    Save,
+    History,
+    Boxes,
+} from 'lucide-vue-next';
+import { ref, computed, watch } from 'vue';
+import Pagination from '@/components/Pagination.vue';
+import { usePagination } from '@/composables/usePagination';
+import { masuk as stokMasuk, keluar as stokKeluar, penyesuaian as stokPenyesuaian } from '@/routes/admin/stok';
+
+defineOptions({
+    layout: {
+        breadcrumbs: [
+            {
+                title: 'Manajemen Stok',
+                href: '/admin/stok',
+            },
+        ],
+    },
+});
+
+interface ProdukStok {
+    id_produk: number;
+    nama: string;
+    jenis: 'beli' | 'produksi';
+    tipe_jual: 'satuan' | 'curah' | 'jasa';
+    satuan: string;
+    kategori: string | null;
+    stok: number;
+    harga_modal: number;
+    status_stok: 'in-stock' | 'low-stock' | 'out-of-stock';
+}
+
+interface Mutasi {
+    id_stok_mutasi: number;
+    id_produk: number | null;
+    produk_nama: string;
+    tipe: string;
+    tipe_label: string;
+    jumlah: number;
+    stok_sebelum: number;
+    stok_sesudah: number;
+    keterangan: string | null;
+    user_nama: string;
+    tanggal: string;
+}
+
+interface Stats {
+    total_produk: number;
+    stok_menipis: number;
+    stok_habis: number;
+}
+
+const props = defineProps<{
+    produks: ProdukStok[];
+    mutasis: Mutasi[];
+    stats: Stats;
+}>();
+
+const rupiah = (value: number): string => 'Rp ' + (value ?? 0).toLocaleString('id-ID');
+
+// Tampilkan stok tanpa desimal berlebih (30 pcs, 12.5 kg).
+const formatStok = (stok: number, satuan = ''): string => {
+    const angka = Number.isInteger(stok) ? stok.toString() : stok.toLocaleString('id-ID', { maximumFractionDigits: 3 });
+
+    return satuan ? `${angka} ${satuan}` : angka;
+};
+
+const statusMeta: Record<ProdukStok['status_stok'], { label: string; badge: string }> = {
+    'in-stock': { label: 'Tersedia', badge: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+    'low-stock': { label: 'Menipis', badge: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400' },
+    'out-of-stock': { label: 'Habis', badge: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400' },
+};
+
+// Warna badge tipe mutasi pada kartu stok.
+const tipeBadge: Record<string, string> = {
+    awal: 'border-slate-400/30 bg-slate-400/10 text-slate-600 dark:text-slate-300',
+    masuk: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+    produksi: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+    keluar: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
+    jual: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400',
+    produksi_batal: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
+    penyesuaian: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+};
+
+const activeTab = ref<'daftar' | 'kartu'>('daftar');
+
+/* ----------------------------------------------------------------------------
+ | Tab 1: Daftar Stok
+ ---------------------------------------------------------------------------- */
+const searchQuery = ref('');
+const statusFilter = ref<'all' | ProdukStok['status_stok']>('all');
+
+const filteredProduks = computed(() => {
+    const q = searchQuery.value.toLowerCase();
+
+    return props.produks.filter((p) => {
+        const cocokNama = !q || p.nama.toLowerCase().includes(q) || (p.kategori ?? '').toLowerCase().includes(q);
+        const cocokStatus = statusFilter.value === 'all' || p.status_stok === statusFilter.value;
+
+        return cocokNama && cocokStatus;
+    });
+});
+
+const {
+    currentPage: pageProduk,
+    perPage: perPageProduk,
+    totalItems: totalProduk,
+    totalPages: totalPagesProduk,
+    paginatedItems: paginatedProduks,
+    startIndex: startProduk,
+    endIndex: endProduk,
+    goToPage: goToPageProduk,
+    visiblePages: visiblePagesProduk,
+} = usePagination(() => filteredProduks.value);
+
+/* ----------------------------------------------------------------------------
+ | Tab 2: Kartu Stok (riwayat mutasi)
+ ---------------------------------------------------------------------------- */
+const mutasiSearch = ref('');
+const tipeFilter = ref('all');
+
+const filteredMutasis = computed(() => {
+    const q = mutasiSearch.value.toLowerCase();
+
+    return props.mutasis.filter((m) => {
+        const cocokNama = !q || m.produk_nama.toLowerCase().includes(q);
+        const cocokTipe = tipeFilter.value === 'all' || m.tipe === tipeFilter.value;
+
+        return cocokNama && cocokTipe;
+    });
+});
+
+const {
+    currentPage: pageMutasi,
+    perPage: perPageMutasi,
+    totalItems: totalMutasi,
+    totalPages: totalPagesMutasi,
+    paginatedItems: paginatedMutasis,
+    startIndex: startMutasi,
+    endIndex: endMutasi,
+    goToPage: goToPageMutasi,
+    visiblePages: visiblePagesMutasi,
+} = usePagination(() => filteredMutasis.value);
+
+/* ----------------------------------------------------------------------------
+ | Modal aksi stok (masuk / keluar / penyesuaian)
+ ---------------------------------------------------------------------------- */
+type ModalMode = 'masuk' | 'keluar' | 'penyesuaian';
+
+const modalMode = ref<ModalMode | null>(null);
+
+const alasanOptions = [
+    { value: 'rusak', label: 'Rusak' },
+    { value: 'kadaluarsa', label: 'Kadaluarsa' },
+    { value: 'hilang', label: 'Hilang' },
+    { value: 'pakai_sendiri', label: 'Dipakai sendiri' },
+    { value: 'lainnya', label: 'Lainnya' },
+];
+
+const form = useForm<{
+    id_produk: number | '';
+    jumlah: number | null;
+    harga_beli: number | null;
+    alasan: string;
+    stok_fisik: number | null;
+    keterangan: string;
+}>({
+    id_produk: '',
+    jumlah: null,
+    harga_beli: null,
+    alasan: 'rusak',
+    stok_fisik: null,
+    keterangan: '',
+});
+
+const selectedProduk = computed(() => props.produks.find((p) => p.id_produk === form.id_produk) ?? null);
+
+// Saat opname, default stok fisik = stok sistem agar tinggal koreksi selisihnya.
+watch(
+    () => form.id_produk,
+    () => {
+        if (modalMode.value === 'penyesuaian') {
+            form.stok_fisik = selectedProduk.value ? selectedProduk.value.stok : null;
+        }
+    },
+);
+
+const selisihOpname = computed(() => {
+    if (!selectedProduk.value || form.stok_fisik === null) {
+        return 0;
+    }
+
+    return Number(form.stok_fisik) - selectedProduk.value.stok;
+});
+
+const modalMeta: Record<ModalMode, { title: string; desc: string; submit: string }> = {
+    masuk: {
+        title: 'Stok Masuk',
+        desc: 'Catat barang baru yang datang dari supplier/agen. Stok bertambah sesuai jumlah.',
+        submit: 'Simpan Stok Masuk',
+    },
+    keluar: {
+        title: 'Stok Keluar',
+        desc: 'Catat stok berkurang di luar penjualan (rusak, kadaluarsa, hilang, dipakai sendiri).',
+        submit: 'Simpan Stok Keluar',
+    },
+    penyesuaian: {
+        title: 'Penyesuaian / Opname',
+        desc: 'Samakan stok sistem dengan hasil hitung fisik. Selisihnya dicatat otomatis.',
+        submit: 'Simpan Penyesuaian',
+    },
+};
+
+function openModal(mode: ModalMode, produk?: ProdukStok): void {
+    form.reset();
+    form.clearErrors();
+    modalMode.value = mode;
+
+    if (produk) {
+        form.id_produk = produk.id_produk;
+
+        if (mode === 'penyesuaian') {
+            form.stok_fisik = produk.stok;
+        }
+    }
+}
+
+function closeModal(): void {
+    modalMode.value = null;
+    form.reset();
+    form.clearErrors();
+}
+
+function submitForm(): void {
+    if (!modalMode.value) {
+        return;
+    }
+
+    const routeFor = {
+        masuk: stokMasuk(),
+        keluar: stokKeluar(),
+        penyesuaian: stokPenyesuaian(),
+    } as const;
+
+    form
+        .transform((data) => {
+            if (modalMode.value === 'masuk') {
+                return {
+                    id_produk: data.id_produk,
+                    jumlah: data.jumlah,
+                    harga_beli: data.harga_beli,
+                    keterangan: data.keterangan,
+                };
+            }
+
+            if (modalMode.value === 'keluar') {
+                return {
+                    id_produk: data.id_produk,
+                    jumlah: data.jumlah,
+                    alasan: data.alasan,
+                    keterangan: data.keterangan,
+                };
+            }
+
+            return {
+                id_produk: data.id_produk,
+                stok_fisik: data.stok_fisik,
+                keterangan: data.keterangan,
+            };
+        })
+        .post(routeFor[modalMode.value].url, {
+            preserveScroll: true,
+            onSuccess: () => closeModal(),
+        });
+}
+
+// Pintasan: buka kartu stok satu produk dari tombol di baris daftar.
+function lihatKartu(produk: ProdukStok): void {
+    mutasiSearch.value = produk.nama;
+    tipeFilter.value = 'all';
+    activeTab.value = 'kartu';
+    goToPageMutasi(1);
+}
+</script>
+
+<template>
+    <Head title="Manajemen Stok - Admin" />
+
+    <div class="flex h-full flex-1 flex-col gap-6 p-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">Manajemen Stok</h1>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    Kelola stok masuk (restock), stok keluar, dan penyesuaian opname. Setiap perubahan tercatat di kartu stok.
+                </p>
+            </div>
+
+            <button
+                id="btn-stok-masuk"
+                class="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-colors hover:bg-emerald-500"
+                @click="openModal('masuk')"
+            >
+                <PackagePlus class="h-4 w-4" />
+                Stok Masuk
+            </button>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid gap-4 md:grid-cols-3">
+            <div class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <div class="rounded-lg border border-indigo-500/20 bg-indigo-500/10 p-3 text-indigo-600 dark:text-indigo-400">
+                    <Boxes class="h-6 w-6" />
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-muted-foreground">Produk Berstok</span>
+                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.total_produk.toLocaleString('id-ID') }} produk</h3>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <div class="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-amber-600 dark:text-amber-400">
+                    <AlertTriangle class="h-6 w-6" />
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-muted-foreground">Stok Menipis</span>
+                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.stok_menipis.toLocaleString('id-ID') }} produk</h3>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">
+                <div class="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-rose-600 dark:text-rose-400">
+                    <PackageX class="h-6 w-6" />
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-muted-foreground">Stok Habis</span>
+                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.stok_habis.toLocaleString('id-ID') }} produk</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1 rounded-xl border border-sidebar-border/70 bg-card p-1 shadow-sm dark:border-sidebar-border sm:w-fit">
+            <button
+                :class="[
+                    'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition',
+                    activeTab === 'daftar' ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-slate-100 dark:hover:bg-zinc-800',
+                ]"
+                @click="activeTab = 'daftar'"
+            >
+                <Warehouse class="h-4 w-4" />
+                Daftar Stok
+            </button>
+            <button
+                :class="[
+                    'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition',
+                    activeTab === 'kartu' ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-slate-100 dark:hover:bg-zinc-800',
+                ]"
+                @click="activeTab = 'kartu'"
+            >
+                <History class="h-4 w-4" />
+                Kartu Stok
+            </button>
+        </div>
+
+        <!-- ============================ TAB: DAFTAR STOK ============================ -->
+        <div v-show="activeTab === 'daftar'" class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card shadow-sm dark:border-sidebar-border">
+            <div class="flex flex-col gap-4 border-b border-sidebar-border/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-sidebar-border">
+                <div class="relative max-w-md flex-1">
+                    <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                        v-model="searchQuery"
+                        type="text"
+                        placeholder="Cari nama produk / kategori..."
+                        class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                    />
+                </div>
+                <select
+                    v-model="statusFilter"
+                    class="rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                >
+                    <option value="all">Semua status</option>
+                    <option value="in-stock">Tersedia</option>
+                    <option value="low-stock">Menipis</option>
+                    <option value="out-of-stock">Habis</option>
+                </select>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-sidebar-border/70 bg-slate-50/50 dark:border-sidebar-border dark:bg-zinc-800/20">
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">No</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Produk</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Stok</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Status</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Modal</th>
+                            <th class="px-6 py-4 text-right font-semibold text-muted-foreground">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
+                        <tr v-if="paginatedProduks.length === 0">
+                            <td colspan="6" class="px-6 py-12 text-center text-muted-foreground">
+                                <Warehouse class="mx-auto mb-3 h-10 w-10 opacity-30" />
+                                <p class="font-medium">Tidak ada produk yang cocok.</p>
+                            </td>
+                        </tr>
+                        <tr
+                            v-for="(produk, index) in paginatedProduks"
+                            :key="produk.id_produk"
+                            class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
+                        >
+                            <td class="px-6 py-4 text-muted-foreground">{{ startProduk + index }}</td>
+                            <td class="px-6 py-4">
+                                <button class="text-left font-medium hover:text-indigo-600 dark:hover:text-indigo-400" @click="lihatKartu(produk)">
+                                    {{ produk.nama }}
+                                </button>
+                                <div class="text-xs text-muted-foreground">{{ produk.kategori ?? 'Tanpa kategori' }}</div>
+                            </td>
+                            <td class="px-6 py-4 font-semibold">{{ formatStok(produk.stok, produk.satuan) }}</td>
+                            <td class="px-6 py-4">
+                                <span :class="['inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold', statusMeta[produk.status_stok].badge]">
+                                    {{ statusMeta[produk.status_stok].label }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ rupiah(produk.harga_modal) }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-1">
+                                    <button
+                                        class="rounded-lg p-1.5 text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-emerald-400"
+                                        title="Stok Masuk"
+                                        @click="openModal('masuk', produk)"
+                                    >
+                                        <PackagePlus class="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        class="rounded-lg p-1.5 text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
+                                        title="Stok Keluar"
+                                        @click="openModal('keluar', produk)"
+                                    >
+                                        <PackageMinus class="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        class="rounded-lg p-1.5 text-amber-600 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
+                                        title="Penyesuaian / Opname"
+                                        @click="openModal('penyesuaian', produk)"
+                                    >
+                                        <ClipboardCheck class="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <Pagination
+                :current-page="pageProduk"
+                :total-pages="totalPagesProduk"
+                :total-items="totalProduk"
+                :start-index="startProduk"
+                :end-index="endProduk"
+                :per-page="perPageProduk"
+                :visible-pages="visiblePagesProduk"
+                @update:current-page="goToPageProduk"
+                @update:per-page="perPageProduk = $event"
+            />
+        </div>
+
+        <!-- ============================ TAB: KARTU STOK ============================ -->
+        <div v-show="activeTab === 'kartu'" class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card shadow-sm dark:border-sidebar-border">
+            <div class="flex flex-col gap-4 border-b border-sidebar-border/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-sidebar-border">
+                <div class="relative max-w-md flex-1">
+                    <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                        v-model="mutasiSearch"
+                        type="text"
+                        placeholder="Cari nama produk..."
+                        class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                    />
+                </div>
+                <select
+                    v-model="tipeFilter"
+                    class="rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                >
+                    <option value="all">Semua tipe</option>
+                    <option value="masuk">Stok Masuk</option>
+                    <option value="keluar">Stok Keluar</option>
+                    <option value="penyesuaian">Penyesuaian</option>
+                    <option value="jual">Penjualan</option>
+                    <option value="produksi">Produksi</option>
+                    <option value="awal">Stok Awal</option>
+                </select>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-sidebar-border/70 bg-slate-50/50 dark:border-sidebar-border dark:bg-zinc-800/20">
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Tanggal</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Produk</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Tipe</th>
+                            <th class="px-6 py-4 text-right font-semibold text-muted-foreground">Perubahan</th>
+                            <th class="px-6 py-4 text-right font-semibold text-muted-foreground">Sebelum → Sesudah</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Keterangan</th>
+                            <th class="px-6 py-4 font-semibold text-muted-foreground">Oleh</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
+                        <tr v-if="paginatedMutasis.length === 0">
+                            <td colspan="7" class="px-6 py-12 text-center text-muted-foreground">
+                                <History class="mx-auto mb-3 h-10 w-10 opacity-30" />
+                                <p class="font-medium">Belum ada riwayat mutasi stok.</p>
+                            </td>
+                        </tr>
+                        <tr
+                            v-for="mutasi in paginatedMutasis"
+                            :key="mutasi.id_stok_mutasi"
+                            class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
+                        >
+                            <td class="whitespace-nowrap px-6 py-4 text-muted-foreground">{{ mutasi.tanggal }}</td>
+                            <td class="px-6 py-4 font-medium">{{ mutasi.produk_nama }}</td>
+                            <td class="px-6 py-4">
+                                <span :class="['inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold', tipeBadge[mutasi.tipe] ?? tipeBadge.awal]">
+                                    {{ mutasi.tipe_label }}
+                                </span>
+                            </td>
+                            <td
+                                :class="[
+                                    'px-6 py-4 text-right font-semibold tabular-nums',
+                                    mutasi.jumlah > 0 ? 'text-emerald-600 dark:text-emerald-400' : mutasi.jumlah < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground',
+                                ]"
+                            >
+                                {{ mutasi.jumlah > 0 ? '+' : '' }}{{ formatStok(mutasi.jumlah) }}
+                            </td>
+                            <td class="whitespace-nowrap px-6 py-4 text-right text-muted-foreground tabular-nums">
+                                {{ formatStok(mutasi.stok_sebelum) }} → <span class="font-semibold text-foreground">{{ formatStok(mutasi.stok_sesudah) }}</span>
+                            </td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ mutasi.keterangan ?? '—' }}</td>
+                            <td class="whitespace-nowrap px-6 py-4 text-muted-foreground">{{ mutasi.user_nama }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <Pagination
+                :current-page="pageMutasi"
+                :total-pages="totalPagesMutasi"
+                :total-items="totalMutasi"
+                :start-index="startMutasi"
+                :end-index="endMutasi"
+                :per-page="perPageMutasi"
+                :visible-pages="visiblePagesMutasi"
+                @update:current-page="goToPageMutasi"
+                @update:per-page="perPageMutasi = $event"
+            />
+            <p class="border-t border-sidebar-border/70 px-6 py-3 text-xs text-muted-foreground dark:border-sidebar-border">
+                Menampilkan hingga 200 mutasi terbaru.
+            </p>
+        </div>
+    </div>
+
+    <!-- ============================ MODAL AKSI STOK ============================ -->
+    <Teleport to="body">
+        <div v-if="modalMode" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-sidebar-border/70 bg-card p-6 shadow-2xl dark:border-sidebar-border">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-semibold">{{ modalMeta[modalMode].title }}</h2>
+                        <p class="mt-1 text-sm text-muted-foreground">{{ modalMeta[modalMode].desc }}</p>
+                    </div>
+                    <button class="rounded-full p-2 text-muted-foreground transition hover:bg-slate-100 dark:hover:bg-zinc-800" @click="closeModal">
+                        <X class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div class="mt-6 grid gap-4">
+                    <div v-if="produks.length === 0" class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+                        Belum ada produk berstok. Tambahkan produk dulu di menu Data Produk.
+                    </div>
+
+                    <!-- Produk -->
+                    <div>
+                        <label class="mb-2 block text-sm font-medium">Produk</label>
+                        <select
+                            v-model="form.id_produk"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                        >
+                            <option value="" disabled>Pilih produk</option>
+                            <option v-for="p in produks" :key="p.id_produk" :value="p.id_produk">
+                                {{ p.nama }} (stok: {{ formatStok(p.stok, p.satuan) }})
+                            </option>
+                        </select>
+                        <p v-if="form.errors.id_produk" class="mt-2 text-sm text-rose-600">{{ form.errors.id_produk }}</p>
+                    </div>
+
+                    <p v-if="selectedProduk" class="rounded-lg border border-sidebar-border/70 bg-slate-50/60 px-3 py-2 text-sm dark:border-sidebar-border dark:bg-zinc-800/30">
+                        Stok sistem saat ini: <strong>{{ formatStok(selectedProduk.stok, selectedProduk.satuan) }}</strong>
+                    </p>
+
+                    <!-- MASUK: jumlah + harga beli opsional -->
+                    <template v-if="modalMode === 'masuk'">
+                        <div>
+                            <label class="mb-2 block text-sm font-medium">Jumlah Masuk{{ selectedProduk ? ` (${selectedProduk.satuan})` : '' }}</label>
+                            <input
+                                v-model.number="form.jumlah"
+                                type="number"
+                                min="0"
+                                step="any"
+                                placeholder="0"
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none dark:border-sidebar-border"
+                            />
+                            <p v-if="form.errors.jumlah" class="mt-2 text-sm text-rose-600">{{ form.errors.jumlah }}</p>
+                        </div>
+                        <div v-if="!selectedProduk || selectedProduk.jenis === 'beli'">
+                            <label class="mb-2 block text-sm font-medium">Harga Beli / Modal Baru (opsional)</label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">Rp</span>
+                                <input
+                                    v-model.number="form.harga_beli"
+                                    type="number"
+                                    min="0"
+                                    placeholder="Kosongkan jika harga beli tidak berubah"
+                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-10 pr-3 text-sm focus:border-emerald-500 focus:outline-none dark:border-sidebar-border"
+                                />
+                            </div>
+                            <p class="mt-1 text-xs text-muted-foreground">Isi bila harga beli dari supplier berubah — modal produk akan diperbarui.</p>
+                            <p v-if="form.errors.harga_beli" class="mt-2 text-sm text-rose-600">{{ form.errors.harga_beli }}</p>
+                        </div>
+                        <div v-else class="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-400">
+                            Produk buatan sendiri — modal dikelola lewat menu <strong>Produksi</strong> (batch costing), jadi tidak diubah di sini.
+                        </div>
+                    </template>
+
+                    <!-- KELUAR: jumlah + alasan -->
+                    <template v-else-if="modalMode === 'keluar'">
+                        <div>
+                            <label class="mb-2 block text-sm font-medium">Jumlah Keluar{{ selectedProduk ? ` (${selectedProduk.satuan})` : '' }}</label>
+                            <input
+                                v-model.number="form.jumlah"
+                                type="number"
+                                min="0"
+                                step="any"
+                                placeholder="0"
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-rose-500 focus:outline-none dark:border-sidebar-border"
+                            />
+                            <p v-if="form.errors.jumlah" class="mt-2 text-sm text-rose-600">{{ form.errors.jumlah }}</p>
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-sm font-medium">Alasan</label>
+                            <select
+                                v-model="form.alasan"
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-rose-500 focus:outline-none dark:border-sidebar-border"
+                            >
+                                <option v-for="opt in alasanOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                            </select>
+                            <p v-if="form.errors.alasan" class="mt-2 text-sm text-rose-600">{{ form.errors.alasan }}</p>
+                        </div>
+                    </template>
+
+                    <!-- PENYESUAIAN: stok fisik -->
+                    <template v-else>
+                        <div>
+                            <label class="mb-2 block text-sm font-medium">Stok Fisik (hasil hitung){{ selectedProduk ? ` (${selectedProduk.satuan})` : '' }}</label>
+                            <input
+                                v-model.number="form.stok_fisik"
+                                type="number"
+                                min="0"
+                                step="any"
+                                placeholder="0"
+                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-amber-500 focus:outline-none dark:border-sidebar-border"
+                            />
+                            <p v-if="form.errors.stok_fisik" class="mt-2 text-sm text-rose-600">{{ form.errors.stok_fisik }}</p>
+                        </div>
+                        <div v-if="selectedProduk && form.stok_fisik !== null" class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm">
+                            Selisih penyesuaian:
+                            <strong
+                                :class="selisihOpname > 0 ? 'text-emerald-600 dark:text-emerald-400' : selisihOpname < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'"
+                            >
+                                {{ selisihOpname > 0 ? '+' : '' }}{{ formatStok(selisihOpname, selectedProduk.satuan) }}
+                            </strong>
+                        </div>
+                    </template>
+
+                    <!-- Catatan -->
+                    <div>
+                        <label class="mb-2 block text-sm font-medium">Catatan (opsional)</label>
+                        <input
+                            v-model="form.keterangan"
+                            type="text"
+                            placeholder="Mis. nota #123, supplier, dsb."
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                        />
+                        <p v-if="form.errors.keterangan" class="mt-2 text-sm text-rose-600">{{ form.errors.keterangan }}</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <button
+                        class="rounded-lg border border-sidebar-border/70 bg-background px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-slate-100 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                        type="button"
+                        @click="closeModal"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        :class="[
+                            'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50',
+                            modalMode === 'masuk' ? 'bg-emerald-600 hover:bg-emerald-500' : modalMode === 'keluar' ? 'bg-rose-600 hover:bg-rose-500' : 'bg-amber-600 hover:bg-amber-500',
+                        ]"
+                        type="button"
+                        :disabled="form.processing || produks.length === 0 || form.id_produk === ''"
+                        @click="submitForm"
+                    >
+                        <Save class="h-4 w-4" />
+                        {{ modalMeta[modalMode].submit }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+</template>

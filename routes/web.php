@@ -9,6 +9,7 @@ use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\ProduksiController;
 use App\Http\Controllers\PromoController;
+use App\Http\Controllers\StokController;
 use App\Http\Controllers\TransaksiController;
 use App\Models\Produk;
 use App\Models\Promo;
@@ -141,6 +142,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('admin/pengeluarans', [PengeluaranController::class, 'store'])->name('admin.pengeluarans.store');
         Route::put('admin/pengeluarans/{pengeluaran}', [PengeluaranController::class, 'update'])->name('admin.pengeluarans.update');
         Route::delete('admin/pengeluarans/{pengeluaran}', [PengeluaranController::class, 'destroy'])->name('admin.pengeluarans.destroy');
+
+        // Manajemen Stok (kartu stok, stok masuk/keluar, opname)
+        Route::get('admin/stok', [StokController::class, 'index'])->name('admin.stok');
+        Route::post('admin/stok/masuk', [StokController::class, 'masuk'])->name('admin.stok.masuk');
+        Route::post('admin/stok/keluar', [StokController::class, 'keluar'])->name('admin.stok.keluar');
+        Route::post('admin/stok/penyesuaian', [StokController::class, 'penyesuaian'])->name('admin.stok.penyesuaian');
 
         // Produksi (batch costing produk buatan sendiri)
         Route::get('admin/produksi', [ProduksiController::class, 'index'])->name('admin.produksi');
