@@ -136,14 +136,15 @@ const selectedProduk = computed(() => props.produks.find((p) => p.id_produk === 
 const produkSearch = ref('');
 const produkSearchInput = ref<HTMLInputElement | null>(null);
 
-const filteredProdukOptions = computed(() => {
-    const q = produkSearch.value.trim().toLowerCase();
+const produkQuery = computed(() => produkSearch.value.trim().toLowerCase());
 
-    if (!q) {
-        return props.produks;
+// Daftar hanya muncul setelah admin mengetik — sebelum itu kosong agar form bersih.
+const filteredProdukOptions = computed(() => {
+    if (!produkQuery.value) {
+        return [];
     }
 
-    return props.produks.filter((p) => p.nama.toLowerCase().includes(q));
+    return props.produks.filter((p) => p.nama.toLowerCase().includes(produkQuery.value));
 });
 
 function pilihProduk(p: ProdukOption): void {
@@ -444,20 +445,33 @@ function hapusProduksi(item: Produksi): void {
                                     class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                                 />
                             </div>
-                            <div class="mt-2 max-h-56 overflow-y-auto rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                                <div v-if="filteredProdukOptions.length === 0" class="flex flex-col items-center gap-2 px-4 py-8 text-center text-sm text-muted-foreground">
-                                    <PackageSearch class="h-8 w-8 opacity-30" />
-                                    Produk tidak ditemukan.
-                                </div>
+                            <!-- Hint sebelum mengetik: daftar disembunyikan agar form bersih -->
+                            <p v-if="!produkQuery" class="mt-2 px-1 text-xs text-muted-foreground">
+                                Mulai ketik nama produk untuk menampilkan daftarnya.
+                            </p>
+
+                            <!-- Tidak ada hasil -->
+                            <div
+                                v-else-if="filteredProdukOptions.length === 0"
+                                class="mt-2 flex flex-col items-center gap-2 rounded-xl border border-dashed border-sidebar-border/70 px-4 py-6 text-center text-sm text-muted-foreground dark:border-sidebar-border"
+                            >
+                                <PackageSearch class="h-7 w-7 opacity-30" />
+                                Produk "<strong>{{ produkSearch }}</strong>" tidak ditemukan.
+                            </div>
+
+                            <!-- Hasil pencarian -->
+                            <div v-else class="mt-2 max-h-56 space-y-1 overflow-y-auto pr-1">
                                 <button
                                     v-for="p in filteredProdukOptions"
                                     :key="p.id_produk"
                                     type="button"
-                                    class="flex w-full items-center justify-between gap-3 border-b border-sidebar-border/70 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-indigo-500/5 dark:border-sidebar-border"
+                                    class="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-indigo-500/30 hover:bg-indigo-500/5"
                                     @click="pilihProduk(p)"
                                 >
                                     <span class="min-w-0 truncate text-sm font-medium">{{ p.nama }}</span>
-                                    <span class="shrink-0 text-xs text-muted-foreground">stok {{ formatStok(p.stok) }}</span>
+                                    <span class="shrink-0 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+                                        Stok {{ formatStok(p.stok) }}
+                                    </span>
                                 </button>
                             </div>
                         </div>
