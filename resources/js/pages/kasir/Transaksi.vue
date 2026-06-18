@@ -390,6 +390,38 @@ function updateItemQuantity(item: CartItem, delta: number) {
     item.subtotal = item.harga * item.qty;
 }
 
+// Qty diketik langsung: ambil hanya digit, clamp ke [1, stok], lalu sinkronkan DOM.
+function setItemQuantity(item: CartItem, event: Event) {
+    const el = event.target as HTMLInputElement;
+    const digits = el.value.replace(/\D/g, '');
+
+    // Biarkan kosong sementara saat kasir sedang mengetik ulang.
+    if (digits === '') {
+        el.value = '';
+        return;
+    }
+
+    let next = parseInt(digits, 10);
+    if (next < 1) next = 1;
+    if (next > item.stock) next = item.stock;
+
+    item.qty = next;
+    item.subtotal = item.harga * item.qty;
+    el.value = String(next);
+}
+
+// Saat input kehilangan fokus: pastikan qty minimal 1 dan tidak melebihi stok.
+function normalizeItemQuantity(item: CartItem, event: Event) {
+    const el = event.target as HTMLInputElement;
+    let next = parseInt(el.value.replace(/\D/g, ''), 10);
+    if (!Number.isFinite(next) || next < 1) next = 1;
+    if (next > item.stock) next = item.stock;
+
+    item.qty = next;
+    item.subtotal = item.harga * item.qty;
+    el.value = String(next);
+}
+
 // Produk satuan dihitung per qty; curah dihitung 1 baris (qty pecahan).
 const cartCount = computed(() =>
     cartItems.value.reduce((sum, item) => sum + (item.tipe_jual === 'satuan' ? item.qty : 1), 0),
@@ -921,7 +953,17 @@ function submitTransaction() {
                                 >
                                     <Minus class="h-3.5 w-3.5" />
                                 </button>
-                                <span class="min-w-7 text-center text-sm font-bold tabular-nums select-none">{{ item.qty }}</span>
+                                <input
+                                    type="text"
+                                    inputmode="numeric"
+                                    :value="item.qty"
+                                    :aria-label="`Jumlah ${item.nama}`"
+                                    class="w-10 rounded-md bg-transparent text-center text-sm font-bold tabular-nums text-foreground outline-none focus:ring-2 focus:ring-indigo-500/30"
+                                    @focus="($event.target as HTMLInputElement).select()"
+                                    @input="setItemQuantity(item, $event)"
+                                    @blur="normalizeItemQuantity(item, $event)"
+                                    @keyup.enter="($event.target as HTMLInputElement).blur()"
+                                />
                                 <button
                                     type="button"
                                     class="flex h-7 w-7 items-center justify-center rounded-md text-foreground transition hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
