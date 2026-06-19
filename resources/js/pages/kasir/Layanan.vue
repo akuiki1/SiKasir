@@ -132,12 +132,16 @@ watch(
 const totalFee = computed(() => lines.value.reduce((sum, l) => sum + (Number(l.fee) || 0), 0));
 const totalNominal = computed(() => lines.value.reduce((sum, l) => sum + (Number(l.nominal) || 0), 0));
 
+// Tagihan tunai = nominal (titipan) + fee. Pelanggan membayar keduanya tunai walau
+// hanya fee yang jadi omzet → kembalian dihitung dari tagihan ini.
+const totalTagihan = computed(() => totalNominal.value + totalFee.value);
+
 const hasInvalid = computed(
     () => lines.value.length === 0 || lines.value.some((l) => (Number(l.fee) || 0) <= 0 || (Number(l.nominal) || 0) <= 0),
 );
 
-const isPaid = computed(() => (Number(form.bayar) || 0) >= totalFee.value);
-const kembalian = computed(() => Math.max(0, (Number(form.bayar) || 0) - totalFee.value));
+const isPaid = computed(() => (Number(form.bayar) || 0) >= totalTagihan.value);
+const kembalian = computed(() => Math.max(0, (Number(form.bayar) || 0) - totalTagihan.value));
 
 function submit(): void {
     if (hasInvalid.value || !isPaid.value) {
@@ -307,14 +311,14 @@ function submit(): void {
                         type="number"
                         min="0"
                         inputmode="numeric"
-                        placeholder="Uang diterima untuk fee"
+                        placeholder="Uang diterima dari customer (nominal + fee)"
                         class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2.5 pl-9 pr-3 text-sm font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
                     />
                 </div>
                 <button
                     type="button"
                     class="rounded-lg border border-indigo-500/30 bg-indigo-500/5 px-2.5 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-500/10 dark:text-indigo-400"
-                    @click="form.bayar = String(totalFee)"
+                    @click="form.bayar = String(totalTagihan)"
                 >
                     Uang Pas
                 </button>
@@ -328,9 +332,13 @@ function submit(): void {
                     <span>Total nominal (titipan, bukan omzet)</span>
                     <span class="tabular-nums">{{ formatRupiah(totalNominal) }}</span>
                 </div>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-muted-foreground">Fee (pendapatan toko)</span>
+                    <span class="font-semibold text-emerald-600 tabular-nums dark:text-emerald-400">{{ formatRupiah(totalFee) }}</span>
+                </div>
                 <div class="flex items-center justify-between border-t border-sidebar-border/70 pt-2 dark:border-sidebar-border">
-                    <span class="text-sm font-bold">Total Fee (pendapatan)</span>
-                    <span class="text-xl font-extrabold text-indigo-600 tabular-nums dark:text-indigo-400">{{ formatRupiah(totalFee) }}</span>
+                    <span class="text-sm font-bold">Total Bayar (nominal + fee)</span>
+                    <span class="text-xl font-extrabold text-indigo-600 tabular-nums dark:text-indigo-400">{{ formatRupiah(totalTagihan) }}</span>
                 </div>
                 <div v-if="Number(form.bayar) > 0" class="flex items-center justify-between text-xs">
                     <span class="text-muted-foreground">Kembalian</span>

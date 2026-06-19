@@ -144,7 +144,6 @@ const mainNavGroups = computed<NavGroup[]>(() => {
                     title: 'Transaksi',
                     href: '/kasir/transaksi',
                     icon: ShoppingCart,
-                    highlight: true,
                 },
                 {
                     title: 'Layanan / Jasa',

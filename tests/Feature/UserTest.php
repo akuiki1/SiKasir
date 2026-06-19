@@ -184,7 +184,7 @@ test('kasir can view riwayat page with stats', function () {
 
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page->component('kasir/Riwayat')
-        ->has('transaksis', 1)
+        ->has('transaksis.data', 1)
         ->where('stats.total_penjualan', 15000)
         ->where('stats.total_transaksi', 1)
     );

@@ -35,7 +35,7 @@ test('fee jasa dihitung otomatis dari tarif sesuai nominal', function () {
     // Nominal 75.000 jatuh di tingkat 50.000–99.999 → fee 3.000.
     $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
         'metode_pembayaran' => 'cash',
-        'bayar' => 3000,
+        'bayar' => 78000, // nominal 75.000 + fee 3.000
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 75000],
         ],
@@ -57,7 +57,7 @@ test('fee dari client diabaikan, backend memakai tarif tabel', function () {
     // Client mengirim fee palsu 999, tapi bayar sesuai fee asli (3.000) dari tarif.
     $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
         'metode_pembayaran' => 'cash',
-        'bayar' => 3000,
+        'bayar' => 78000, // nominal 75.000 + fee 3.000
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 75000, 'fee' => 999],
         ],
@@ -79,7 +79,7 @@ test('nominal tepat di batas bawah masuk ke tingkat yang lebih tinggi', function
     // 50.000 inclusive di tingkat 50.000 → fee 3.000 (bukan 2.000).
     $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
         'metode_pembayaran' => 'cash',
-        'bayar' => 3000,
+        'bayar' => 53000, // nominal 50.000 + fee 3.000
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 50000],
         ],
@@ -94,7 +94,7 @@ test('nominal besar memakai tarif tingkat tertinggi', function () {
 
     $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
         'metode_pembayaran' => 'cash',
-        'bayar' => 5000,
+        'bayar' => 1005000, // nominal 1.000.000 + fee 5.000
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 1000000],
         ],
@@ -114,7 +114,7 @@ test('nominal di bawah tarif terendah memakai tarif terendah', function () {
 
     $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
         'metode_pembayaran' => 'cash',
-        'bayar' => 1000,
+        'bayar' => 6000, // nominal 5.000 + fee 1.000
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 5000],
         ],
@@ -129,7 +129,7 @@ test('jasa tanpa tarif tetap memakai fee manual', function () {
 
     $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
         'metode_pembayaran' => 'cash',
-        'bayar' => 7000,
+        'bayar' => 207000, // nominal 200.000 + fee 7.000
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 200000, 'fee' => 7000],
         ],

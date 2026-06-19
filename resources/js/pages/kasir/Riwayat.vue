@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import {
     Search,
     Filter,
@@ -8,8 +8,7 @@ import {
     Printer,
     FileText,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
-import { usePagination } from '@/composables/usePagination';
+import { ref, computed, watch } from 'vue';
 import Pagination from '@/components/Pagination.vue';
 
 defineOptions({
@@ -34,11 +33,12 @@ interface Transaksi {
     created_at: string;
     waktu: string;
     tanggal: string;
-    details: Array<{ 
-        nama_produk: string; 
-        jumlah: number; 
-        harga: number; 
+    details: Array<{
+        nama_produk: string;
+        jumlah: number;
+        harga: number;
         subtotal: number;
+        nominal?: number | null;
         foto: string | null;
         foto_url?: string | null;
     }>;
@@ -50,28 +50,99 @@ interface Stats {
     total_struk: number;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    start_date: string;
+    end_date: string;
+    search: string;
+    per_page: number;
+}
+
 const props = defineProps<{
-    transaksis: Transaksi[];
+    transaksis: Paginator<Transaksi>;
     stats: Stats;
+    filters: Filters;
 }>();
 
-const searchQuery = ref('');
+const searchQuery = ref(props.filters.search ?? '');
 
-
-const filteredTransaksis = computed(() => {
-    if (!searchQuery.value) {
-
-        return props.transaksis;
+// Pencarian dikirim ke server (debounce) sehingga hanya satu halaman data yang dimuat ke memori.
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
     }
 
-    const q = searchQuery.value.toLowerCase();
-
-    return props.transaksis.filter(
-        (trx) => trx.kode.toLowerCase().includes(q) || trx.metode_pembayaran.toLowerCase().includes(q),
-    );
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
 });
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedTransaksis, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredTransaksis.value, 10);
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        per_page: props.filters.per_page,
+        start_date: props.filters.start_date || undefined,
+        end_date: props.filters.end_date || undefined,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/kasir/riwayat', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+// Susun nomor halaman yang tampil (mirror dari logika composable usePagination).
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.transaksis.last_page;
+    const current = props.transaksis.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) pages.push(i);
+    } else {
+        pages.push(1);
+        if (current > 3) pages.push(-1);
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+        if (current < total - 2) pages.push(-1);
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 function formatRupiah(value: number): string {
     return new Intl.NumberFormat('id-ID', {
@@ -105,6 +176,10 @@ function buildReceiptHtml(trx: Transaksi): string {
         )
         .join('');
 
+    // Titipan jasa (nominal transfer/tarik) ikut dibayar tunai walau bukan omzet → tampil di struk.
+    const titipan = trx.details.reduce((sum, detail) => sum + (detail.nominal ? Number(detail.nominal) : 0), 0);
+    const tagihan = trx.total_harga + titipan;
+
     return `<!doctype html>
 <html lang="id">
 <head>
@@ -137,9 +212,17 @@ function buildReceiptHtml(trx: Transaksi): string {
     </table>
     <div class="separator"></div>
     <table class="totals">
+        ${titipan > 0 ? `<tr>
+            <td>Penjualan / Fee</td>
+            <td class="text-right">${formatRupiah(trx.total_harga)}</td>
+        </tr>
+        <tr>
+            <td>Titipan layanan</td>
+            <td class="text-right">${formatRupiah(titipan)}</td>
+        </tr>` : ''}
         <tr>
             <td>Total</td>
-            <td class="text-right">${formatRupiah(trx.total_harga)}</td>
+            <td class="text-right">${formatRupiah(tagihan)}</td>
         </tr>
         <tr>
             <td>Bayar</td>
@@ -176,12 +259,50 @@ function printTransaction(trx: Transaksi): void {
     printWindow.print();
 }
 
-function printSessionReport(): void {
-    if (typeof window === 'undefined') {
+const isPrinting = ref(false);
+
+// Laporan sesi memuat SELURUH transaksi (lintas halaman) lewat endpoint khusus,
+// mengikuti filter aktif — data tabel sendiri tetap dipaginasi agar hemat memori.
+async function printSessionReport(): Promise<void> {
+    if (typeof window === 'undefined' || isPrinting.value) {
         return;
     }
 
-    const rows = filteredTransaksis.value
+    isPrinting.value = true;
+
+    let data: Transaksi[];
+
+    try {
+        const params = new URLSearchParams();
+
+        if (searchQuery.value) {
+            params.set('search', searchQuery.value);
+        }
+        if (props.filters.start_date) {
+            params.set('start_date', props.filters.start_date);
+        }
+        if (props.filters.end_date) {
+            params.set('end_date', props.filters.end_date);
+        }
+
+        const response = await fetch(`/kasir/riwayat/cetak?${params.toString()}`, {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            throw new Error('Gagal memuat data laporan.');
+        }
+
+        data = (await response.json()).transaksis as Transaksi[];
+    } catch {
+        window.alert('Gagal memuat data laporan. Silakan coba lagi.');
+        isPrinting.value = false;
+
+        return;
+    }
+
+    const rows = data
         .map(
             (trx) => `
                 <tr>
@@ -210,7 +331,7 @@ function printSessionReport(): void {
 </head>
 <body>
     <h1>Laporan Transaksi</h1>
-    <p>Total transaksi: ${filteredTransaksis.value.length}</p>
+    <p>Total transaksi: ${data.length}</p>
     <table>
         <thead>
             <tr>
@@ -227,6 +348,8 @@ function printSessionReport(): void {
     </table>
 </body>
 </html>`;
+
+    isPrinting.value = false;
 
     const printWindow = window.open('', '_blank', 'width=800,height=900');
 
@@ -333,7 +456,7 @@ function printSessionReport(): void {
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
                         <tr
-                            v-if="paginatedTransaksis.length === 0"
+                            v-if="props.transaksis.data.length === 0"
                             class="bg-background text-center text-sm text-muted-foreground"
                         >
                             <td colspan="7" class="px-6 py-8">
@@ -341,7 +464,7 @@ function printSessionReport(): void {
                             </td>
                         </tr>
                         <tr
-                            v-for="trx in paginatedTransaksis"
+                            v-for="trx in props.transaksis.data"
                             :key="trx.id_transaksi"
                             class="hover:bg-slate-50/50 dark:hover:bg-zinc-800/10 transition-colors"
                         >
@@ -379,15 +502,15 @@ function printSessionReport(): void {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.transaksis.current_page"
+                :total-pages="props.transaksis.last_page"
+                :total-items="props.transaksis.total"
+                :start-index="props.transaksis.from ?? 0"
+                :end-index="props.transaksis.to ?? 0"
+                :per-page="props.transaksis.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

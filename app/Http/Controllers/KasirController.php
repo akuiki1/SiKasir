@@ -8,6 +8,8 @@ use App\Models\Produk;
 use App\Models\Promo;
 use App\Models\TarifJasa;
 use App\Models\Transaksi;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -270,16 +272,15 @@ class KasirController extends Controller
             'favorite_ids' => $favoriteIds,
             'pelanggans' => $pelanggans,
             'promos' => $promos,
+            // Produk jasa bisa ditambahkan ke keranjang yang sama (1 transaksi campuran).
+            'layanan' => $this->jasaLayanan(),
         ]);
     }
 
-    /**
-     * Halaman jasa/fee terpisah (transfer, tarik tunai) — bukan transaksi produk.
-     * Memakai endpoint store yang sama; nominal = pass-through, fee = pendapatan.
-     */
-    public function layanan(): Response
+    /** Daftar produk jasa + tarif fee bertingkat untuk pemilih layanan di kasir. */
+    private function jasaLayanan(): \Illuminate\Support\Collection
     {
-        $layanan = Produk::query()
+        return Produk::query()
             ->where('tipe_jual', 'jasa')
             ->with(['tarifJasas' => fn ($q) => $q->orderBy('min_nominal')])
             ->orderBy('nama')
@@ -296,9 +297,16 @@ class KasirController extends Controller
                     ])
                     ->values(),
             ]);
+    }
 
+    /**
+     * Halaman jasa/fee terpisah (transfer, tarik tunai) — bukan transaksi produk.
+     * Memakai endpoint store yang sama; nominal = pass-through, fee = pendapatan.
+     */
+    public function layanan(): Response
+    {
         return Inertia::render('kasir/Layanan', [
-            'layanan' => $layanan,
+            'layanan' => $this->jasaLayanan(),
         ]);
     }
 
@@ -322,6 +330,7 @@ class KasirController extends Controller
 
         DB::transaction(function () use ($validated): void {
             $subtotal = 0;
+            $totalNominalJasa = 0; // titipan transfer/tarik tunai: bukan omzet, tapi dibayar tunai
             $details = [];
             $now = now();
 
@@ -376,7 +385,8 @@ class KasirController extends Controller
                     $harga = $fee;
                     $itemSubtotal = $fee;
 
-                    $subtotal += $itemSubtotal;
+                    $subtotal += $itemSubtotal; // hanya fee yang masuk omzet
+                    $totalNominalJasa += $nominalRef; // titipan dibayar tunai oleh pelanggan
 
                     $details[] = [
                         'produk' => $produk,
@@ -469,11 +479,16 @@ class KasirController extends Controller
             }
 
             $totalDiskon = $globalDiskon + collect($details)->sum('item_diskon');
-            $totalHarga = max(0, $subtotal - $totalDiskon);
+            $totalHarga = max(0, $subtotal - $totalDiskon); // omzet (produk + fee jasa), TANPA nominal titipan
 
-            if ($validated['bayar'] < $totalHarga) {
+            // Tagihan tunai = omzet + nominal titipan jasa. Pelanggan membayar nominal
+            // transfer/tarik tunai secara tunai juga, jadi kembalian dihitung dari tagihan
+            // ini (bukan dari omzet). Nominal tetap BUKAN omzet — hanya lapisan kas.
+            $totalTagihan = $totalHarga + $totalNominalJasa;
+
+            if ($validated['bayar'] < $totalTagihan) {
                 throw ValidationException::withMessages([
-                    'bayar' => 'Jumlah bayar kurang dari total harga.',
+                    'bayar' => 'Jumlah bayar kurang dari total tagihan.',
                 ]);
             }
 
@@ -485,7 +500,7 @@ class KasirController extends Controller
                 'diskon' => $totalDiskon,
                 'metode_pembayaran' => $validated['metode_pembayaran'],
                 'bayar' => $validated['bayar'],
-                'kembalian' => $validated['bayar'] - $totalHarga,
+                'kembalian' => $validated['bayar'] - $totalTagihan,
             ]);
 
             foreach ($details as $detail) {
@@ -521,48 +536,30 @@ class KasirController extends Controller
         return redirect()->route('kasir.riwayat')->with('success', 'Transaksi berhasil disimpan.');
     }
 
+    /** Opsi jumlah baris per halaman pada riwayat transaksi kasir. */
+    private const RIWAYAT_PER_PAGE = [5, 10, 25, 50, 100];
+
     public function riwayat(Request $request): Response
     {
-        $query = Transaksi::with(['detailTransaksis.produk', 'promo'])
-            ->where('id_user', Auth::id());
+        $perPage = (int) $request->query('per_page', 10);
 
-        if ($request->filled('start_date')) {
-            $query->where('created_at', '>=', Carbon::parse($request->query('start_date'))->startOfDay());
+        if (! in_array($perPage, self::RIWAYAT_PER_PAGE, true)) {
+            $perPage = 10;
         }
 
-        if ($request->filled('end_date')) {
-            $query->where('created_at', '<=', Carbon::parse($request->query('end_date'))->endOfDay());
-        }
+        // Stats dihitung agregat di DB atas seluruh rentang tanggal (lintas halaman),
+        // bukan dari data halaman aktif — agar kartu ringkasan tetap akurat saat dipaginasi.
+        $totalPenjualan = $this->riwayatBaseQuery($request)->sum('total_harga');
+        $totalTransaksi = $this->riwayatBaseQuery($request)->count();
 
-        $transaksis = $query
+        $transaksis = $this->applyRiwayatSearch(
+            $this->riwayatBaseQuery($request)->with(['detailTransaksis.produk', 'promo']),
+            $request->query('search'),
+        )
             ->latest()
-            ->get()
-            ->map(fn (Transaksi $transaksi) => [
-                'id_transaksi' => $transaksi->id_transaksi,
-                'kode' => 'TRX-'.$transaksi->id_transaksi,
-                'jumlah_item' => $transaksi->detailTransaksis->sum('jumlah'),
-                'total_harga' => $transaksi->total_harga,
-                'diskon' => $transaksi->diskon,
-                'promo_nama' => $transaksi->promo?->nama,
-                'metode_pembayaran' => $transaksi->metode_pembayaran,
-                'bayar' => $transaksi->bayar,
-                'kembalian' => $transaksi->kembalian,
-                'created_at' => $transaksi->created_at,
-                'waktu' => Carbon::parse($transaksi->created_at)->translatedFormat('H:i \W\I\B'),
-                'tanggal' => Carbon::parse($transaksi->created_at)->translatedFormat('d M Y'),
-                'details' => $transaksi->detailTransaksis->map(fn ($detail) => [
-                    'nama_produk' => $detail->produk?->nama ?? '- ',
-                    'jumlah' => $detail->jumlah,
-                    'harga' => $detail->harga,
-                    'subtotal' => $detail->subtotal,
-                    'nominal' => $detail->nominal, // pass-through jasa (null bila bukan jasa)
-                    'foto' => $detail->produk?->foto ?? null,
-                    'foto_url' => $detail->produk?->foto ? asset('storage/'.$detail->produk->foto) : null,
-                ])->values(),
-            ]);
-
-        $totalPenjualan = $transaksis->sum('total_harga');
-        $totalTransaksi = $transaksis->count();
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (Transaksi $transaksi) => $this->mapRiwayat($transaksi));
 
         return Inertia::render('kasir/Riwayat', [
             'transaksis' => $transaksis,
@@ -574,7 +571,91 @@ class KasirController extends Controller
             'filters' => [
                 'start_date' => $request->query('start_date', ''),
                 'end_date' => $request->query('end_date', ''),
+                'search' => $request->query('search', ''),
+                'per_page' => $perPage,
             ],
         ]);
+    }
+
+    /**
+     * Data lengkap riwayat (tanpa paginasi) untuk "Cetak Laporan Sesi".
+     * Hanya dipanggil saat kasir menekan tombol cetak, mengikuti filter aktif.
+     */
+    public function riwayatCetak(Request $request): JsonResponse
+    {
+        $transaksis = $this->applyRiwayatSearch(
+            $this->riwayatBaseQuery($request)->with(['detailTransaksis.produk', 'promo']),
+            $request->query('search'),
+        )
+            ->latest()
+            ->get()
+            ->map(fn (Transaksi $transaksi) => $this->mapRiwayat($transaksi))
+            ->values();
+
+        return response()->json(['transaksis' => $transaksis]);
+    }
+
+    /** Query dasar riwayat milik kasir aktif dengan filter rentang tanggal. */
+    private function riwayatBaseQuery(Request $request): Builder
+    {
+        $query = Transaksi::query()->where('id_user', Auth::id());
+
+        if ($request->filled('start_date')) {
+            $query->where('created_at', '>=', Carbon::parse($request->query('start_date'))->startOfDay());
+        }
+
+        if ($request->filled('end_date')) {
+            $query->where('created_at', '<=', Carbon::parse($request->query('end_date'))->endOfDay());
+        }
+
+        return $query;
+    }
+
+    /** Filter pencarian: kode transaksi (TRX-{id}) atau metode pembayaran. */
+    private function applyRiwayatSearch(Builder $query, ?string $search): Builder
+    {
+        $search = trim((string) $search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $digits = preg_replace('/\D/', '', $search);
+
+        return $query->where(function (Builder $q) use ($search, $digits) {
+            $q->where('metode_pembayaran', 'like', "%{$search}%");
+
+            if ($digits !== '') {
+                $q->orWhere('id_transaksi', (int) $digits);
+            }
+        });
+    }
+
+    /** Bentuk payload satu transaksi untuk tabel & struk riwayat. */
+    private function mapRiwayat(Transaksi $transaksi): array
+    {
+        return [
+            'id_transaksi' => $transaksi->id_transaksi,
+            'kode' => 'TRX-'.$transaksi->id_transaksi,
+            'jumlah_item' => $transaksi->detailTransaksis->sum('jumlah'),
+            'total_harga' => $transaksi->total_harga,
+            'diskon' => $transaksi->diskon,
+            'promo_nama' => $transaksi->promo?->nama,
+            'metode_pembayaran' => $transaksi->metode_pembayaran,
+            'bayar' => $transaksi->bayar,
+            'kembalian' => $transaksi->kembalian,
+            'created_at' => $transaksi->created_at,
+            'waktu' => Carbon::parse($transaksi->created_at)->translatedFormat('H:i \W\I\B'),
+            'tanggal' => Carbon::parse($transaksi->created_at)->translatedFormat('d M Y'),
+            'details' => $transaksi->detailTransaksis->map(fn ($detail) => [
+                'nama_produk' => $detail->produk?->nama ?? '- ',
+                'jumlah' => $detail->jumlah,
+                'harga' => $detail->harga,
+                'subtotal' => $detail->subtotal,
+                'nominal' => $detail->nominal, // pass-through jasa (null bila bukan jasa)
+                'foto' => $detail->produk?->foto ?? null,
+                'foto_url' => $detail->produk?->foto ? asset('storage/'.$detail->produk->foto) : null,
+            ])->values(),
+        ];
     }
 }

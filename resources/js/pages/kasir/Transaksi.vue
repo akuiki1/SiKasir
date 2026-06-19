@@ -17,6 +17,7 @@ import {
     PackageX,
     ShoppingBag,
     LayoutGrid,
+    Lock,
 } from 'lucide-vue-next';
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
@@ -67,7 +68,20 @@ interface Pelanggan {
     tipe: 'umum' | 'reseller';
 }
 
+interface TarifJasa {
+    min_nominal: number;
+    fee: number;
+}
+
+interface Layanan {
+    id_produk: number;
+    nama: string;
+    satuan: string;
+    tarifs: TarifJasa[];
+}
+
 interface CartItem {
+    uid: number; // id baris unik (jasa bisa muncul berkali-kali dengan nominal berbeda)
     id_produk: number;
     nama: string;
     harga: number; // harga efektif (sudah memperhitungkan potongan reseller bila berlaku)
@@ -78,7 +92,9 @@ interface CartItem {
     stock: number;
     tipe_jual: TipeJual;
     satuan: string;
-    nominal: number; // curah: rupiah yang dibayar (qty = nominal ÷ harga)
+    nominal: number; // curah: rupiah yang dibayar (qty = nominal ÷ harga); jasa: nominal titipan
+    fee: number; // jasa: biaya admin (satu-satunya pendapatan); 0 untuk produk lain
+    tarifs: TarifJasa[]; // jasa: tarif bertingkat (kosong = fee diketik manual)
     foto: string | null;
     foto_url?: string | null;
 }
@@ -88,6 +104,7 @@ const props = defineProps<{
     favorite_ids: number[];
     pelanggans: Pelanggan[];
     promos: Promo[];
+    layanan: Layanan[];
 }>();
 
 const searchQuery = ref('');
@@ -121,8 +138,12 @@ const form = useForm({
     bayar: '',
     id_pelanggan: null as number | null,
     id_promo: null as number | null,
-    items: [] as Array<{ id_produk: number; jumlah: number; nominal?: number }>,
+    items: [] as Array<{ id_produk: number; jumlah: number; nominal?: number; fee?: number }>,
 });
+
+// Penanda baris keranjang yang unik (produk dedup by id_produk, jasa selalu baris baru).
+let cartUidSeq = 0;
+const nextUid = (): number => ++cartUidSeq;
 
 const selectedPelanggan = computed(() => props.pelanggans.find((p) => p.id_pelanggan === form.id_pelanggan) ?? null);
 const isReseller = computed(() => selectedPelanggan.value?.tipe === 'reseller');
@@ -325,6 +346,7 @@ function addToCart(product: Produk) {
             }
 
             cartItems.value.push({
+                uid: nextUid(),
                 id_produk: product.id_produk,
                 nama: product.nama,
                 ...basePricing(product),
@@ -334,6 +356,8 @@ function addToCart(product: Produk) {
                 tipe_jual: 'curah',
                 satuan: product.satuan,
                 nominal: 0,
+                fee: 0,
+                tarifs: [],
                 foto: product.foto,
                 foto_url: product.foto_url ?? null,
             });
@@ -360,6 +384,7 @@ function addToCart(product: Produk) {
     const pricing = basePricing(product);
 
     cartItems.value.push({
+        uid: nextUid(),
         id_produk: product.id_produk,
         nama: product.nama,
         ...pricing,
@@ -369,13 +394,96 @@ function addToCart(product: Produk) {
         tipe_jual: product.tipe_jual,
         satuan: product.satuan,
         nominal: 0,
+        fee: 0,
+        tarifs: [],
         foto: product.foto,
         foto_url: product.foto_url ?? null,
     });
 }
 
-function removeCartItem(id: number) {
-    cartItems.value = cartItems.value.filter((item) => item.id_produk !== id);
+// Tambah baris jasa ke keranjang yang sama. Selalu baris baru: satu layanan bisa
+// dipakai berkali-kali dengan nominal/fee berbeda dalam satu transaksi.
+function addJasaToCart(svc: Layanan) {
+    cartItems.value.push({
+        uid: nextUid(),
+        id_produk: svc.id_produk,
+        nama: svc.nama,
+        harga: 0,
+        harga_base: 0,
+        potongan_reseller: 0,
+        qty: 1,
+        subtotal: 0,
+        stock: 0,
+        tipe_jual: 'jasa',
+        satuan: svc.satuan,
+        nominal: 0,
+        fee: 0,
+        tarifs: svc.tarifs ?? [],
+        foto: null,
+        foto_url: null,
+    });
+
+    cartOpen.value = true; // buka keranjang agar kasir langsung isi nominal & fee
+}
+
+function removeCartItem(item: CartItem) {
+    cartItems.value = cartItems.value.filter((c) => c.uid !== item.uid);
+}
+
+// Tarif berlaku = min_nominal terbesar yang <= nominal; di bawah tarif terendah pakai
+// tarif terendah. Selaras dengan backend Produk::resolveFeeJasa & halaman Layanan.
+function resolveTarif(tarifs: TarifJasa[], nominal: number): TarifJasa | null {
+    if (!tarifs || tarifs.length === 0) {
+        return null;
+    }
+
+    const sorted = [...tarifs].sort((a, b) => a.min_nominal - b.min_nominal);
+    let match = sorted[0];
+
+    for (const t of sorted) {
+        if (nominal >= t.min_nominal) {
+            match = t;
+        }
+    }
+
+    return match;
+}
+
+// Label range tarif yang sedang berlaku untuk sebuah baris jasa (ditampilkan ke kasir).
+function appliedTarifLabel(item: CartItem): string {
+    const nominal = Number(item.nominal) || 0;
+
+    if (item.tarifs.length === 0 || nominal <= 0) {
+        return '';
+    }
+
+    const match = resolveTarif(item.tarifs, nominal);
+
+    if (!match) {
+        return '';
+    }
+
+    const higher = item.tarifs
+        .map((t) => t.min_nominal)
+        .filter((m) => m > match.min_nominal)
+        .sort((a, b) => a - b)[0];
+
+    return higher === undefined
+        ? `${formatRupiah(match.min_nominal)} ke atas`
+        : `${formatRupiah(match.min_nominal)} – ${formatRupiah(higher - 1)}`;
+}
+
+// Jasa: baris bertarif → fee dihitung otomatis dari nominal; tanpa tarif → fee manual.
+// subtotal jasa = fee (nominal hanya titipan, bukan omzet).
+function recomputeJasaItem(item: CartItem): void {
+    const nominal = Math.max(0, Number(item.nominal) || 0);
+
+    if (item.tarifs.length > 0) {
+        const match = resolveTarif(item.tarifs, nominal);
+        item.fee = nominal > 0 && match ? match.fee : 0;
+    }
+
+    item.subtotal = Math.max(0, Number(item.fee) || 0);
 }
 
 function updateItemQuantity(item: CartItem, delta: number) {
@@ -434,11 +542,23 @@ const invalidCurahItems = computed(() =>
     ),
 );
 
-const hasInvalidItems = computed(() => invalidCurahItems.value.length > 0);
+// Baris jasa yang belum valid: nominal atau fee belum diisi.
+const invalidJasaItems = computed(() =>
+    cartItems.value.filter(
+        (item) => item.tipe_jual === 'jasa' && ((Number(item.nominal) || 0) <= 0 || (Number(item.fee) || 0) <= 0),
+    ),
+);
+
+const hasInvalidItems = computed(() => invalidCurahItems.value.length > 0 || invalidJasaItems.value.length > 0);
 
 const cartQtyById = computed(() => {
     const map = new Map<number, number>();
-    cartItems.value.forEach((item) => map.set(item.id_produk, item.qty));
+    // Hanya produk (jasa tak ada di grid & bisa berulang dengan id sama).
+    cartItems.value.forEach((item) => {
+        if (item.tipe_jual !== 'jasa') {
+            map.set(item.id_produk, item.qty);
+        }
+    });
 
     return map;
 });
@@ -454,6 +574,11 @@ const selectedPromo = computed(() => {
 });
 
 function calculateItemPromoDiscount(item: CartItem): number {
+    // Promo produk tidak berlaku untuk fee jasa (selaras backend: jasa di-skip).
+    if (item.tipe_jual === 'jasa') {
+        return 0;
+    }
+
     const promo = activeProductPromos.value.get(item.id_produk);
 
     if (!promo) {
@@ -491,13 +616,21 @@ const totalDiscount = computed(() => Math.max(0, productPromoDiscount.value + gl
 
 const totalAfterDiscount = computed(() => Math.max(0, totalHarga.value - totalDiscount.value));
 
+// Titipan jasa (nominal transfer/tarik tunai) dibayar tunai oleh pelanggan tapi BUKAN omzet.
+const totalNominalJasa = computed(() =>
+    cartItems.value.reduce((sum, item) => sum + (item.tipe_jual === 'jasa' ? Number(item.nominal) || 0 : 0), 0),
+);
+
+// Total yang ditagih ke pelanggan = omzet (produk + fee) + titipan jasa. Kembalian dari sini.
+const totalTagihan = computed(() => totalAfterDiscount.value + totalNominalJasa.value);
+
 const kembalian = computed(() => {
     const bayar = Number(form.bayar) || 0;
 
-    return Math.max(0, bayar - totalAfterDiscount.value);
+    return Math.max(0, bayar - totalTagihan.value);
 });
 
-const isPaid = computed(() => (Number(form.bayar) || 0) >= totalAfterDiscount.value);
+const isPaid = computed(() => (Number(form.bayar) || 0) >= totalTagihan.value);
 
 const paymentMethods = [
     { value: 'cash', label: 'Tunai', icon: Banknote },
@@ -506,7 +639,7 @@ const paymentMethods = [
 ] as const;
 
 const cashSuggestions = computed(() => {
-    const total = totalAfterDiscount.value;
+    const total = totalTagihan.value;
 
     if (total <= 0) {
         return [];
@@ -617,11 +750,22 @@ function submitTransaction() {
         return;
     }
 
-    form.items = cartItems.value.map((item) =>
-        item.tipe_jual === 'curah'
-            ? { id_produk: item.id_produk, jumlah: item.qty, nominal: Math.floor(Number(item.nominal) || 0) }
-            : { id_produk: item.id_produk, jumlah: item.qty },
-    );
+    form.items = cartItems.value.map((item) => {
+        if (item.tipe_jual === 'curah') {
+            return { id_produk: item.id_produk, jumlah: item.qty, nominal: Math.floor(Number(item.nominal) || 0) };
+        }
+
+        if (item.tipe_jual === 'jasa') {
+            return {
+                id_produk: item.id_produk,
+                jumlah: 1,
+                nominal: Math.floor(Number(item.nominal) || 0),
+                fee: Math.floor(Number(item.fee) || 0),
+            };
+        }
+
+        return { id_produk: item.id_produk, jumlah: item.qty };
+    });
 
     form.post(kasirTransaksiStore().url, {
         preserveScroll: true,
@@ -731,6 +875,26 @@ function submitTransaction() {
                             v-if="cartQtyById.get(fav.id_produk)"
                             class="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white"
                         >{{ formatQty(cartQtyById.get(fav.id_produk)!) }}</span>
+                    </button>
+                </div>
+
+                <!-- Layanan / Jasa: tambahkan transfer/tarik tunai ke keranjang yang sama -->
+                <div
+                    v-if="layanan.length"
+                    class="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+                >
+                    <span class="flex shrink-0 items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-400">
+                        <CreditCard class="h-3.5 w-3.5" /> Layanan/Jasa:
+                    </span>
+                    <button
+                        v-for="svc in layanan"
+                        :key="svc.id_produk"
+                        type="button"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-500/20 dark:text-violet-300"
+                        @click="addJasaToCart(svc)"
+                    >
+                        <Plus class="h-3.5 w-3.5" />
+                        {{ svc.nama }}
                     </button>
                 </div>
             </div>
@@ -909,12 +1073,18 @@ function submitTransaction() {
                 </div>
                 <div
                     v-for="item in cartItems"
-                    :key="item.id_produk"
+                    :key="item.uid"
                     class="px-4 py-3 transition-colors hover:bg-slate-50/60 dark:hover:bg-zinc-800/20"
                 >
                     <div class="flex items-center gap-3">
+                        <div
+                            v-if="item.tipe_jual === 'jasa'"
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                        >
+                            <CreditCard class="h-5 w-5" />
+                        </div>
                         <img
-                            v-if="resolveFoto(item.foto_url ?? item.foto)"
+                            v-else-if="resolveFoto(item.foto_url ?? item.foto)"
                             :src="resolveFoto(item.foto_url ?? item.foto) ?? undefined"
                             :alt="item.nama"
                             class="h-12 w-12 shrink-0 rounded-xl border border-sidebar-border/70 object-cover dark:border-sidebar-border"
@@ -927,8 +1097,17 @@ function submitTransaction() {
                         </div>
 
                         <div class="min-w-0 flex-1">
-                            <h4 class="truncate text-sm font-semibold text-foreground">{{ item.nama }}</h4>
-                            <p class="text-xs text-muted-foreground">
+                            <h4 class="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
+                                {{ item.nama }}
+                                <span
+                                    v-if="item.tipe_jual === 'jasa'"
+                                    class="inline-flex shrink-0 items-center rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-bold text-violet-600 dark:text-violet-400"
+                                >
+                                    Jasa
+                                </span>
+                            </h4>
+                            <p v-if="item.tipe_jual === 'jasa'" class="text-xs text-muted-foreground">Fee admin (pendapatan)</p>
+                            <p v-else class="text-xs text-muted-foreground">
                                 {{ formatRupiah(item.harga) }}<span v-if="item.tipe_jual === 'curah'"> / {{ item.satuan }}</span>
                             </p>
                             <p class="text-sm font-bold text-indigo-600 dark:text-indigo-400">{{ formatRupiah(item.subtotal) }}</p>
@@ -938,12 +1117,12 @@ function submitTransaction() {
                             <button
                                 type="button"
                                 class="rounded-lg p-1 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
-                                @click="removeCartItem(item.id_produk)"
+                                @click="removeCartItem(item)"
                             >
                                 <Trash2 class="h-4 w-4" />
                             </button>
                             <div
-                                v-if="item.tipe_jual !== 'curah'"
+                                v-if="item.tipe_jual === 'satuan'"
                                 class="flex items-center gap-1 rounded-lg border border-sidebar-border/70 p-0.5 dark:border-sidebar-border"
                             >
                                 <button
@@ -1003,6 +1182,67 @@ function submitTransaction() {
                         </p>
                         <p v-else class="text-xs text-amber-600 dark:text-amber-400">
                             Masukkan nominal pembelian dulu.
+                        </p>
+                    </div>
+
+                    <!-- Input nominal (titipan) + fee untuk produk jasa -->
+                    <div v-if="item.tipe_jual === 'jasa'" class="mt-2 grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="mb-1 block text-[11px] font-medium text-muted-foreground">Nominal (titipan)</label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">Rp</span>
+                                <input
+                                    v-model.number="item.nominal"
+                                    type="number"
+                                    min="0"
+                                    inputmode="numeric"
+                                    placeholder="500000"
+                                    :class="[
+                                        'w-full rounded-lg border bg-background py-2 pl-7 pr-2 text-sm font-semibold transition focus:ring-2 focus:ring-indigo-500/20 focus:outline-none',
+                                        (Number(item.nominal) || 0) <= 0
+                                            ? 'border-amber-500/50 focus:border-amber-500'
+                                            : 'border-sidebar-border/70 focus:border-indigo-500 dark:border-sidebar-border',
+                                    ]"
+                                    @input="recomputeJasaItem(item)"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="mb-1 flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                                Fee
+                                <span
+                                    v-if="item.tarifs.length > 0"
+                                    class="inline-flex items-center gap-0.5 rounded bg-violet-500/10 px-1 py-0.5 text-[9px] font-semibold text-violet-600 dark:text-violet-400"
+                                >
+                                    <Lock class="h-2.5 w-2.5" /> Otomatis
+                                </span>
+                            </label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">Rp</span>
+                                <input
+                                    v-model.number="item.fee"
+                                    type="number"
+                                    min="0"
+                                    inputmode="numeric"
+                                    placeholder="5000"
+                                    :readonly="item.tarifs.length > 0"
+                                    :class="[
+                                        'w-full rounded-lg border py-2 pl-7 pr-2 text-sm font-semibold transition focus:ring-2 focus:ring-indigo-500/20 focus:outline-none',
+                                        item.tarifs.length > 0
+                                            ? 'cursor-not-allowed border-sidebar-border/70 bg-slate-100 text-muted-foreground dark:border-sidebar-border dark:bg-zinc-800'
+                                            : (Number(item.fee) || 0) <= 0
+                                            ? 'border-amber-500/50 bg-background focus:border-amber-500'
+                                            : 'border-sidebar-border/70 bg-background focus:border-indigo-500 dark:border-sidebar-border',
+                                    ]"
+                                    @input="recomputeJasaItem(item)"
+                                />
+                            </div>
+                        </div>
+                        <p v-if="item.tarifs.length > 0 && appliedTarifLabel(item)" class="col-span-2 -mt-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
+                            Tarif: {{ appliedTarifLabel(item) }}
+                        </p>
+                        <p v-else-if="item.tarifs.length > 0" class="col-span-2 -mt-0.5 text-[11px] text-muted-foreground">
+                            Isi nominal dulu — fee terisi otomatis dari tarif.
                         </p>
                     </div>
                 </div>
@@ -1080,7 +1320,7 @@ function submitTransaction() {
                         <button
                             type="button"
                             class="rounded-lg border border-indigo-500/30 bg-indigo-500/5 px-2.5 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-500/10 dark:text-indigo-400"
-                            @click="form.bayar = String(totalAfterDiscount)"
+                            @click="form.bayar = String(totalTagihan)"
                         >
                             Uang Pas
                         </button>
@@ -1107,9 +1347,13 @@ function submitTransaction() {
                         <span class="text-muted-foreground">Diskon</span>
                         <span class="font-medium text-emerald-600 tabular-nums dark:text-emerald-400">-{{ formatRupiah(totalDiscount) }}</span>
                     </div>
+                    <div v-if="totalNominalJasa > 0" class="flex items-center justify-between text-xs">
+                        <span class="text-muted-foreground">Titipan layanan (bukan omzet)</span>
+                        <span class="tabular-nums">+{{ formatRupiah(totalNominalJasa) }}</span>
+                    </div>
                     <div class="flex items-center justify-between border-t border-sidebar-border/70 pt-2 dark:border-sidebar-border">
-                        <span class="text-sm font-bold">Total</span>
-                        <span class="text-xl font-extrabold text-indigo-600 tabular-nums dark:text-indigo-400">{{ formatRupiah(totalAfterDiscount) }}</span>
+                        <span class="text-sm font-bold">{{ totalNominalJasa > 0 ? 'Total Bayar' : 'Total' }}</span>
+                        <span class="text-xl font-extrabold text-indigo-600 tabular-nums dark:text-indigo-400">{{ formatRupiah(totalTagihan) }}</span>
                     </div>
                     <div v-if="Number(form.bayar) > 0" class="flex items-center justify-between text-xs">
                         <span class="text-muted-foreground">Kembalian</span>
@@ -1125,7 +1369,7 @@ function submitTransaction() {
                 </div>
 
                 <p v-if="hasInvalidItems" class="-mb-1 text-center text-xs font-medium text-amber-600 dark:text-amber-400">
-                    Lengkapi nominal produk curah & pastikan tidak melebihi stok.
+                    Lengkapi nominal produk curah & nominal/fee layanan, pastikan tidak melebihi stok.
                 </p>
 
                 <button
@@ -1154,8 +1398,8 @@ function submitTransaction() {
                     </span>
                 </span>
                 <span class="flex flex-1 flex-col items-start leading-tight">
-                    <span class="text-[11px] font-medium text-indigo-100">{{ cartItems.length }} produk</span>
-                    <span class="text-base font-extrabold tabular-nums">{{ formatRupiah(totalAfterDiscount) }}</span>
+                    <span class="text-[11px] font-medium text-indigo-100">{{ cartItems.length }} item</span>
+                    <span class="text-base font-extrabold tabular-nums">{{ formatRupiah(totalTagihan) }}</span>
                 </span>
                 <span class="flex items-center gap-1 text-sm font-bold">
                     Lihat

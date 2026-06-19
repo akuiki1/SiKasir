@@ -176,6 +176,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('kasir/transaksi', [KasirController::class, 'store'])->name('kasir.transaksi.store');
         Route::get('kasir/layanan', [KasirController::class, 'layanan'])->name('kasir.layanan');
         Route::get('kasir/riwayat', [KasirController::class, 'riwayat'])->name('kasir.riwayat');
+        Route::get('kasir/riwayat/cetak', [KasirController::class, 'riwayatCetak'])->name('kasir.riwayat.cetak');
     });
 });
 
