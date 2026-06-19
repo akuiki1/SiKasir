@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\KasirController;
 use App\Http\Controllers\KategoriController;
@@ -156,6 +157,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('admin/produksi', [ProduksiController::class, 'index'])->name('admin.produksi');
         Route::post('admin/produksi', [ProduksiController::class, 'store'])->name('admin.produksi.store');
         Route::delete('admin/produksi/{produksi}', [ProduksiController::class, 'destroy'])->name('admin.produksi.destroy');
+
+        // Laporan / Analisis
+        Route::get('admin/laporan/keuangan', [LaporanController::class, 'keuangan'])->name('admin.laporan.keuangan');
+        Route::get('admin/laporan/penjualan', [LaporanController::class, 'penjualan'])->name('admin.laporan.penjualan');
+        Route::get('admin/laporan/pelanggan', [LaporanController::class, 'pelanggan'])->name('admin.laporan.pelanggan');
 
         // Promo
         Route::get('admin/promos', [PromoController::class, 'index'])->name('admin.promos');

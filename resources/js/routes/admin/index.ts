@@ -7,6 +7,7 @@ import transactionsBbd80d from './transactions'
 import pengeluaransC7d7ce from './pengeluarans'
 import stok67e4e1 from './stok'
 import produksi22b192 from './produksi'
+import laporan from './laporan'
 import promosFc23d1 from './promos'
 /**
 * @see \App\Http\Controllers\Admin\DashboardController::dashboard
@@ -798,6 +799,7 @@ transactions: Object.assign(transactions, transactionsBbd80d),
 pengeluarans: Object.assign(pengeluarans, pengeluaransC7d7ce),
 stok: Object.assign(stok, stok67e4e1),
 produksi: Object.assign(produksi, produksi22b192),
+laporan: Object.assign(laporan, laporan),
 promos: Object.assign(promos, promosFc23d1),
 }
 
