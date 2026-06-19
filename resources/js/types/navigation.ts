@@ -11,6 +11,8 @@ export type NavItem = {
     href: NonNullable<InertiaLinkProps['href']>;
     icon?: LucideIcon;
     isActive?: boolean;
+    /** Render sebagai aksi utama yang ditonjolkan (primary CTA). */
+    highlight?: boolean;
 };
 
 export type NavGroup = {
