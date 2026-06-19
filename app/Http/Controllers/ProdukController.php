@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Kategori;
 use App\Models\Produk;
+use App\Models\TarifJasa;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,7 +17,7 @@ class ProdukController extends Controller
      */
     public function index(): Response
     {
-        $produks = Produk::with('kategori')
+        $produks = Produk::with(['kategori', 'tarifJasas' => fn ($q) => $q->orderBy('min_nominal')])
             ->orderBy('nama')
             ->get()
             ->map(function (Produk $produk) {
@@ -37,6 +38,13 @@ class ProdukController extends Controller
                     'foto' => $produk->foto,
                     'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
                     'status_stok' => $produk->status_stok,
+                    // Tarif fee bertingkat untuk produk jasa (kosong untuk produk lain).
+                    'tarifs' => $produk->tarifJasas
+                        ->map(fn (TarifJasa $tarif) => [
+                            'min_nominal' => (int) $tarif->min_nominal,
+                            'fee' => (int) $tarif->fee,
+                        ])
+                        ->values(),
                 ];
             });
 
@@ -77,6 +85,10 @@ class ProdukController extends Controller
             'sku' => ['nullable', 'string', 'max:255', 'unique:produks,sku'],
             'foto' => ['nullable', 'string', 'max:2048'],
             'foto_upload' => ['nullable', 'image', 'max:2048'],
+            // Tarif fee bertingkat (khusus produk jasa). Batas bawah + fee per tingkat.
+            'tarifs' => ['nullable', 'array'],
+            'tarifs.*.min_nominal' => ['required_with:tarifs', 'integer', 'min:0'],
+            'tarifs.*.fee' => ['required_with:tarifs', 'integer', 'min:0'],
         ]);
 
         $validated['jenis'] = $validated['jenis'] ?? 'beli';
@@ -104,6 +116,11 @@ class ProdukController extends Controller
             : (int) ($validated['harga_modal'] ?? 0);
 
         $produk = Produk::create($validated);
+
+        // Tarif bertingkat hanya relevan untuk produk jasa.
+        if ($produk->tipe_jual === 'jasa') {
+            $this->syncTarifJasa($produk, $validated['tarifs'] ?? []);
+        }
 
         // Catat saldo awal ke kartu stok bila produk dibuat dengan stok > 0.
         if ((float) $produk->stok != 0.0) {
@@ -135,6 +152,10 @@ class ProdukController extends Controller
             'sku' => ['nullable', 'string', 'max:255', 'unique:produks,sku,'.$produk->id_produk.',id_produk'],
             'foto' => ['nullable', 'string', 'max:2048'],
             'foto_upload' => ['nullable', 'image', 'max:2048'],
+            // Tarif fee bertingkat (khusus produk jasa). Batas bawah + fee per tingkat.
+            'tarifs' => ['nullable', 'array'],
+            'tarifs.*.min_nominal' => ['required_with:tarifs', 'integer', 'min:0'],
+            'tarifs.*.fee' => ['required_with:tarifs', 'integer', 'min:0'],
         ]);
 
         $validated['jenis'] = $validated['jenis'] ?? $produk->jenis;
@@ -165,6 +186,14 @@ class ProdukController extends Controller
         }
 
         $produk->update($validated);
+
+        // Sinkronkan tarif bertingkat: produk jasa ditulis ulang dari form, produk
+        // non-jasa dibersihkan (mis. baru dipindah dari jasa ke satuan/curah).
+        if ($produk->tipe_jual === 'jasa') {
+            $this->syncTarifJasa($produk, $validated['tarifs'] ?? []);
+        } else {
+            $produk->tarifJasas()->delete();
+        }
 
         // Catat penyesuaian stok manual ke kartu stok bila stok berubah.
         $stokBaru = (float) $produk->stok;
@@ -206,6 +235,27 @@ class ProdukController extends Controller
             : 'Semua produk (non-jasa) sudah memiliki barcode. Tidak ada yang perlu dibuat.';
 
         return redirect()->route('admin.products')->with('success', $pesan);
+    }
+
+    /**
+     * Tulis ulang tarif fee bertingkat sebuah produk jasa dari input form.
+     * Tarif lama dihapus lalu dibuat ulang (set kecil — paling sederhana &
+     * konsisten), diurutkan naik berdasarkan batas bawah agar resolusi rapi.
+     *
+     * @param  array<int, array{min_nominal?: int|string, fee?: int|string}>  $tarifs
+     */
+    private function syncTarifJasa(Produk $produk, array $tarifs): void
+    {
+        $produk->tarifJasas()->delete();
+
+        collect($tarifs)
+            ->map(fn ($tarif) => [
+                'min_nominal' => max(0, (int) ($tarif['min_nominal'] ?? 0)),
+                'fee' => max(0, (int) ($tarif['fee'] ?? 0)),
+            ])
+            ->sortBy('min_nominal')
+            ->values()
+            ->each(fn ($tarif) => $produk->tarifJasas()->create($tarif));
     }
 
     /**

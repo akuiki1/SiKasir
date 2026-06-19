@@ -6,6 +6,7 @@ use App\Models\DetailTransaksi;
 use App\Models\Pelanggan;
 use App\Models\Produk;
 use App\Models\Promo;
+use App\Models\TarifJasa;
 use App\Models\Transaksi;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -280,12 +281,20 @@ class KasirController extends Controller
     {
         $layanan = Produk::query()
             ->where('tipe_jual', 'jasa')
+            ->with(['tarifJasas' => fn ($q) => $q->orderBy('min_nominal')])
             ->orderBy('nama')
             ->get()
             ->map(fn (Produk $produk) => [
                 'id_produk' => $produk->id_produk,
                 'nama' => $produk->nama,
                 'satuan' => $produk->satuan,
+                // Tarif fee bertingkat (kosong = fee diketik manual seperti sebelumnya).
+                'tarifs' => $produk->tarifJasas
+                    ->map(fn (TarifJasa $tarif) => [
+                        'min_nominal' => (int) $tarif->min_nominal,
+                        'fee' => (int) $tarif->fee,
+                    ])
+                    ->values(),
             ]);
 
         return Inertia::render('kasir/Layanan', [
@@ -338,19 +347,29 @@ class KasirController extends Controller
                 if ($produk->tipe_jual === 'jasa') {
                     // Jasa (transfer/tarik tunai): TANPA stok. Omzet = fee saja.
                     // Nominal pokok hanya pass-through (titipan), TIDAK masuk omzet.
-                    $fee = (int) ($item['fee'] ?? 0);
                     $nominalRef = (int) ($item['nominal'] ?? 0);
-
-                    if ($fee <= 0) {
-                        throw ValidationException::withMessages([
-                            'items' => "Masukkan biaya admin (fee) untuk {$produk->nama}.",
-                        ]);
-                    }
 
                     if ($nominalRef <= 0) {
                         throw ValidationException::withMessages([
                             'items' => "Masukkan nominal transfer/tarik untuk {$produk->nama}.",
                         ]);
+                    }
+
+                    // Bila layanan punya tarif bertingkat, fee DIHITUNG ULANG dari tabel
+                    // berdasarkan nominal (anti salah ketik/manipulasi — fee = omzet toko).
+                    // Tanpa tarif, fee tetap diketik manual seperti sebelumnya.
+                    $tarifFee = $produk->resolveFeeJasa($nominalRef);
+
+                    if ($tarifFee !== null) {
+                        $fee = $tarifFee;
+                    } else {
+                        $fee = (int) ($item['fee'] ?? 0);
+
+                        if ($fee <= 0) {
+                            throw ValidationException::withMessages([
+                                'items' => "Masukkan biaya admin (fee) untuk {$produk->nama}.",
+                            ]);
+                        }
                     }
 
                     $qty = 1;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { CreditCard, Plus, Trash2, Banknote, QrCode, ArrowRight, Sparkles, Info } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { CreditCard, Plus, Trash2, Banknote, QrCode, ArrowRight, Sparkles, Info, Lock } from 'lucide-vue-next';
+import { ref, computed, watch } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 
 defineOptions({
@@ -15,10 +15,16 @@ defineOptions({
     },
 });
 
+interface TarifJasa {
+    min_nominal: number;
+    fee: number;
+}
+
 interface Layanan {
     id_produk: number;
     nama: string;
     satuan: string;
+    tarifs: TarifJasa[];
 }
 
 interface JasaLine {
@@ -26,9 +32,11 @@ interface JasaLine {
     nama: string;
     nominal: number | '';
     fee: number | '';
+    // Salinan tarif bertingkat layanan; kosong = fee diketik manual.
+    tarifs: TarifJasa[];
 }
 
-const props = defineProps<{
+defineProps<{
     layanan: Layanan[];
 }>();
 
@@ -55,12 +63,71 @@ function formatRupiah(value: number): string {
 }
 
 function addLine(svc: Layanan): void {
-    lines.value.push({ id_produk: svc.id_produk, nama: svc.nama, nominal: '', fee: '' });
+    lines.value.push({ id_produk: svc.id_produk, nama: svc.nama, nominal: '', fee: '', tarifs: svc.tarifs ?? [] });
 }
 
 function removeLine(index: number): void {
     lines.value.splice(index, 1);
 }
+
+// Tarif berlaku = baris dengan min_nominal terbesar yang <= nominal; bila nominal di
+// bawah tarif terendah, pakai tarif terendah. Selaras dengan backend (resolveFeeJasa).
+function resolveTarif(tarifs: TarifJasa[], nominal: number): TarifJasa | null {
+    if (!tarifs || tarifs.length === 0) {
+        return null;
+    }
+
+    const sorted = [...tarifs].sort((a, b) => a.min_nominal - b.min_nominal);
+    let match = sorted[0];
+
+    for (const t of sorted) {
+        if (nominal >= t.min_nominal) {
+            match = t;
+        }
+    }
+
+    return match;
+}
+
+// Label range yang sedang berlaku untuk sebuah baris (ditampilkan ke kasir).
+function appliedTarifLabel(line: JasaLine): string {
+    const nominal = Number(line.nominal) || 0;
+
+    if (line.tarifs.length === 0 || nominal <= 0) {
+        return '';
+    }
+
+    const match = resolveTarif(line.tarifs, nominal);
+
+    if (!match) {
+        return '';
+    }
+
+    const higher = line.tarifs
+        .map((t) => t.min_nominal)
+        .filter((m) => m > match.min_nominal)
+        .sort((a, b) => a - b)[0];
+
+    return higher === undefined
+        ? `${formatRupiah(match.min_nominal)} ke atas`
+        : `${formatRupiah(match.min_nominal)} – ${formatRupiah(higher - 1)}`;
+}
+
+// Isi fee otomatis untuk baris bertarif setiap nominal berubah. Baris tanpa tarif
+// dibiarkan diketik manual (perilaku lama).
+watch(
+    lines,
+    (current) => {
+        for (const line of current) {
+            if (line.tarifs.length > 0) {
+                const nominal = Number(line.nominal) || 0;
+                const match = resolveTarif(line.tarifs, nominal);
+                line.fee = nominal > 0 && match ? match.fee : '';
+            }
+        }
+    },
+    { deep: true },
+);
 
 const totalFee = computed(() => lines.value.reduce((sum, l) => sum + (Number(l.fee) || 0), 0));
 const totalNominal = computed(() => lines.value.reduce((sum, l) => sum + (Number(l.nominal) || 0), 0));
@@ -177,7 +244,15 @@ function submit(): void {
                         </div>
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-medium text-muted-foreground">Biaya admin / fee (pendapatan)</label>
+                        <label class="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                            Biaya admin / fee (pendapatan)
+                            <span
+                                v-if="line.tarifs.length > 0"
+                                class="inline-flex items-center gap-0.5 rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-600 dark:text-violet-400"
+                            >
+                                <Lock class="h-2.5 w-2.5" /> Otomatis
+                            </span>
+                        </label>
                         <div class="relative">
                             <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">Rp</span>
                             <input
@@ -186,9 +261,17 @@ function submit(): void {
                                 min="0"
                                 inputmode="numeric"
                                 placeholder="5000"
-                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pl-9 pr-3 text-sm font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                                :readonly="line.tarifs.length > 0"
+                                class="w-full rounded-lg border border-sidebar-border/70 py-2.5 pl-9 pr-3 text-sm font-semibold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                                :class="line.tarifs.length > 0 ? 'cursor-not-allowed bg-slate-100 text-muted-foreground dark:bg-zinc-800' : 'bg-background'"
                             />
                         </div>
+                        <p v-if="line.tarifs.length > 0 && appliedTarifLabel(line)" class="mt-1 text-[11px] font-medium text-violet-600 dark:text-violet-400">
+                            Tarif: {{ appliedTarifLabel(line) }}
+                        </p>
+                        <p v-else-if="line.tarifs.length > 0" class="mt-1 text-[11px] text-muted-foreground">
+                            Isi nominal dulu — fee terisi otomatis dari tarif.
+                        </p>
                     </div>
                 </div>
             </div>

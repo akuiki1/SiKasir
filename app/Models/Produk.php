@@ -60,6 +60,35 @@ class Produk extends Model
         return $this->hasMany(StokMutasi::class, 'id_produk', 'id_produk');
     }
 
+    public function tarifJasas(): HasMany
+    {
+        return $this->hasMany(TarifJasa::class, 'id_produk', 'id_produk');
+    }
+
+    /**
+     * Tentukan fee jasa untuk sebuah nominal berdasarkan tarif bertingkat.
+     *
+     * Tarif berlaku = baris dengan `min_nominal` terbesar yang masih <= nominal.
+     * Bila nominal di bawah tarif terendah, dipakai tarif terendah. Mengembalikan
+     * null bila produk belum punya tarif bertingkat (artinya fee diketik manual).
+     *
+     * @param  \Illuminate\Support\Collection<int, TarifJasa>|null  $tarifs  daftar
+     *         tarif yang sudah dimuat (opsional) — untuk menghindari query ulang.
+     */
+    public function resolveFeeJasa(int $nominal, $tarifs = null): ?int
+    {
+        $tarifs = ($tarifs ?? $this->tarifJasas)->sortBy('min_nominal')->values();
+
+        if ($tarifs->isEmpty()) {
+            return null;
+        }
+
+        $match = $tarifs->last(fn (TarifJasa $tarif) => $nominal >= $tarif->min_nominal)
+            ?? $tarifs->first();
+
+        return (int) $match->fee;
+    }
+
     /**
      * Buat barcode EAN-13 unik untuk penomoran internal toko.
      * Prefix "2" memakai rentang in-store/restricted distribution GS1 (aman dipakai

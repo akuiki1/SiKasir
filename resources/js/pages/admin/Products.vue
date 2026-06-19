@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
+import JsBarcode from 'jsbarcode';
 import {
     Plus,
     Search,
@@ -35,10 +36,9 @@ import {
     Upload,
 } from 'lucide-vue-next';
 import { ref, computed, nextTick, onBeforeUnmount, watch, onMounted } from 'vue';
-import JsBarcode from 'jsbarcode';
-import { store as productStore, update as productUpdate, destroy as productDestroy, generateAll as productGenerateAll } from '@/routes/admin/products';
-import { usePagination } from '@/composables/usePagination';
 import Pagination from '@/components/Pagination.vue';
+import { usePagination } from '@/composables/usePagination';
+import { store as productStore, update as productUpdate, destroy as productDestroy, generateAll as productGenerateAll } from '@/routes/admin/products';
 
 defineOptions({
     layout: {
@@ -58,6 +58,11 @@ interface Kategori {
 
 type TipeJual = 'satuan' | 'curah' | 'jasa';
 
+interface TarifJasa {
+    min_nominal: number;
+    fee: number;
+}
+
 interface Produk {
     id_produk: number;
     nama: string;
@@ -75,6 +80,7 @@ interface Produk {
     foto: string | null;
     foto_url?: string | null;
     status_stok: 'in-stock' | 'low-stock' | 'out-of-stock';
+    tarifs?: TarifJasa[];
 }
 
 interface Stats {
@@ -107,8 +113,15 @@ const sortOptions = [
 
 const activeFilterCount = computed(() => {
     let count = 0;
-    if (filterKategori.value) count++;
-    if (sortBy.value) count++;
+
+    if (filterKategori.value) {
+count++;
+}
+
+    if (sortBy.value) {
+count++;
+}
+
     return count;
 });
 
@@ -131,15 +144,23 @@ const filteredProduks = computed(() => {
     let result = props.produks.filter((p) => {
         const matchSearch = !searchQuery.value || p.nama.toLowerCase().includes(searchQuery.value.toLowerCase());
         const matchKategori = !filterKategori.value || String(p.id_kategori) === filterKategori.value;
+
         return matchSearch && matchKategori;
     });
 
-    if (sortBy.value === 'nama_asc') result = [...result].sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
-    else if (sortBy.value === 'nama_desc') result = [...result].sort((a, b) => b.nama.localeCompare(a.nama, 'id'));
-    else if (sortBy.value === 'harga_asc') result = [...result].sort((a, b) => a.harga_jual - b.harga_jual);
-    else if (sortBy.value === 'harga_desc') result = [...result].sort((a, b) => b.harga_jual - a.harga_jual);
-    else if (sortBy.value === 'stok_asc') result = [...result].sort((a, b) => a.stok - b.stok);
-    else if (sortBy.value === 'stok_desc') result = [...result].sort((a, b) => b.stok - a.stok);
+    if (sortBy.value === 'nama_asc') {
+result = [...result].sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
+} else if (sortBy.value === 'nama_desc') {
+result = [...result].sort((a, b) => b.nama.localeCompare(a.nama, 'id'));
+} else if (sortBy.value === 'harga_asc') {
+result = [...result].sort((a, b) => a.harga_jual - b.harga_jual);
+} else if (sortBy.value === 'harga_desc') {
+result = [...result].sort((a, b) => b.harga_jual - a.harga_jual);
+} else if (sortBy.value === 'stok_asc') {
+result = [...result].sort((a, b) => a.stok - b.stok);
+} else if (sortBy.value === 'stok_desc') {
+result = [...result].sort((a, b) => b.stok - a.stok);
+}
 
     return result;
 });
@@ -215,13 +236,18 @@ const form = useForm({
     stok: '',
     barcode: '',
     sku: '',
+    // Tarif fee bertingkat (khusus jasa): tiap baris = batas bawah + fee.
+    tarifs: [] as Array<{ min_nominal: number | string; fee: number | string }>,
 });
 
 // Harga setelah potongan reseller & peringatan bila di bawah modal (jual rugi).
 const hargaReseller = computed(() => Math.max(0, Number(form.harga_jual || 0) - Number(form.potongan_reseller || 0)));
 const resellerBelowModal = computed(() => {
     const potongan = Number(form.potongan_reseller || 0);
-    if (potongan <= 0) return false;
+
+    if (potongan <= 0) {
+return false;
+}
 
     return hargaReseller.value < Number(form.harga_modal || 0);
 });
@@ -239,8 +265,14 @@ const jenisOptions: { value: 'beli' | 'produksi'; label: string; hint: string; i
 
 // Saran satuan sesuai tipe jual (tetap bisa diketik bebas).
 const satuanSuggestions = computed<string[]>(() => {
-    if (form.tipe_jual === 'curah') return ['liter', 'kg', 'gram', 'meter'];
-    if (form.tipe_jual === 'jasa') return ['transaksi', 'layanan'];
+    if (form.tipe_jual === 'curah') {
+return ['liter', 'kg', 'gram', 'meter'];
+}
+
+    if (form.tipe_jual === 'jasa') {
+return ['transaksi', 'layanan'];
+}
+
     return ['pcs', 'bungkus', 'box', 'pack'];
 });
 
@@ -287,6 +319,7 @@ function openEdit(produk: Produk) {
     form.stok = String(produk.stok);
     form.barcode = produk.barcode ?? '';
     form.sku = produk.sku ?? '';
+    form.tarifs = (produk.tarifs ?? []).map((t) => ({ min_nominal: t.min_nominal, fee: t.fee }));
     setFotoUploadPreview(null);
     showModal.value = true;
     startScannerListening();
@@ -472,18 +505,22 @@ watch(
 // Check digit (digit ke-13) EAN-13 dari 12 digit awal.
 function ean13CheckDigit(base12: string): string {
     let sum = 0;
+
     for (let i = 0; i < base12.length; i++) {
         sum += Number(base12[i]) * (i % 2 === 0 ? 1 : 3);
     }
+
     return String((10 - (sum % 10)) % 10);
 }
 
 // Barcode EAN-13 internal toko: prefix "2" (in-store) + 11 digit acak + check digit.
 function generateEan13(): string {
     let base = '2';
+
     for (let i = 0; i < 11; i++) {
         base += Math.floor(Math.random() * 10);
     }
+
     return base + ean13CheckDigit(base);
 }
 
@@ -505,6 +542,7 @@ function runGenerateAllBarcodes(): void {
 
     if (tanpaBarcode === 0) {
         alert('Semua produk (non-jasa) sudah memiliki barcode. Tidak ada yang perlu dibuat.');
+
         return;
     }
 
@@ -519,6 +557,33 @@ function runGenerateAllBarcodes(): void {
     });
 }
 
+// ===== Tarif fee bertingkat (produk jasa) =====
+function addTarif() {
+    // Baris baru otomatis melanjutkan dari batas tertinggi yang ada.
+    const tertinggi = form.tarifs.reduce((max, t) => Math.max(max, Number(t.min_nominal || 0)), 0);
+    form.tarifs.push({ min_nominal: form.tarifs.length === 0 ? 0 : tertinggi, fee: '' });
+}
+
+function removeTarif(index: number) {
+    form.tarifs.splice(index, 1);
+}
+
+// Label range yang berlaku untuk sebuah baris: batas atas = min terkecil yang lebih
+// besar dari baris ini (robust walau baris belum urut). Baris tertinggi = "ke atas".
+function tarifRangeLabel(index: number): string {
+    const min = Number(form.tarifs[index]?.min_nominal || 0);
+    const higher = form.tarifs
+        .map((t) => Number(t.min_nominal || 0))
+        .filter((m) => m > min)
+        .sort((a, b) => a - b)[0];
+
+    if (higher === undefined) {
+        return `${formatRupiah(min)} ke atas`;
+    }
+
+    return `${formatRupiah(min)} – ${formatRupiah(higher - 1)}`;
+}
+
 function submitForm() {
     const data = {
         ...form.data(),
@@ -530,6 +595,11 @@ function submitForm() {
         stok: form.tipe_jual === 'jasa' ? 0 : Number(form.stok || 0),
         potongan_reseller: form.tipe_jual === 'jasa' ? 0 : Number(form.potongan_reseller || 0),
         satuan: form.satuan || 'pcs',
+        // Tarif bertingkat hanya untuk jasa; tipe lain dikirim kosong (backend membersihkan).
+        tarifs:
+            form.tipe_jual === 'jasa'
+                ? form.tarifs.map((t) => ({ min_nominal: Number(t.min_nominal || 0), fee: Number(t.fee || 0) }))
+                : [],
     };
 
     if (editingProduk.value) {
@@ -581,6 +651,7 @@ function closeBarcodeModal() {
 function renderBarcodes() {
     barcodeRefs.value.forEach((el, i) => {
         const barcode = barcodePrintList.value[i]?.barcode;
+
         if (barcode && el) {
             try {
                 JsBarcode(el, barcode, {
@@ -611,6 +682,7 @@ function printBarcodes() {
         .map((produk, i) => {
             const svgEl = barcodeRefs.value[i];
             const svgHtml = svgEl ? svgEl.outerHTML : '';
+
             return `
                 <div class="label">
                     ${svgHtml}
@@ -622,7 +694,10 @@ function printBarcodes() {
         .join('');
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) return;
+
+    if (!printWindow) {
+return;
+}
 
     printWindow.document.write(`
         <!DOCTYPE html>
@@ -1530,6 +1605,81 @@ const statusClass: Record<string, string> = {
                                     <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
                                     <span>Produk <strong>jasa</strong> tidak menyimpan stok. Pendapatan dihitung dari fee/biaya admin.</span>
                                 </div>
+                            </section>
+
+                            <!-- ====== Tarif Fee Bertingkat (khusus jasa) ====== -->
+                            <section v-if="form.tipe_jual === 'jasa'" class="space-y-3">
+                                <div class="flex items-center gap-2">
+                                    <HandCoins class="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                                    <h3 class="text-sm font-bold">Tarif Fee Bertingkat</h3>
+                                    <span class="text-xs font-normal text-muted-foreground">(opsional)</span>
+                                </div>
+
+                                <div class="flex items-start gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
+                                    <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />
+                                    <span>
+                                        Atur fee sesuai <strong>range nominal</strong>. Saat transaksi, kasir cukup mengisi nominal lalu
+                                        fee terisi otomatis. <strong>Kosongkan</strong> bila fee ingin diketik manual tiap transaksi.
+                                    </span>
+                                </div>
+
+                                <div v-if="form.tarifs.length > 0" class="space-y-2.5">
+                                    <div class="grid grid-cols-[1fr_1fr_auto] gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                                        <span>Mulai dari</span>
+                                        <span>Fee</span>
+                                        <span class="w-8"></span>
+                                    </div>
+                                    <div v-for="(tarif, index) in form.tarifs" :key="index" class="space-y-1">
+                                        <div class="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                                            <div class="relative">
+                                                <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">Rp</span>
+                                                <input
+                                                    v-model.number="tarif.min_nominal"
+                                                    type="number"
+                                                    min="0"
+                                                    inputmode="numeric"
+                                                    placeholder="0"
+                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pl-7 pr-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                />
+                                            </div>
+                                            <div class="relative">
+                                                <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">Rp</span>
+                                                <input
+                                                    v-model.number="tarif.fee"
+                                                    type="number"
+                                                    min="0"
+                                                    inputmode="numeric"
+                                                    placeholder="0"
+                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pl-7 pr-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+                                                title="Hapus range"
+                                                @click="removeTarif(index)"
+                                            >
+                                                <Trash2 class="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                        <p class="px-1 text-[11px] text-muted-foreground">
+                                            Berlaku untuk <strong class="font-semibold text-foreground">{{ tarifRangeLabel(index) }}</strong>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/5 px-3 py-2 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-500/10 dark:text-indigo-400"
+                                    @click="addTarif"
+                                >
+                                    <Plus class="h-3.5 w-3.5" />
+                                    Tambah Range
+                                </button>
+
+                                <p v-if="form.tarifs.length > 0" class="text-[11px] text-muted-foreground">
+                                    Nominal di bawah range terendah otomatis ikut fee range terendah.
+                                </p>
                             </section>
 
                             <!-- ====== Bagian 4: Barcode & SKU ====== -->
