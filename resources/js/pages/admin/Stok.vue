@@ -12,8 +12,11 @@ import {
     Save,
     History,
     Boxes,
+    Check,
+    PencilLine,
+    PackageSearch,
 } from 'lucide-vue-next';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
 import { masuk as stokMasuk, keluar as stokKeluar, penyesuaian as stokPenyesuaian } from '@/routes/admin/stok';
@@ -186,6 +189,36 @@ const form = useForm<{
 
 const selectedProduk = computed(() => props.produks.find((p) => p.id_produk === form.id_produk) ?? null);
 
+/* ----------------------------------------------------------------------------
+ | Pemilih produk dengan pencarian (modal aksi stok)
+ ---------------------------------------------------------------------------- */
+const produkSearch = ref('');
+const produkSearchInput = ref<HTMLInputElement | null>(null);
+
+const produkQuery = computed(() => produkSearch.value.trim().toLowerCase());
+
+// Daftar hanya muncul setelah admin mengetik — sebelum itu kosong agar form bersih.
+const filteredProdukOptions = computed(() => {
+    if (!produkQuery.value) {
+        return [];
+    }
+
+    return props.produks.filter(
+        (p) => p.nama.toLowerCase().includes(produkQuery.value) || (p.kategori ?? '').toLowerCase().includes(produkQuery.value),
+    );
+});
+
+function pilihProduk(p: ProdukStok): void {
+    form.id_produk = p.id_produk;
+    form.clearErrors('id_produk');
+}
+
+function gantiProduk(): void {
+    form.id_produk = '';
+    produkSearch.value = '';
+    nextTick(() => produkSearchInput.value?.focus());
+}
+
 // Saat opname, default stok fisik = stok sistem agar tinggal koreksi selisihnya.
 watch(
     () => form.id_produk,
@@ -226,6 +259,7 @@ function openModal(mode: ModalMode, produk?: ProdukStok): void {
     form.reset();
     form.clearErrors();
     modalMode.value = mode;
+    produkSearch.value = '';
 
     if (produk) {
         form.id_produk = produk.id_produk;
@@ -233,11 +267,15 @@ function openModal(mode: ModalMode, produk?: ProdukStok): void {
         if (mode === 'penyesuaian') {
             form.stok_fisik = produk.stok;
         }
+    } else {
+        // Dibuka dari tombol header — fokuskan pencarian produk.
+        nextTick(() => produkSearchInput.value?.focus());
     }
 }
 
 function closeModal(): void {
     modalMode.value = null;
+    produkSearch.value = '';
     form.reset();
     form.clearErrors();
 }
@@ -585,24 +623,81 @@ function lihatKartu(produk: ProdukStok): void {
                         Belum ada produk berstok. Tambahkan produk dulu di menu Data Produk.
                     </div>
 
-                    <!-- Produk -->
+                    <!-- Produk: pemilih dengan pencarian -->
                     <div>
                         <label class="mb-2 block text-sm font-medium">Produk</label>
-                        <select
-                            v-model="form.id_produk"
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+
+                        <!-- Sudah dipilih -->
+                        <div
+                            v-if="selectedProduk"
+                            class="flex items-center justify-between gap-3 rounded-xl border border-indigo-500/40 bg-indigo-500/5 p-3"
                         >
-                            <option value="" disabled>Pilih produk</option>
-                            <option v-for="p in produks" :key="p.id_produk" :value="p.id_produk">
-                                {{ p.nama }} (stok: {{ formatStok(p.stok, p.satuan) }})
-                            </option>
-                        </select>
+                            <div class="flex min-w-0 items-center gap-3">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white">
+                                    <Check class="h-5 w-5" />
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="truncate font-semibold">{{ selectedProduk.nama }}</p>
+                                    <p class="text-xs text-muted-foreground">
+                                        Stok sistem {{ formatStok(selectedProduk.stok, selectedProduk.satuan) }} · {{ selectedProduk.kategori ?? 'Tanpa kategori' }}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-slate-100 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                                @click="gantiProduk"
+                            >
+                                <PencilLine class="h-3.5 w-3.5" />
+                                Ganti
+                            </button>
+                        </div>
+
+                        <!-- Pencarian + daftar -->
+                        <div v-else-if="produks.length > 0">
+                            <div class="relative">
+                                <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                    ref="produkSearchInput"
+                                    v-model="produkSearch"
+                                    type="text"
+                                    placeholder="Ketik nama produk untuk mencari..."
+                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                />
+                            </div>
+                            <!-- Hint sebelum mengetik: daftar disembunyikan agar form bersih -->
+                            <p v-if="!produkQuery" class="mt-2 px-1 text-xs text-muted-foreground">
+                                Mulai ketik nama produk untuk menampilkan daftarnya.
+                            </p>
+
+                            <!-- Tidak ada hasil -->
+                            <div
+                                v-else-if="filteredProdukOptions.length === 0"
+                                class="mt-2 flex flex-col items-center gap-2 rounded-xl border border-dashed border-sidebar-border/70 px-4 py-6 text-center text-sm text-muted-foreground dark:border-sidebar-border"
+                            >
+                                <PackageSearch class="h-7 w-7 opacity-30" />
+                                Produk "<strong>{{ produkSearch }}</strong>" tidak ditemukan.
+                            </div>
+
+                            <!-- Hasil pencarian -->
+                            <div v-else class="mt-2 max-h-56 space-y-1 overflow-y-auto pr-1">
+                                <button
+                                    v-for="p in filteredProdukOptions"
+                                    :key="p.id_produk"
+                                    type="button"
+                                    class="flex w-full items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-indigo-500/30 hover:bg-indigo-500/5"
+                                    @click="pilihProduk(p)"
+                                >
+                                    <span class="min-w-0 truncate text-sm font-medium">{{ p.nama }}</span>
+                                    <span class="shrink-0 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+                                        Stok {{ formatStok(p.stok, p.satuan) }}
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
                         <p v-if="form.errors.id_produk" class="mt-2 text-sm text-rose-600">{{ form.errors.id_produk }}</p>
                     </div>
-
-                    <p v-if="selectedProduk" class="rounded-lg border border-sidebar-border/70 bg-slate-50/60 px-3 py-2 text-sm dark:border-sidebar-border dark:bg-zinc-800/30">
-                        Stok sistem saat ini: <strong>{{ formatStok(selectedProduk.stok, selectedProduk.satuan) }}</strong>
-                    </p>
 
                     <!-- MASUK: jumlah + harga beli opsional -->
                     <template v-if="modalMode === 'masuk'">
