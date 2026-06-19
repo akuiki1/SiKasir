@@ -95,10 +95,15 @@ class ProdukController extends Controller
         $validated['tipe_jual'] = $validated['tipe_jual'] ?? 'satuan';
         $validated['satuan'] = $validated['satuan'] ?? 'pcs';
 
-        // Produk jasa (tarik tunai/transfer) tidak punya stok fisik / potongan reseller.
+        // Produk jasa (tarik tunai/transfer) tidak punya barang fisik: tanpa stok,
+        // tanpa potongan reseller, dan tanpa "asal produk" — omzet murni dari fee.
+        // harga_jual tidak dipakai untuk jasa (fee diambil dari tarif bertingkat atau
+        // diketik kasir tiap transaksi), jadi dipaksa 0 agar tidak menyesatkan.
         if ($validated['tipe_jual'] === 'jasa') {
+            $validated['jenis'] = 'beli';
             $validated['stok'] = 0;
             $validated['potongan_reseller'] = 0;
+            $validated['harga_jual'] = 0;
         } else {
             $validated['potongan_reseller'] = (int) ($validated['potongan_reseller'] ?? 0);
         }
@@ -109,9 +114,10 @@ class ProdukController extends Controller
             $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
         }
 
-        // Modal produk 'produksi' dikelola otomatis oleh modul Produksi (batch costing),
-        // jadi diabaikan dari input form dan mulai dari 0 sampai ada batch produksi.
-        $validated['harga_modal'] = $validated['jenis'] === 'produksi'
+        // Modal barang: produk jasa tidak punya modal (omzet = fee saja); produk
+        // 'produksi' dikelola otomatis oleh modul Produksi (batch costing); 'beli'
+        // diisi manual.
+        $validated['harga_modal'] = $validated['tipe_jual'] === 'jasa' || $validated['jenis'] === 'produksi'
             ? 0
             : (int) ($validated['harga_modal'] ?? 0);
 
@@ -162,10 +168,13 @@ class ProdukController extends Controller
         $validated['tipe_jual'] = $validated['tipe_jual'] ?? $produk->tipe_jual;
         $validated['satuan'] = $validated['satuan'] ?? $produk->satuan;
 
-        // Produk jasa tidak punya stok fisik / potongan reseller.
+        // Produk jasa tidak punya barang fisik: tanpa stok, potongan reseller, modal,
+        // atau harga_jual (fee diambil dari tarif bertingkat / diketik kasir).
         if ($validated['tipe_jual'] === 'jasa') {
+            $validated['jenis'] = 'beli';
             $validated['stok'] = 0;
             $validated['potongan_reseller'] = 0;
+            $validated['harga_jual'] = 0;
         } else {
             $validated['potongan_reseller'] = (int) ($validated['potongan_reseller'] ?? 0);
         }
@@ -178,7 +187,10 @@ class ProdukController extends Controller
             $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
         }
 
-        if ($validated['jenis'] === 'produksi') {
+        if ($validated['tipe_jual'] === 'jasa') {
+            // Jasa tidak punya modal barang (omzet = fee saja).
+            $validated['harga_modal'] = 0;
+        } elseif ($validated['jenis'] === 'produksi') {
             // Modal dikelola oleh modul Produksi — jangan timpa dari form.
             unset($validated['harga_modal']);
         } else {

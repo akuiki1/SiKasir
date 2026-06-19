@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Kategori;
 use App\Models\Produk;
 use App\Models\User;
 
@@ -125,4 +126,53 @@ test('the kasir transaksi page no longer carries the jasa layanan list', functio
     $this->actingAs($kasir)->get(route('kasir.transaksi'))->assertInertia(
         fn ($page) => $page->component('kasir/Transaksi')->missing('layanan')
     );
+});
+
+test('creating a jasa product forces harga_modal and jenis regardless of form input', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $kategori = Kategori::factory()->create();
+
+    // Form sengaja mengirim jenis=produksi, harga_jual & harga_modal > 0; semuanya
+    // harus diabaikan karena fee jasa diatur via tarif / diketik kasir.
+    $this->actingAs($admin)->post(route('admin.products.store'), [
+        'id_kategori' => $kategori->id_kategori,
+        'nama' => 'Tarik Tunai',
+        'tipe_jual' => 'jasa',
+        'jenis' => 'produksi',
+        'harga_jual' => 12345,
+        'harga_modal' => 99999,
+        'stok' => 0,
+    ])->assertRedirect(route('admin.products'));
+
+    $produk = Produk::where('nama', 'Tarik Tunai')->firstOrFail();
+    expect($produk->jenis)->toBe('beli');
+    expect((int) $produk->harga_jual)->toBe(0);
+    expect((int) $produk->harga_modal)->toBe(0);
+    expect((float) $produk->stok)->toBe(0.0);
+});
+
+test('switching a product to jasa clears its harga_modal', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $produk = Produk::factory()->create([
+        'tipe_jual' => 'satuan',
+        'jenis' => 'beli',
+        'harga_jual' => 8000,
+        'harga_modal' => 5000,
+        'stok' => 10,
+    ]);
+
+    $this->actingAs($admin)->put(route('admin.products.update', $produk->id_produk), [
+        'id_kategori' => $produk->id_kategori,
+        'nama' => $produk->nama,
+        'tipe_jual' => 'jasa',
+        'harga_jual' => 7777,
+        'harga_modal' => 7000,
+        'stok' => 0,
+    ])->assertRedirect(route('admin.products'));
+
+    $fresh = $produk->fresh();
+    expect($fresh->jenis)->toBe('beli');
+    expect((int) $fresh->harga_jual)->toBe(0);
+    expect((int) $fresh->harga_modal)->toBe(0);
+    expect((float) $fresh->stok)->toBe(0.0);
 });

@@ -589,8 +589,9 @@ function submitForm() {
         ...form.data(),
         id_kategori: Number(form.id_kategori),
         foto: form.foto || null,
-        harga_jual: Number(form.harga_jual),
-        harga_modal: form.jenis === 'produksi' ? 0 : Number(form.harga_modal || 0),
+        // Jasa: harga_jual tak dipakai (fee dari tarif/manual kasir) → kirim 0.
+        harga_jual: form.tipe_jual === 'jasa' ? 0 : Number(form.harga_jual),
+        harga_modal: form.tipe_jual === 'jasa' || form.jenis === 'produksi' ? 0 : Number(form.harga_modal || 0),
         // Jasa tidak punya stok fisik / potongan reseller; backend juga memaksanya ke 0.
         stok: form.tipe_jual === 'jasa' ? 0 : Number(form.stok || 0),
         potongan_reseller: form.tipe_jual === 'jasa' ? 0 : Number(form.potongan_reseller || 0),
@@ -1372,8 +1373,8 @@ const statusClass: Record<string, string> = {
                                     <h3 class="text-sm font-bold">Jenis &amp; Cara Jual</h3>
                                 </div>
 
-                                <!-- Asal produk (kartu pilihan) -->
-                                <div>
+                                <!-- Asal produk (kartu pilihan) — tak relevan untuk jasa (tanpa modal). -->
+                                <div v-if="form.tipe_jual !== 'jasa'">
                                     <span class="mb-2 block text-sm font-medium">Asal Produk</span>
                                     <div class="grid grid-cols-2 gap-2.5">
                                         <button
@@ -1475,8 +1476,8 @@ const statusClass: Record<string, string> = {
                                 </div>
                             </section>
 
-                            <!-- ====== Bagian 3: Harga & Stok ====== -->
-                            <section class="space-y-4">
+                            <!-- ====== Bagian 3: Harga & Stok (jasa tak punya harga/stok — diatur via Tarif Fee) ====== -->
+                            <section v-if="form.tipe_jual !== 'jasa'" class="space-y-4">
                                 <div class="flex items-center gap-2">
                                     <Wallet class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                                     <h3 class="text-sm font-bold">Harga &amp; Stok</h3>
@@ -1486,7 +1487,7 @@ const statusClass: Record<string, string> = {
                                     <!-- Harga Jual -->
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium" for="prod-harga-jual">
-                                            {{ form.tipe_jual === 'jasa' ? 'Biaya / Fee' : form.tipe_jual === 'curah' ? `Harga per ${form.satuan || 'satuan'}` : 'Harga Jual' }}
+                                            {{ form.tipe_jual === 'curah' ? `Harga per ${form.satuan || 'satuan'}` : 'Harga Jual' }}
                                             <span class="text-rose-500">*</span>
                                         </label>
                                         <div class="relative">
@@ -1506,7 +1507,7 @@ const statusClass: Record<string, string> = {
                                         </p>
                                     </div>
 
-                                    <!-- Harga Modal (hanya untuk produk beli-jadi) -->
+                                    <!-- Harga Modal (hanya produk beli-jadi) -->
                                     <div v-if="form.jenis === 'beli'">
                                         <label class="mb-1.5 block text-sm font-medium" for="prod-harga-modal">
                                             Harga Modal / Beli
@@ -1535,76 +1536,68 @@ const statusClass: Record<string, string> = {
                                     <span>Modal produk ini dihitung otomatis lewat menu <strong>Produksi</strong>, jadi tidak perlu diisi manual.</span>
                                 </div>
 
-                                <template v-if="form.tipe_jual !== 'jasa'">
-                                    <div class="grid gap-4 sm:grid-cols-2">
-                                        <!-- Stok -->
-                                        <div>
-                                            <label class="mb-1.5 block text-sm font-medium" for="prod-stok">
-                                                Stok{{ form.satuan ? ` (${form.satuan})` : '' }}
-                                            </label>
+                                <div class="grid gap-4 sm:grid-cols-2">
+                                    <!-- Stok -->
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-medium" for="prod-stok">
+                                            Stok{{ form.satuan ? ` (${form.satuan})` : '' }}
+                                        </label>
+                                        <input
+                                            id="prod-stok"
+                                            v-model="form.stok"
+                                            type="number"
+                                            min="0"
+                                            :step="form.tipe_jual === 'curah' ? 'any' : '1'"
+                                            placeholder="0"
+                                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                            :class="{ 'border-rose-500': form.errors.stok }"
+                                        />
+                                        <p v-if="form.tipe_jual === 'curah'" class="mt-1 text-xs text-muted-foreground">
+                                            Boleh pecahan, mis. 12.5 {{ form.satuan || 'satuan' }}.
+                                        </p>
+                                        <p v-if="form.errors.stok" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                            <AlertCircle class="h-3 w-3" />{{ form.errors.stok }}
+                                        </p>
+                                    </div>
+
+                                    <!-- Potongan reseller -->
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-medium" for="prod-potongan">
+                                            Potongan Reseller
+                                        </label>
+                                        <div class="relative">
+                                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">Rp</span>
                                             <input
-                                                id="prod-stok"
-                                                v-model="form.stok"
+                                                id="prod-potongan"
+                                                v-model="form.potongan_reseller"
                                                 type="number"
                                                 min="0"
-                                                :step="form.tipe_jual === 'curah' ? 'any' : '1'"
                                                 placeholder="0"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{ 'border-rose-500': form.errors.stok }"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{ 'border-rose-500': form.errors.potongan_reseller }"
                                             />
-                                            <p v-if="form.tipe_jual === 'curah'" class="mt-1 text-xs text-muted-foreground">
-                                                Boleh pecahan, mis. 12.5 {{ form.satuan || 'satuan' }}.
-                                            </p>
-                                            <p v-if="form.errors.stok" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                                <AlertCircle class="h-3 w-3" />{{ form.errors.stok }}
-                                            </p>
                                         </div>
-
-                                        <!-- Potongan reseller -->
-                                        <div>
-                                            <label class="mb-1.5 block text-sm font-medium" for="prod-potongan">
-                                                Potongan Reseller
-                                            </label>
-                                            <div class="relative">
-                                                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">Rp</span>
-                                                <input
-                                                    id="prod-potongan"
-                                                    v-model="form.potongan_reseller"
-                                                    type="number"
-                                                    min="0"
-                                                    placeholder="0"
-                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                    :class="{ 'border-rose-500': form.errors.potongan_reseller }"
-                                                />
-                                            </div>
-                                            <p v-if="form.errors.potongan_reseller" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                                <AlertCircle class="h-3 w-3" />{{ form.errors.potongan_reseller }}
-                                            </p>
-                                        </div>
+                                        <p v-if="form.errors.potongan_reseller" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                            <AlertCircle class="h-3 w-3" />{{ form.errors.potongan_reseller }}
+                                        </p>
                                     </div>
-
-                                    <!-- Pratinjau harga reseller / peringatan rugi -->
-                                    <div
-                                        v-if="Number(form.potongan_reseller) > 0"
-                                        class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2.5 text-xs"
-                                    >
-                                        <span class="text-muted-foreground">Harga untuk reseller: </span>
-                                        <strong class="text-emerald-700 dark:text-emerald-400">{{ formatRupiah(hargaReseller) }}</strong>
-                                        <span class="text-muted-foreground"> (dari {{ formatRupiah(Number(form.harga_jual || 0)) }})</span>
-                                    </div>
-                                    <p v-else class="text-xs text-muted-foreground">
-                                        Kosongkan / 0 bila produk ini tidak diberi potongan untuk reseller.
-                                    </p>
-                                    <p v-if="resellerBelowModal" class="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                                        <AlertCircle class="h-3.5 w-3.5 shrink-0" /> Harga reseller di bawah modal ({{ formatRupiah(Number(form.harga_modal || 0)) }}) — berisiko rugi.
-                                    </p>
-                                </template>
-
-                                <!-- Info jasa tanpa stok -->
-                                <div v-else class="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
-                                    <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
-                                    <span>Produk <strong>jasa</strong> tidak menyimpan stok. Pendapatan dihitung dari fee/biaya admin.</span>
                                 </div>
+
+                                <!-- Pratinjau harga reseller / peringatan rugi -->
+                                <div
+                                    v-if="Number(form.potongan_reseller) > 0"
+                                    class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2.5 text-xs"
+                                >
+                                    <span class="text-muted-foreground">Harga untuk reseller: </span>
+                                    <strong class="text-emerald-700 dark:text-emerald-400">{{ formatRupiah(hargaReseller) }}</strong>
+                                    <span class="text-muted-foreground"> (dari {{ formatRupiah(Number(form.harga_jual || 0)) }})</span>
+                                </div>
+                                <p v-else class="text-xs text-muted-foreground">
+                                    Kosongkan / 0 bila produk ini tidak diberi potongan untuk reseller.
+                                </p>
+                                <p v-if="resellerBelowModal" class="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                                    <AlertCircle class="h-3.5 w-3.5 shrink-0" /> Harga reseller di bawah modal ({{ formatRupiah(Number(form.harga_modal || 0)) }}) — berisiko rugi.
+                                </p>
                             </section>
 
                             <!-- ====== Tarif Fee Bertingkat (khusus jasa) ====== -->
@@ -1615,11 +1608,21 @@ const statusClass: Record<string, string> = {
                                     <span class="text-xs font-normal text-muted-foreground">(opsional)</span>
                                 </div>
 
+                                <!-- Catatan akunting jasa (dipindah dari section Harga & Stok) -->
+                                <div class="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
+                                    <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
+                                    <span>
+                                        Produk <strong>jasa</strong> tidak menyimpan stok. Pendapatan toko = <strong>fee (biaya admin)</strong>,
+                                        bukan nominal transfer/tarik. Atur fee-nya di sini.
+                                    </span>
+                                </div>
+
                                 <div class="flex items-start gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
                                     <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />
                                     <span>
                                         Atur fee sesuai <strong>range nominal</strong>. Saat transaksi, kasir cukup mengisi nominal lalu
-                                        fee terisi otomatis. <strong>Kosongkan</strong> bila fee ingin diketik manual tiap transaksi.
+                                        fee terisi otomatis. Untuk <strong>fee tetap</strong> (sama berapa pun nominal), cukup buat satu
+                                        range mulai Rp0. <strong>Kosongkan</strong> bila fee ingin diketik manual tiap transaksi.
                                     </span>
                                 </div>
 
