@@ -630,14 +630,22 @@ const statusLabel: Record<string, string> = {
 const showBarcodeModal = ref(false);
 const barcodePrintList = ref<Produk[]>([]);
 const barcodeRefs = ref<SVGElement[]>([]);
+// Mode 'single' = cetak per produk (boleh pilih jumlah salinan), 'all' = cetak semua produk.
+const barcodeMode = ref<'single' | 'all'>('single');
+const barcodeCopies = ref(1);
+const MAX_BARCODE_COPIES = 200;
 
 function openPrintBarcode(produk: Produk) {
+    barcodeMode.value = 'single';
+    barcodeCopies.value = 1;
     barcodePrintList.value = [produk];
     showBarcodeModal.value = true;
     nextTick(() => renderBarcodes());
 }
 
 function openPrintAllBarcodes() {
+    barcodeMode.value = 'all';
+    barcodeCopies.value = 1;
     barcodePrintList.value = filteredProduks.value.filter((p) => p.barcode);
     showBarcodeModal.value = true;
     nextTick(() => renderBarcodes());
@@ -679,18 +687,26 @@ function setBarcodeRef(el: unknown, index: number) {
 }
 
 function printBarcodes() {
+    // Jumlah salinan tiap label: di mode 'single' user bisa pilih, di mode 'all' selalu 1.
+    const copies =
+        barcodeMode.value === 'single'
+            ? Math.min(Math.max(Math.floor(barcodeCopies.value) || 1, 1), MAX_BARCODE_COPIES)
+            : 1;
+
     const labels = barcodePrintList.value
         .map((produk, i) => {
             const svgEl = barcodeRefs.value[i];
             const svgHtml = svgEl ? svgEl.outerHTML : '';
 
-            return `
+            const singleLabel = `
                 <div class="label">
                     ${svgHtml}
                     <p class="nama">${produk.nama}</p>
                     <p class="harga">${formatRupiah(produk.harga_jual)}</p>
                 </div>
             `;
+
+            return singleLabel.repeat(copies);
         })
         .join('');
 
@@ -1157,7 +1173,10 @@ const statusClass: Record<string, string> = {
                     <div>
                         <h2 class="text-lg font-bold">Cetak Barcode Produk</h2>
                         <p class="mt-0.5 text-xs text-muted-foreground">
-                            {{ barcodePrintList.length }} label barcode siap dicetak
+                            <template v-if="barcodeMode === 'single'">
+                                {{ Math.min(Math.max(Math.floor(barcodeCopies) || 1, 1), MAX_BARCODE_COPIES) }} label barcode siap dicetak
+                            </template>
+                            <template v-else> {{ barcodePrintList.length }} label barcode siap dicetak </template>
                         </p>
                     </div>
                     <button
@@ -1192,6 +1211,46 @@ const statusClass: Record<string, string> = {
                             <p class="mt-0.5 text-center text-xs text-muted-foreground">
                                 {{ formatRupiah(produk.harga_jual) }}
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- Pilihan jumlah salinan: hanya untuk cetak per produk -->
+                    <div
+                        v-if="barcodeMode === 'single'"
+                        class="mb-5 flex flex-col gap-2 rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                        <div>
+                            <label for="barcode-copies" class="block text-sm font-medium">Jumlah label dicetak</label>
+                            <p class="mt-0.5 text-xs text-muted-foreground">
+                                Cetak beberapa label sekaligus dalam satu kertas (maks. {{ MAX_BARCODE_COPIES }}).
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                class="flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border/70 bg-background text-lg font-semibold transition-colors hover:bg-slate-100 disabled:opacity-40 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                                :disabled="barcodeCopies <= 1"
+                                @click="barcodeCopies = Math.max(1, Math.floor(barcodeCopies || 1) - 1)"
+                            >
+                                −
+                            </button>
+                            <input
+                                id="barcode-copies"
+                                v-model.number="barcodeCopies"
+                                type="number"
+                                min="1"
+                                :max="MAX_BARCODE_COPIES"
+                                class="h-9 w-20 rounded-lg border border-sidebar-border/70 bg-background text-center text-sm font-semibold focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-sidebar-border"
+                                @blur="barcodeCopies = Math.min(Math.max(Math.floor(barcodeCopies || 1), 1), MAX_BARCODE_COPIES)"
+                            />
+                            <button
+                                type="button"
+                                class="flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border/70 bg-background text-lg font-semibold transition-colors hover:bg-slate-100 disabled:opacity-40 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                                :disabled="barcodeCopies >= MAX_BARCODE_COPIES"
+                                @click="barcodeCopies = Math.min(MAX_BARCODE_COPIES, Math.floor(barcodeCopies || 1) + 1)"
+                            >
+                                +
+                            </button>
                         </div>
                     </div>
 
