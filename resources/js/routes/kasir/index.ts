@@ -159,86 +159,8 @@ transaksi.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     
     transaksi.form = transaksiForm
 /**
-* @see \App\Http\Controllers\KasirController::layanan
- * @see app/Http/Controllers/KasirController.php:333
- * @route '/kasir/layanan'
- */
-export const layanan = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: layanan.url(options),
-    method: 'get',
-})
-
-layanan.definition = {
-    methods: ["get","head"],
-    url: '/kasir/layanan',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \App\Http\Controllers\KasirController::layanan
- * @see app/Http/Controllers/KasirController.php:333
- * @route '/kasir/layanan'
- */
-layanan.url = (options?: RouteQueryOptions) => {
-    return layanan.definition.url + queryParams(options)
-}
-
-/**
-* @see \App\Http\Controllers\KasirController::layanan
- * @see app/Http/Controllers/KasirController.php:333
- * @route '/kasir/layanan'
- */
-layanan.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: layanan.url(options),
-    method: 'get',
-})
-/**
-* @see \App\Http\Controllers\KasirController::layanan
- * @see app/Http/Controllers/KasirController.php:333
- * @route '/kasir/layanan'
- */
-layanan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: layanan.url(options),
-    method: 'head',
-})
-
-    /**
-* @see \App\Http\Controllers\KasirController::layanan
- * @see app/Http/Controllers/KasirController.php:333
- * @route '/kasir/layanan'
- */
-    const layananForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-        action: layanan.url(options),
-        method: 'get',
-    })
-
-            /**
-* @see \App\Http\Controllers\KasirController::layanan
- * @see app/Http/Controllers/KasirController.php:333
- * @route '/kasir/layanan'
- */
-        layananForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: layanan.url(options),
-            method: 'get',
-        })
-            /**
-* @see \App\Http\Controllers\KasirController::layanan
- * @see app/Http/Controllers/KasirController.php:333
- * @route '/kasir/layanan'
- */
-        layananForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-            action: layanan.url({
-                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
-                            _method: 'HEAD',
-                            ...(options?.query ?? options?.mergeQuery ?? {}),
-                        }
-                    }),
-            method: 'get',
-        })
-    
-    layanan.form = layananForm
-/**
 * @see \App\Http\Controllers\KasirController::riwayat
- * @see app/Http/Controllers/KasirController.php:569
+ * @see app/Http/Controllers/KasirController.php:558
  * @route '/kasir/riwayat'
  */
 export const riwayat = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -253,7 +175,7 @@ riwayat.definition = {
 
 /**
 * @see \App\Http\Controllers\KasirController::riwayat
- * @see app/Http/Controllers/KasirController.php:569
+ * @see app/Http/Controllers/KasirController.php:558
  * @route '/kasir/riwayat'
  */
 riwayat.url = (options?: RouteQueryOptions) => {
@@ -262,7 +184,7 @@ riwayat.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\KasirController::riwayat
- * @see app/Http/Controllers/KasirController.php:569
+ * @see app/Http/Controllers/KasirController.php:558
  * @route '/kasir/riwayat'
  */
 riwayat.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -271,7 +193,7 @@ riwayat.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\KasirController::riwayat
- * @see app/Http/Controllers/KasirController.php:569
+ * @see app/Http/Controllers/KasirController.php:558
  * @route '/kasir/riwayat'
  */
 riwayat.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -281,7 +203,7 @@ riwayat.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\KasirController::riwayat
- * @see app/Http/Controllers/KasirController.php:569
+ * @see app/Http/Controllers/KasirController.php:558
  * @route '/kasir/riwayat'
  */
     const riwayatForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -291,7 +213,7 @@ riwayat.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\KasirController::riwayat
- * @see app/Http/Controllers/KasirController.php:569
+ * @see app/Http/Controllers/KasirController.php:558
  * @route '/kasir/riwayat'
  */
         riwayatForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -300,7 +222,7 @@ riwayat.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\KasirController::riwayat
- * @see app/Http/Controllers/KasirController.php:569
+ * @see app/Http/Controllers/KasirController.php:558
  * @route '/kasir/riwayat'
  */
         riwayatForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -318,7 +240,6 @@ const kasir = {
     dashboard: Object.assign(dashboard, dashboard),
 transaksi: Object.assign(transaksi, transaksi6b18b1),
 pelanggan: Object.assign(pelanggan, pelanggan),
-layanan: Object.assign(layanan, layanan),
 riwayat: Object.assign(riwayat, riwayat8b6480),
 }
 

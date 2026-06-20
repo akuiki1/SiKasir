@@ -109,18 +109,6 @@ test('a mixed cart (product + jasa) totals product subtotal plus fee only', func
     expect((float) $produk->fresh()->stok)->toBe(8.0);
 });
 
-test('the dedicated kasir layanan page lists jasa products', function () {
-    $kasir = User::factory()->create(['role' => 'kasir']);
-    Produk::factory()->create(['tipe_jual' => 'satuan']);
-    Produk::factory()->create(['tipe_jual' => 'jasa', 'stok' => 0]);
-
-    $this->actingAs($kasir)->get(route('kasir.layanan'))->assertInertia(
-        fn ($page) => $page
-            ->component('kasir/Layanan')
-            ->has('layanan', 1) // hanya produk jasa
-    );
-});
-
 test('the kasir transaksi page also carries the jasa layanan list for the unified cart', function () {
     $kasir = User::factory()->create(['role' => 'kasir']);
     Produk::factory()->create(['tipe_jual' => 'satuan']);

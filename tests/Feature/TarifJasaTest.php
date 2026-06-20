@@ -142,13 +142,13 @@ test('jasa tanpa tarif tetap memakai fee manual', function () {
     ]);
 });
 
-test('halaman layanan kasir mengirim tarif tiap jasa', function () {
+test('halaman transaksi kasir mengirim tarif tiap jasa', function () {
     $kasir = User::factory()->create(['role' => 'kasir']);
     jasaBertarif();
 
-    $this->actingAs($kasir)->get(route('kasir.layanan'))->assertInertia(
+    $this->actingAs($kasir)->get(route('kasir.transaksi'))->assertInertia(
         fn ($page) => $page
-            ->component('kasir/Layanan')
+            ->component('kasir/Transaksi')
             ->has('layanan', 1)
             ->has('layanan.0.tarifs', 3)
     );

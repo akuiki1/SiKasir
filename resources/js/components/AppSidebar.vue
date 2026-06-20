@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { LayoutGrid, Users, Package, ShoppingCart, History, DollarSign, Tag, Tags, Factory, Contact, CreditCard, Warehouse, Wallet, TrendingUp, UsersRound } from 'lucide-vue-next';
+import { LayoutGrid, Users, Package, ShoppingCart, History, DollarSign, Tag, Tags, Factory, Contact, Warehouse, Wallet, TrendingUp, UsersRound } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -144,11 +144,6 @@ const mainNavGroups = computed<NavGroup[]>(() => {
                     title: 'Transaksi',
                     href: '/kasir/transaksi',
                     icon: ShoppingCart,
-                },
-                {
-                    title: 'Layanan / Jasa',
-                    href: '/kasir/layanan',
-                    icon: CreditCard,
                 },
             ],
         },

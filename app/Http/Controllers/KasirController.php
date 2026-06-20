@@ -326,17 +326,6 @@ class KasirController extends Controller
             ]);
     }
 
-    /**
-     * Halaman jasa/fee terpisah (transfer, tarik tunai) — bukan transaksi produk.
-     * Memakai endpoint store yang sama; nominal = pass-through, fee = pendapatan.
-     */
-    public function layanan(): Response
-    {
-        return Inertia::render('kasir/Layanan', [
-            'layanan' => $this->jasaLayanan(),
-        ]);
-    }
-
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([

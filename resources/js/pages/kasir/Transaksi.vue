@@ -22,7 +22,7 @@ import {
     Users,
     Loader2,
 } from 'lucide-vue-next';
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 import { toast } from 'vue-sonner';
 import { usePagination } from '@/composables/usePagination';
@@ -475,8 +475,10 @@ function addToCart(product: Produk) {
 // Tambah baris jasa ke keranjang yang sama. Selalu baris baru: satu layanan bisa
 // dipakai berkali-kali dengan nominal/fee berbeda dalam satu transaksi.
 function addJasaToCart(svc: Layanan) {
+    const uid = nextUid();
+
     cartItems.value.push({
-        uid: nextUid(),
+        uid,
         id_produk: svc.id_produk,
         nama: svc.nama,
         harga: 0,
@@ -495,6 +497,14 @@ function addJasaToCart(svc: Layanan) {
     });
 
     cartOpen.value = true; // buka keranjang agar kasir langsung isi nominal & fee
+
+    // Fokuskan langsung input nominal baris baru supaya kasir bisa mengetik tanpa
+    // mencari-cari. preventScroll agar tidak melompat saat drawer mobile beranimasi.
+    void nextTick(() => {
+        document
+            .querySelector<HTMLInputElement>(`[data-jasa-nominal="${uid}"]`)
+            ?.focus({ preventScroll: true });
+    });
 }
 
 function removeCartItem(item: CartItem) {
@@ -912,6 +922,31 @@ function submitTransaction() {
                     </button>
                 </div>
 
+                <!-- Layanan / Jasa: transfer & tarik tunai. Band tersendiri (bukan ikut
+                     baris favorit) agar selalu terlihat & tidak terdorong keluar layar.
+                     Tiap tombol menambah baris jasa ke keranjang yang sama. -->
+                <div
+                    v-if="layanan.length"
+                    class="flex items-center gap-2.5 rounded-2xl border border-violet-500/30 bg-violet-500/[0.07] px-3 py-2 dark:bg-violet-500/10"
+                >
+                    <span class="flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                        <CreditCard class="h-4 w-4" />
+                        <span class="hidden sm:inline">Layanan</span>
+                    </span>
+                    <div class="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto">
+                        <button
+                            v-for="svc in layanan"
+                            :key="'svc-' + svc.id_produk"
+                            type="button"
+                            class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 active:scale-[0.98]"
+                            @click="addJasaToCart(svc)"
+                        >
+                            {{ svc.nama }}
+                            <Plus class="h-3.5 w-3.5 opacity-90" />
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Filter kategori -->
                 <div v-if="categories.length" class="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 @md/pos:-mx-6 @md/pos:px-6 @2xl/pos:mx-0 @2xl/pos:px-0">
                     <button
@@ -943,46 +978,28 @@ function submitTransaction() {
                     </button>
                 </div>
 
-                <!-- Tambah cepat: favorit (produk) + layanan/jasa dalam satu baris, dipisah dari filter -->
+                <!-- Sering dibeli: quick-add produk terlaris (sembunyi saat mencari) -->
                 <div
-                    v-if="(favoriteProducts.length && !searchQuery) || layanan.length"
+                    v-if="favoriteProducts.length && !searchQuery"
                     class="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-0.5 @md/pos:-mx-6 @md/pos:px-6 @2xl/pos:mx-0 @2xl/pos:px-0"
                 >
                     <span class="flex shrink-0 items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                        <Zap class="h-3.5 w-3.5" /> Cepat
+                        <Zap class="h-3.5 w-3.5" /> Sering dibeli
                     </span>
 
-                    <template v-if="!searchQuery">
-                        <button
-                            v-for="fav in favoriteProducts"
-                            :key="'fav-' + fav.id_produk"
-                            type="button"
-                            class="inline-flex shrink-0 items-center gap-2 rounded-full border border-sidebar-border/70 bg-background px-3 py-1.5 text-xs font-semibold transition hover:border-indigo-500/40 hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800"
-                            @click="addToCart(fav)"
-                        >
-                            <span class="max-w-[7rem] truncate">{{ fav.nama }}</span>
-                            <span class="text-indigo-600 dark:text-indigo-400">{{ formatRupiah(fav.harga_jual) }}</span>
-                            <span
-                                v-if="cartQtyById.get(fav.id_produk)"
-                                class="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white"
-                            >{{ formatQty(cartQtyById.get(fav.id_produk)!) }}</span>
-                        </button>
-                    </template>
-
-                    <span
-                        v-if="!searchQuery && favoriteProducts.length && layanan.length"
-                        class="h-5 w-px shrink-0 bg-sidebar-border/70 dark:bg-sidebar-border"
-                    ></span>
-
                     <button
-                        v-for="svc in layanan"
-                        :key="'svc-' + svc.id_produk"
+                        v-for="fav in favoriteProducts"
+                        :key="'fav-' + fav.id_produk"
                         type="button"
-                        class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-500/20 dark:text-violet-300"
-                        @click="addJasaToCart(svc)"
+                        class="inline-flex shrink-0 items-center gap-2 rounded-full border border-sidebar-border/70 bg-background px-3 py-1.5 text-xs font-semibold transition hover:border-indigo-500/40 hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800"
+                        @click="addToCart(fav)"
                     >
-                        <CreditCard class="h-3.5 w-3.5" />
-                        {{ svc.nama }}
+                        <span class="max-w-[7rem] truncate">{{ fav.nama }}</span>
+                        <span class="text-indigo-600 dark:text-indigo-400">{{ formatRupiah(fav.harga_jual) }}</span>
+                        <span
+                            v-if="cartQtyById.get(fav.id_produk)"
+                            class="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white"
+                        >{{ formatQty(cartQtyById.get(fav.id_produk)!) }}</span>
                     </button>
                 </div>
             </div>
@@ -1284,6 +1301,7 @@ function submitTransaction() {
                                     min="0"
                                     inputmode="numeric"
                                     placeholder="500000"
+                                    :data-jasa-nominal="item.uid"
                                     :class="[
                                         'w-full rounded-lg border bg-background py-2 pl-7 pr-2 text-sm font-semibold transition focus:ring-2 focus:ring-indigo-500/20 focus:outline-none',
                                         (Number(item.nominal) || 0) <= 0
