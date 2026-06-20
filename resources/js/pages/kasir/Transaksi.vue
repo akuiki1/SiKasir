@@ -20,7 +20,7 @@ import {
     Lock,
     Zap,
     Users,
-    ChevronDown,
+    Loader2,
 } from 'lucide-vue-next';
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
@@ -116,7 +116,6 @@ const scannerStatusText = ref('Scanner tidak terdeteksi');
 const selectedCategory = ref('');
 const cartItems = ref<CartItem[]>([]);
 const cartOpen = ref(false);
-const showOptions = ref(false); // pelanggan & promo dilipat (progressive disclosure)
 const scannerBuffer = ref('');
 const lastScannerTime = ref(0);
 const SCANNER_TIMEOUT_MS = 150;
@@ -149,8 +148,76 @@ const form = useForm({
 let cartUidSeq = 0;
 const nextUid = (): number => ++cartUidSeq;
 
-const selectedPelanggan = computed(() => props.pelanggans.find((p) => p.id_pelanggan === form.id_pelanggan) ?? null);
+// Pelanggan dipilih via pencarian server-side (bukan dropdown penuh) agar tetap ringan
+// walau pelanggan banyak. selectedPelanggan disimpan lokal, bukan diturunkan dari props.
+const selectedPelanggan = ref<Pelanggan | null>(null);
 const isReseller = computed(() => selectedPelanggan.value?.tipe === 'reseller');
+
+const pelangganQuery = ref('');
+const pelangganResults = ref<Pelanggan[]>(props.pelanggans);
+const pelangganSearching = ref(false);
+const pelangganDropdownOpen = ref(false);
+const pelangganBoxRef = ref<HTMLElement | null>(null);
+let pelangganDebounce: ReturnType<typeof setTimeout> | undefined;
+
+function onPelangganInput(): void {
+    pelangganDropdownOpen.value = true;
+
+    if (pelangganDebounce) {
+        clearTimeout(pelangganDebounce);
+    }
+
+    pelangganDebounce = setTimeout(fetchPelanggan, 250);
+}
+
+async function fetchPelanggan(): Promise<void> {
+    pelangganSearching.value = true;
+
+    try {
+        const url = `/kasir/pelanggan/cari?q=${encodeURIComponent(pelangganQuery.value.trim())}`;
+        const res = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await res.json();
+        pelangganResults.value = Array.isArray(data?.pelanggans) ? data.pelanggans : [];
+    } catch {
+        pelangganResults.value = [];
+    } finally {
+        pelangganSearching.value = false;
+    }
+}
+
+function selectPelanggan(pelanggan: Pelanggan | null): void {
+    selectedPelanggan.value = pelanggan;
+    form.id_pelanggan = pelanggan?.id_pelanggan ?? null;
+    pelangganDropdownOpen.value = false;
+    pelangganQuery.value = '';
+}
+
+function clearPelanggan(): void {
+    selectPelanggan(null);
+    pelangganResults.value = props.pelanggans;
+}
+
+function openPelangganDropdown(): void {
+    pelangganDropdownOpen.value = true;
+
+    // Saat dibuka tanpa kata kunci, kembalikan saran awal bila kosong.
+    if (!pelangganQuery.value.trim() && pelangganResults.value.length === 0) {
+        pelangganResults.value = props.pelanggans;
+    }
+}
+
+function handlePelangganOutside(event: MouseEvent): void {
+    if (
+        pelangganDropdownOpen.value &&
+        pelangganBoxRef.value &&
+        !pelangganBoxRef.value.contains(event.target as Node)
+    ) {
+        pelangganDropdownOpen.value = false;
+    }
+}
 
 // Harga efektif per item: reseller dipotong rupiah per produk; jasa tak terpengaruh.
 function effectiveHarga(item: CartItem): number {
@@ -581,16 +648,6 @@ const selectedPromo = computed(() => {
     return props.promos.find((promo) => promo.id_promo === form.id_promo) ?? null;
 });
 
-// Ringkasan ringkas pelanggan + promo untuk header bagian opsi yang bisa dilipat.
-const optionsSummary = computed(() => {
-    const pelanggan = selectedPelanggan.value
-        ? `${selectedPelanggan.value.nama}${isReseller.value ? ' (Reseller)' : ''}`
-        : 'Pelanggan umum';
-    const promo = selectedPromo.value ? selectedPromo.value.nama : 'Tanpa promo';
-
-    return `${pelanggan} · ${promo}`;
-});
-
 function calculateItemPromoDiscount(item: CartItem): number {
     // Promo produk tidak berlaku untuk fee jasa (selaras backend: jasa di-skip).
     if (item.tipe_jual === 'jasa') {
@@ -706,6 +763,7 @@ function handleScannerKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
     document.addEventListener('keydown', handleScannerKeydown);
+    document.addEventListener('mousedown', handlePelangganOutside);
     void detectScannerDevice();
 
     const hid = getHidApi();
@@ -716,6 +774,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     document.removeEventListener('keydown', handleScannerKeydown);
+    document.removeEventListener('mousedown', handlePelangganOutside);
 
     const hid = getHidApi();
 
@@ -792,6 +851,9 @@ function submitTransaction() {
             form.bayar = '';
             form.id_promo = null;
             form.id_pelanggan = null;
+            selectedPelanggan.value = null;
+            pelangganQuery.value = '';
+            pelangganResults.value = props.pelanggans;
             cartOpen.value = false;
         },
     });
@@ -801,10 +863,10 @@ function submitTransaction() {
 <template>
     <Head title="Transaksi Baru - Kasir" />
 
-    <div class="@container/pos relative h-[calc(100svh-4rem)] overflow-hidden md:h-[calc(100svh-5rem)]">
-        <div class="flex h-full flex-col overflow-hidden @2xl/pos:flex-row @2xl/pos:gap-4 @2xl/pos:p-4 @5xl/pos:gap-6 @5xl/pos:p-6">
+    <div class="@container/pos relative">
+        <div class="flex min-h-[calc(100svh-4rem)] flex-col @2xl/pos:min-h-[calc(100svh-5rem)] @2xl/pos:flex-row @2xl/pos:gap-4 @2xl/pos:p-4 @5xl/pos:gap-6 @5xl/pos:p-6">
         <!-- ============ PRODUK ============ -->
-        <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div class="flex min-w-0 flex-1 flex-col">
             <!-- Header + pencarian + kategori (tetap di atas, tidak ikut scroll) -->
             <div class="shrink-0 space-y-3 px-4 pt-4 @md/pos:px-6 @md/pos:pt-6 @2xl/pos:px-0 @2xl/pos:pt-0">
                 <div class="flex items-center justify-between gap-3">
@@ -925,16 +987,16 @@ function submitTransaction() {
                 </div>
             </div>
 
-            <!-- Grid produk (area scroll) -->
-            <div class="@container/cat flex-1 overflow-y-auto px-4 pt-4 pb-28 @md/pos:px-6 @2xl/pos:px-0 @2xl/pos:pb-4">
-                <div class="grid grid-cols-2 gap-3 @lg/cat:grid-cols-3 @lg/cat:gap-4 @3xl/cat:grid-cols-4 @5xl/cat:grid-cols-5">
+            <!-- Grid produk (mengalir sesuai paginasi, tanpa scroll internal) -->
+            <div class="@container/cat flex-1 px-4 pt-4 pb-28 @md/pos:px-6 @2xl/pos:px-0 @2xl/pos:pb-4">
+                <div class="grid grid-cols-4 gap-2 @md/cat:gap-3 @3xl/cat:grid-cols-5 @5xl/cat:grid-cols-6">
                     <button
                         v-for="product in paginatedProduks"
                         :key="product.id_produk"
                         type="button"
                         :disabled="product.stok === 0"
                         :class="[
-                            'group relative flex flex-col overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-all duration-200',
+                            'group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left shadow-sm transition-all duration-200 @lg/cat:rounded-2xl',
                             product.stok > 0
                                 ? 'border-sidebar-border/70 hover:-translate-y-0.5 hover:border-indigo-500/40 hover:shadow-md active:scale-[0.98] dark:border-sidebar-border'
                                 : 'cursor-not-allowed border-sidebar-border/40 opacity-60',
@@ -950,15 +1012,15 @@ function submitTransaction() {
                             />
                             <div
                                 v-else
-                                class="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground"
+                                class="flex h-full w-full items-center justify-center text-muted-foreground"
                             >
-                                <PackageX class="h-7 w-7 opacity-40" />
+                                <PackageX class="h-6 w-6 opacity-40" />
                             </div>
 
                             <!-- Badge promo -->
                             <span
                                 v-if="activeProductPromos.get(product.id_produk)"
-                                class="absolute left-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow"
+                                class="absolute left-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow @lg/cat:left-2 @lg/cat:top-2 @lg/cat:px-2 @lg/cat:text-[10px]"
                             >
                                 <Percent class="h-2.5 w-2.5" />
                                 {{ activeProductPromos.get(product.id_produk)?.tipe === 'persen' ? `${activeProductPromos.get(product.id_produk)?.nilai}%` : 'Promo' }}
@@ -967,7 +1029,7 @@ function submitTransaction() {
                             <!-- Badge qty di keranjang -->
                             <span
                                 v-if="cartQtyById.get(product.id_produk)"
-                                class="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-xs font-bold text-white shadow-md ring-2 ring-white dark:ring-zinc-900"
+                                class="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white shadow-md ring-2 ring-white @lg/cat:right-2 @lg/cat:top-2 @lg/cat:h-6 @lg/cat:min-w-6 @lg/cat:text-xs dark:ring-zinc-900"
                             >
                                 {{ formatQty(cartQtyById.get(product.id_produk)!) }}
                             </span>
@@ -977,42 +1039,29 @@ function submitTransaction() {
                                 v-if="product.stok === 0"
                                 class="absolute inset-0 flex items-center justify-center bg-slate-900/40"
                             >
-                                <span class="rounded-full bg-rose-600 px-3 py-1 text-xs font-bold text-white">Stok Habis</span>
+                                <span class="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">Habis</span>
                             </div>
                         </div>
 
-                        <div class="flex flex-1 flex-col p-3">
-                            <span class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {{ product.kategori ?? 'Umum' }}
-                            </span>
-                            <h3 class="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+                        <div class="flex flex-1 flex-col p-2 @lg/cat:p-3">
+                            <h3 class="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground @lg/cat:text-sm @lg/cat:leading-snug">
                                 {{ product.nama }}
                             </h3>
-                            <div class="mt-2 flex items-end justify-between gap-2 pt-1">
-                                <div class="min-w-0">
-                                    <p class="truncate text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                                        {{ formatRupiah(product.harga_jual) }}<span v-if="product.tipe_jual === 'curah'" class="text-[10px] font-medium text-muted-foreground"> / {{ product.satuan }}</span>
-                                    </p>
-                                    <p
-                                        :class="[
-                                            'text-[10px] font-medium',
-                                            product.stok > 10
-                                                ? 'text-muted-foreground'
-                                                : product.stok > 0
-                                                ? 'text-amber-600 dark:text-amber-400'
-                                                : 'text-rose-600 dark:text-rose-400',
-                                        ]"
-                                    >
-                                        {{ product.stok > 0 ? `Stok ${formatQty(product.stok)} ${product.satuan}` : 'Habis' }}
-                                    </p>
-                                </div>
-                                <span
-                                    v-if="product.stok > 0"
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm transition group-hover:bg-indigo-500"
-                                >
-                                    <Plus class="h-4 w-4" />
-                                </span>
-                            </div>
+                            <p class="mt-1 truncate text-xs font-bold text-indigo-600 @lg/cat:text-sm dark:text-indigo-400">
+                                {{ formatRupiah(product.harga_jual) }}<span v-if="product.tipe_jual === 'curah'" class="text-[9px] font-medium text-muted-foreground">/{{ product.satuan }}</span>
+                            </p>
+                            <p
+                                :class="[
+                                    'mt-0.5 text-[9px] font-medium @lg/cat:text-[10px]',
+                                    product.stok > 10
+                                        ? 'text-muted-foreground'
+                                        : product.stok > 0
+                                        ? 'text-amber-600 dark:text-amber-400'
+                                        : 'text-rose-600 dark:text-rose-400',
+                                ]"
+                            >
+                                {{ product.stok > 0 ? `Stok ${formatQty(product.stok)}` : 'Habis' }}
+                            </p>
                         </div>
                     </button>
                 </div>
@@ -1056,13 +1105,13 @@ function submitTransaction() {
         <aside
             :class="[
                 'flex flex-col bg-card shadow-2xl transition-transform duration-300 ease-out',
-                'fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-3xl border-t border-sidebar-border/70 dark:border-sidebar-border',
+                'fixed inset-x-0 bottom-0 z-50 max-h-[88vh] overflow-y-auto rounded-t-3xl border-t border-sidebar-border/70 dark:border-sidebar-border',
                 cartOpen ? 'translate-y-0' : 'translate-y-full',
-                '@2xl/pos:static @2xl/pos:z-auto @2xl/pos:max-h-none @2xl/pos:w-[300px] @2xl/pos:shrink-0 @2xl/pos:translate-y-0 @2xl/pos:rounded-2xl @2xl/pos:border @2xl/pos:shadow-sm @4xl/pos:w-[340px] @6xl/pos:w-[380px]',
+                '@2xl/pos:static @2xl/pos:z-auto @2xl/pos:max-h-none @2xl/pos:w-[300px] @2xl/pos:shrink-0 @2xl/pos:translate-y-0 @2xl/pos:self-start @2xl/pos:overflow-visible @2xl/pos:rounded-2xl @2xl/pos:border @2xl/pos:shadow-sm @4xl/pos:w-[340px] @6xl/pos:w-[380px]',
             ]"
         >
-            <!-- Header keranjang -->
-            <div class="shrink-0">
+            <!-- Header keranjang: menempel di atas saat drawer mobile di-scroll -->
+            <div class="sticky top-0 z-10 shrink-0 bg-card @2xl/pos:static">
                 <!-- handle drawer (mobile) -->
                 <div class="flex justify-center pt-2.5 @2xl/pos:hidden">
                     <span class="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-zinc-700"></span>
@@ -1097,8 +1146,8 @@ function submitTransaction() {
                 </div>
             </div>
 
-            <!-- Daftar item (scroll) -->
-            <div class="flex-1 divide-y divide-sidebar-border/70 overflow-y-auto dark:divide-sidebar-border">
+            <!-- Daftar item: tampil sepanjang isinya, tanpa scroll internal (modal/halaman yang scroll) -->
+            <div class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
                 <div
                     v-if="cartItems.length === 0"
                     class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center"
@@ -1289,54 +1338,103 @@ function submitTransaction() {
             <!-- Ringkasan + pembayaran -->
             <div class="shrink-0 border-t border-sidebar-border/70 bg-slate-50/60 dark:border-sidebar-border dark:bg-zinc-900/40">
                 <template v-if="cartItems.length">
-                    <!-- Pelanggan & promo (dilipat; ringkasan selalu terlihat) -->
-                    <div class="border-b border-sidebar-border/70 dark:border-sidebar-border">
-                        <button
-                            type="button"
-                            class="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition hover:bg-slate-100/60 dark:hover:bg-zinc-800/40"
-                            :aria-expanded="showOptions"
-                            @click="showOptions = !showOptions"
-                        >
-                            <span class="flex min-w-0 items-center gap-2">
-                                <Users class="h-4 w-4 shrink-0 text-muted-foreground" />
-                                <span class="truncate text-xs font-semibold text-foreground">{{ optionsSummary }}</span>
-                            </span>
-                            <span class="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
-                                {{ showOptions ? 'Tutup' : 'Ubah' }}
-                                <ChevronDown :class="['h-4 w-4 transition-transform', showOptions ? 'rotate-180' : '']" />
-                            </span>
-                        </button>
-                        <div v-show="showOptions" class="space-y-2.5 px-4 pb-3">
-                            <div>
-                                <label class="mb-1 block text-[11px] font-semibold text-muted-foreground">Pelanggan</label>
-                                <select
-                                    v-model.number="form.id_pelanggan"
-                                    class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3 py-2 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                    <!-- Pelanggan & promo: selalu terlihat agar kasir tidak terlewat memilih -->
+                    <div class="space-y-2.5 border-b border-sidebar-border/70 px-4 py-3 dark:border-sidebar-border">
+                        <!-- Pelanggan: pencarian server-side -->
+                        <div ref="pelangganBoxRef" class="relative">
+                            <label class="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                                <Users class="h-3.5 w-3.5" /> Pelanggan
+                            </label>
+
+                            <!-- Pelanggan terpilih (chip) -->
+                            <div
+                                v-if="selectedPelanggan"
+                                class="flex items-center justify-between gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-3 py-2"
+                            >
+                                <span class="flex min-w-0 items-center gap-1.5">
+                                    <span class="truncate text-sm font-semibold text-foreground">{{ selectedPelanggan.nama }}</span>
+                                    <span
+                                        v-if="selectedPelanggan.tipe === 'reseller'"
+                                        class="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
+                                    >Reseller</span>
+                                </span>
+                                <button
+                                    type="button"
+                                    aria-label="Hapus pelanggan"
+                                    class="rounded-lg p-1 text-muted-foreground transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+                                    @click="clearPelanggan"
                                 >
-                                    <option :value="null">Umum (tanpa potongan)</option>
-                                    <option v-for="p in pelanggans" :key="p.id_pelanggan" :value="p.id_pelanggan">
-                                        {{ p.nama }}{{ p.tipe === 'reseller' ? ' (Reseller)' : '' }}
-                                    </option>
-                                </select>
-                                <p v-if="isReseller" class="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                                    Harga reseller diterapkan ke produk yang punya potongan.
+                                    <X class="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            <!-- Input pencarian -->
+                            <div v-else class="relative">
+                                <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                    v-model="pelangganQuery"
+                                    type="text"
+                                    placeholder="Cari nama pelanggan..."
+                                    aria-label="Cari pelanggan"
+                                    class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2 pl-9 pr-9 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                                    @input="onPelangganInput"
+                                    @focus="openPelangganDropdown"
+                                />
+                                <Loader2 v-if="pelangganSearching" class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                            </div>
+
+                            <!-- Dropdown hasil pencarian -->
+                            <div
+                                v-if="pelangganDropdownOpen && !selectedPelanggan"
+                                class="absolute inset-x-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-sidebar-border/70 bg-card py-1 shadow-xl dark:border-sidebar-border"
+                            >
+                                <button
+                                    type="button"
+                                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-slate-100 dark:hover:bg-zinc-800"
+                                    @click="selectPelanggan(null)"
+                                >
+                                    <Users class="h-4 w-4 shrink-0 text-muted-foreground" />
+                                    Umum (tanpa potongan)
+                                </button>
+                                <button
+                                    v-for="p in pelangganResults"
+                                    :key="p.id_pelanggan"
+                                    type="button"
+                                    class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition hover:bg-slate-100 dark:hover:bg-zinc-800"
+                                    @click="selectPelanggan(p)"
+                                >
+                                    <span class="truncate">{{ p.nama }}</span>
+                                    <span
+                                        v-if="p.tipe === 'reseller'"
+                                        class="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
+                                    >Reseller</span>
+                                </button>
+                                <p v-if="pelangganSearching" class="px-3 py-2 text-xs text-muted-foreground">Mencari…</p>
+                                <p v-else-if="pelangganResults.length === 0" class="px-3 py-2 text-xs text-muted-foreground">
+                                    Pelanggan tidak ditemukan.
                                 </p>
                             </div>
-                            <div>
-                                <label class="mb-1 block text-[11px] font-semibold text-muted-foreground">Promo tambahan</label>
-                                <select
-                                    v-model.number="form.id_promo"
-                                    class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3 py-2 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
-                                >
-                                    <option :value="null">Tanpa promo</option>
-                                    <option v-for="promo in globalPromos" :key="promo.id_promo" :value="promo.id_promo">
-                                        {{ promo.nama }}
-                                    </option>
-                                </select>
-                                <p v-if="selectedPromo && selectedPromo.minimal_belanja && totalHarga < selectedPromo.minimal_belanja" class="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-                                    Minimal belanja {{ formatRupiah(selectedPromo.minimal_belanja) }} untuk promo ini.
-                                </p>
-                            </div>
+
+                            <p v-if="isReseller" class="mt-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                Harga reseller diterapkan ke produk yang punya potongan.
+                            </p>
+                        </div>
+
+                        <!-- Promo tambahan -->
+                        <div>
+                            <label class="mb-1 block text-[11px] font-semibold text-muted-foreground">Promo tambahan</label>
+                            <select
+                                v-model.number="form.id_promo"
+                                class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3 py-2 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                            >
+                                <option :value="null">Tanpa promo</option>
+                                <option v-for="promo in globalPromos" :key="promo.id_promo" :value="promo.id_promo">
+                                    {{ promo.nama }}
+                                </option>
+                            </select>
+                            <p v-if="selectedPromo && selectedPromo.minimal_belanja && totalHarga < selectedPromo.minimal_belanja" class="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                                Minimal belanja {{ formatRupiah(selectedPromo.minimal_belanja) }} untuk promo ini.
+                            </p>
                         </div>
                     </div>
 

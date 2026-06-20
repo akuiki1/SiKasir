@@ -242,14 +242,10 @@ class KasirController extends Controller
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        // Pelanggan untuk pemilih di keranjang (default "Umum"); reseller dapat potongan harga.
-        $pelanggans = Pelanggan::orderBy('nama')
-            ->get()
-            ->map(fn (Pelanggan $pelanggan) => [
-                'id_pelanggan' => $pelanggan->id_pelanggan,
-                'nama' => $pelanggan->nama,
-                'tipe' => $pelanggan->tipe,
-            ]);
+        // Saran awal pelanggan untuk pemilih di keranjang (default "Umum"); reseller dapat
+        // potongan harga. Daftar penuh tidak di-preload — kasir mencari via endpoint
+        // cariPelanggan() (server-side) agar tetap ringan walau pelanggan banyak.
+        $pelanggans = $this->pelangganSuggestions();
 
         $now = now();
         $promos = Promo::with('produk')
@@ -275,6 +271,37 @@ class KasirController extends Controller
             // Produk jasa bisa ditambahkan ke keranjang yang sama (1 transaksi campuran).
             'layanan' => $this->jasaLayanan(),
         ]);
+    }
+
+    /**
+     * Pencarian pelanggan server-side untuk pemilih di keranjang (live search).
+     * Dipanggil via fetch dari halaman transaksi; query kosong → saran awal.
+     */
+    public function cariPelanggan(Request $request): JsonResponse
+    {
+        $query = trim((string) $request->query('q', ''));
+
+        return response()->json([
+            'pelanggans' => $this->pelangganSuggestions($query),
+        ]);
+    }
+
+    /**
+     * Daftar pelanggan untuk pemilih kasir. Tanpa kata kunci → 8 teratas (alfabet)
+     * sebagai saran awal; dengan kata kunci → maksimal 20 yang cocok pada nama.
+     */
+    private function pelangganSuggestions(string $query = ''): \Illuminate\Support\Collection
+    {
+        return Pelanggan::query()
+            ->when($query !== '', fn (Builder $builder) => $builder->where('nama', 'like', "%{$query}%"))
+            ->orderBy('nama')
+            ->limit($query === '' ? 8 : 20)
+            ->get()
+            ->map(fn (Pelanggan $pelanggan) => [
+                'id_pelanggan' => $pelanggan->id_pelanggan,
+                'nama' => $pelanggan->nama,
+                'tipe' => $pelanggan->tipe,
+            ]);
     }
 
     /** Daftar produk jasa + tarif fee bertingkat untuk pemilih layanan di kasir. */
