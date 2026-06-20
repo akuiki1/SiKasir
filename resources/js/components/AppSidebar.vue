@@ -1,6 +1,21 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { LayoutGrid, Users, Package, ShoppingCart, History, DollarSign, Tag, Tags, Factory, Contact, Warehouse, Wallet, TrendingUp, UsersRound } from 'lucide-vue-next';
+import {
+    LayoutGrid,
+    Users,
+    Package,
+    ShoppingCart,
+    History,
+    DollarSign,
+    Tag,
+    Tags,
+    Factory,
+    Contact,
+    Warehouse,
+    Wallet,
+    TrendingUp,
+    UsersRound,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -19,8 +34,10 @@ import type { NavGroup } from '@/types';
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 
+const isAdmin = computed(() => user.value?.role === 'admin');
+
 const roleLabel = computed(() =>
-    user.value?.role === 'admin' ? 'Panel Admin' : 'Mode Kasir',
+    isAdmin.value ? 'Panel Admin' : 'Mode Kasir',
 );
 
 const mainNavGroups = computed<NavGroup[]>(() => {
@@ -126,30 +143,21 @@ const mainNavGroups = computed<NavGroup[]>(() => {
         ];
     }
 
+    // Kasir hanya punya sedikit menu — tampilkan datar tanpa label kategori.
     return [
         {
-            label: 'Ringkasan',
+            label: '',
             items: [
                 {
                     title: 'Dashboard',
                     href: '/kasir/dashboard',
                     icon: LayoutGrid,
                 },
-            ],
-        },
-        {
-            label: 'Penjualan',
-            items: [
                 {
                     title: 'Transaksi',
                     href: '/kasir/transaksi',
                     icon: ShoppingCart,
                 },
-            ],
-        },
-        {
-            label: 'Riwayat',
-            items: [
                 {
                     title: 'Riwayat Transaksi',
                     href: '/kasir/riwayat',
@@ -159,7 +167,6 @@ const mainNavGroups = computed<NavGroup[]>(() => {
         },
     ];
 });
-
 </script>
 
 <template>
@@ -168,7 +175,13 @@ const mainNavGroups = computed<NavGroup[]>(() => {
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link :href="user?.role === 'admin' ? '/admin/dashboard' : '/kasir/dashboard'">
+                        <Link
+                            :href="
+                                user?.role === 'admin'
+                                    ? '/admin/dashboard'
+                                    : '/kasir/dashboard'
+                            "
+                        >
                             <AppLogo :subtitle="roleLabel" />
                         </Link>
                     </SidebarMenuButton>
@@ -180,7 +193,11 @@ const mainNavGroups = computed<NavGroup[]>(() => {
             <NavMain :groups="mainNavGroups" />
         </SidebarContent>
 
-        <SidebarFooter class="border-t border-sidebar-border/60 pt-2">
+        <!-- Akun kasir dipindah ke header; footer hanya untuk admin. -->
+        <SidebarFooter
+            v-if="isAdmin"
+            class="border-t border-sidebar-border/60 pt-2"
+        >
             <NavUser />
         </SidebarFooter>
     </Sidebar>

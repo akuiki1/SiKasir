@@ -22,17 +22,15 @@ const { currentUrl } = useCurrentUrl();
 function isActive(href: NavItem['href']): boolean {
     const path = toUrl(href);
     const current = currentUrl.value;
+
     return current === path || current.startsWith(`${path}/`);
 }
 </script>
 
 <template>
-    <SidebarGroup
-        v-for="group in groups"
-        :key="group.label"
-        class="px-2 py-1"
-    >
+    <SidebarGroup v-for="group in groups" :key="group.label" class="px-2 py-1">
         <SidebarGroupLabel
+            v-if="group.label"
             class="px-2 text-[0.7rem] font-semibold tracking-wider text-sidebar-foreground/50 uppercase"
         >
             {{ group.label }}
