@@ -21,7 +21,7 @@ const perPageOptions = [5, 10, 25, 50, 100];
 
 <template>
     <div
-        class="flex flex-col gap-3 border-t border-sidebar-border/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-sidebar-border"
+        class="flex flex-col gap-3 border-t border-sidebar-border/70 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between dark:border-sidebar-border"
     >
         <div class="flex items-center gap-3 text-sm text-muted-foreground">
             <span>Tampilkan</span>
@@ -33,10 +33,10 @@ const perPageOptions = [5, 10, 25, 50, 100];
                 <option v-for="opt in perPageOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
             <span>per halaman</span>
-            <span v-if="totalItems > 0" class="hidden sm:inline">
+            <span v-if="totalItems > 0" class="hidden lg:inline">
                 &mdash; Menampilkan {{ startIndex }}&ndash;{{ endIndex }} dari {{ totalItems }} data
             </span>
-            <span v-else class="hidden sm:inline">&mdash; Tidak ada data</span>
+            <span v-else class="hidden lg:inline">&mdash; Tidak ada data</span>
         </div>
 
         <div class="flex items-center gap-1">
