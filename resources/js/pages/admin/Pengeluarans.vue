@@ -45,19 +45,37 @@ const props = defineProps<{
     };
 }>();
 
-const tipeOptions = [
-    { value: 'bahan_baku', label: 'Bahan Baku' },
-    { value: 'kemasan', label: 'Kemasan' },
-    { value: 'operasional', label: 'Operasional' },
-    { value: 'transportasi', label: 'Transportasi' },
-    { value: 'gaji', label: 'Gaji' },
-    { value: 'peralatan', label: 'Peralatan' },
-    { value: 'sewa', label: 'Sewa' },
-    { value: 'listrik_air', label: 'Listrik & Air' },
-    { value: 'promosi', label: 'Promosi' },
-    { value: 'pajak', label: 'Pajak' },
-    { value: 'lainnya', label: 'Lainnya' },
+// Tipe yang tergolong modal barang (HPP). Dikecualikan dari Biaya Operasional di
+// Laporan Laba Rugi karena modal produk sudah dihitung lewat batch produksi/HPP —
+// tetap tercatat di Arus Kas sebagai "Belanja Bahan & Produksi".
+const COGS_TIPES = ['bahan_baku', 'kemasan'];
+
+// Dropdown dikelompokkan agar admin paham perbedaan modal barang vs biaya operasional.
+const tipeGroups = [
+    {
+        label: 'Modal Barang (masuk HPP)',
+        options: [
+            { value: 'bahan_baku', label: 'Bahan Baku' },
+            { value: 'kemasan', label: 'Kemasan' },
+        ],
+    },
+    {
+        label: 'Biaya Operasional',
+        options: [
+            { value: 'operasional', label: 'Operasional' },
+            { value: 'transportasi', label: 'Transportasi' },
+            { value: 'gaji', label: 'Gaji' },
+            { value: 'peralatan', label: 'Peralatan' },
+            { value: 'sewa', label: 'Sewa' },
+            { value: 'listrik_air', label: 'Listrik & Air' },
+            { value: 'promosi', label: 'Promosi' },
+            { value: 'pajak', label: 'Pajak' },
+            { value: 'lainnya', label: 'Lainnya' },
+        ],
+    },
 ];
+
+const isModalBarangTipe = computed(() => COGS_TIPES.includes(form.tipe));
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -530,11 +548,19 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                             class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 px-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                         >
                             <option value="" disabled>Pilih tipe</option>
-                            <option v-for="option in tipeOptions" :key="option.value" :value="option.value">
-                                {{ option.label }}
-                            </option>
+                            <optgroup v-for="group in tipeGroups" :key="group.label" :label="group.label">
+                                <option v-for="option in group.options" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </option>
+                            </optgroup>
                         </select>
                         <p v-if="form.errors.tipe" class="mt-2 text-sm text-rose-600">{{ form.errors.tipe }}</p>
+                        <p
+                            v-else-if="isModalBarangTipe"
+                            class="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
+                        >
+                            Tipe ini dihitung sebagai <strong>modal/HPP barang</strong>, jadi muncul di laporan <strong>Arus Kas</strong> — bukan di Biaya Operasional Laba Rugi, supaya modal tidak terhitung dua kali.
+                        </p>
                     </div>
                     <div>
                         <label class="mb-2 block text-sm font-medium">Judul</label>
