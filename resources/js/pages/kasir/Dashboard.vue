@@ -546,30 +546,33 @@ function applyRange(): void {
                     </Link>
                 </div>
 
-                <div v-if="props.recent_transactions.length" class="space-y-4">
-                    <div
+                <div v-if="props.recent_transactions.length" class="space-y-2">
+                    <Link
                         v-for="trx in props.recent_transactions"
                         :key="trx.id_transaksi"
-                        class="flex items-center justify-between rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors"
+                        :href="riwayatRoute.url({ query: { search: trx.kode } })"
+                        :title="`Lihat detail ${trx.kode} di Riwayat`"
+                        class="group flex items-center justify-between gap-3 rounded-lg p-3 transition-colors hover:bg-slate-50 active:scale-[0.99] dark:hover:bg-zinc-800/40"
                     >
-                        <div class="flex items-center gap-3">
-                            <div class="rounded-full bg-emerald-500/10 p-2 text-emerald-600">
+                        <div class="flex min-w-0 items-center gap-3">
+                            <div class="shrink-0 rounded-full bg-emerald-500/10 p-2 text-emerald-600">
                                 <Clock class="h-4 w-4" />
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <p class="text-sm font-bold text-indigo-600 dark:text-indigo-400">#{{ trx.kode }}</p>
-                                <p class="text-xs text-muted-foreground">{{ trx.items }} item • Pukul {{ trx.waktu }}</p>
+                                <p class="truncate text-xs text-muted-foreground">{{ trx.items }} item • Pukul {{ trx.waktu }}</p>
                             </div>
                         </div>
-                        <div class="text-right flex items-center gap-4">
-                            <div>
+                        <div class="flex shrink-0 items-center gap-2">
+                            <div class="text-right">
                                 <p class="text-sm font-bold text-slate-900 dark:text-slate-100">{{ formatRupiah(trx.total_harga) }}</p>
                                 <span class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                                     {{ trx.status }}
                                 </span>
                             </div>
+                            <ChevronRight class="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
                         </div>
-                    </div>
+                    </Link>
                 </div>
                 <div v-else class="flex flex-col items-center justify-center gap-2 py-10 text-center">
                     <ShoppingBag class="h-8 w-8 text-muted-foreground/40" />
@@ -771,11 +774,13 @@ function applyRange(): void {
                     <h2 class="text-base font-bold tracking-tight">Produk Terlaris Saya</h2>
                 </div>
 
-                <div v-if="props.best_sellers.length" class="space-y-3">
-                    <div
+                <div v-if="props.best_sellers.length" class="space-y-1">
+                    <Link
                         v-for="(item, index) in props.best_sellers"
                         :key="item.id_produk"
-                        class="flex items-center gap-3"
+                        :href="transaksiRoute.url({ query: { cari: item.nama } })"
+                        :title="`Cari & jual ${item.nama} di Transaksi`"
+                        class="group -mx-2 flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-slate-50 active:scale-[0.99] dark:hover:bg-zinc-800/40"
                     >
                         <span
                             :class="[
@@ -798,7 +803,8 @@ function applyRange(): void {
                         </div>
                         <p class="min-w-0 flex-1 truncate text-sm font-medium">{{ item.nama }}</p>
                         <span class="shrink-0 text-sm font-bold text-emerald-600 dark:text-emerald-400">{{ item.total_terjual }}x</span>
-                    </div>
+                        <ChevronRight class="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
+                    </Link>
                 </div>
                 <div v-else class="flex flex-col items-center justify-center gap-2 py-8 text-center">
                     <Trophy class="h-8 w-8 text-muted-foreground/40" />

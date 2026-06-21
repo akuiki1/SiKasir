@@ -780,6 +780,13 @@ onMounted(() => {
 
     hid?.addEventListener('connect', handleScannerDeviceConnectionChange);
     hid?.addEventListener('disconnect', handleScannerDeviceConnectionChange);
+
+    // Pra-isi pencarian bila halaman dibuka dari dashboard (tap "Produk Terlaris": /kasir/transaksi?cari=...).
+    const cari = new URLSearchParams(window.location.search).get('cari');
+
+    if (cari) {
+        searchQuery.value = cari;
+    }
 });
 
 onBeforeUnmount(() => {
