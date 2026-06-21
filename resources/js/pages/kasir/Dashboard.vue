@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import {
     PlusCircle,
     Search,
@@ -111,6 +111,14 @@ const props = defineProps<{
 const form = useForm({
     start_date: props.date_range.start_date,
     end_date: props.date_range.end_date,
+});
+
+// Sapaan personal (nama depan kasir) untuk hero — menambah kehangatan ala app besar.
+const page = usePage();
+const firstName = computed(() => {
+    const name = page.props.auth.user?.name ?? '';
+
+    return name.trim().split(' ')[0] || 'Kasir';
 });
 
 // --- Filter periode (selaras dashboard & transaksi admin) ---
@@ -267,16 +275,16 @@ function applyRange(): void {
 <template>
     <Head title="Kasir Dashboard" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-6">
+    <div class="flex h-full flex-1 flex-col gap-5 overflow-x-hidden rounded-xl p-4 md:gap-6 md:p-6">
         <!-- Welcoming Section -->
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900 to-teal-950 p-6 text-white shadow-xl dark:from-zinc-950 dark:to-neutral-900 border border-white/10">
+        <div class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-emerald-900 to-teal-950 p-5 text-white shadow-xl md:p-6 dark:from-zinc-950 dark:to-neutral-900">
             <div class="relative z-10 flex flex-col gap-2">
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-medium text-emerald-300 border border-emerald-500/30 w-fit">
+                <span class="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
                     <CheckCircle class="h-3.5 w-3.5 animate-pulse" />
                     Sesi Kasir Aktif
                 </span>
-                <h1 class="text-3xl font-extrabold tracking-tight">Selamat Bekerja, Kasir!</h1>
-                <p class="text-slate-300 max-w-xl">
+                <h1 class="text-2xl font-extrabold tracking-tight md:text-3xl">Selamat Bekerja, {{ firstName }}!</h1>
+                <p class="hidden max-w-xl text-sm text-slate-300 sm:block">
                     Sistem siap melayani. Mulai transaksi baru dengan cepat menggunakan tombol pintasan di bawah untuk mengoptimalkan pelayanan pelanggan.
                 </p>
             </div>
@@ -285,41 +293,42 @@ function applyRange(): void {
         </div>
 
         <!-- Action Grid - Highlighted for Cashiers -->
-        <div class="grid gap-4 md:grid-cols-3">
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+            <!-- Primary CTA: ditonjolkan (filled) & melebar penuh di mobile -->
             <Link
                 :href="transaksiRoute.url()"
-                class="flex items-center gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5 text-left hover:bg-emerald-500/10 transition-all hover:scale-[1.02]"
+                class="col-span-2 flex items-center gap-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-4 text-left text-white shadow-lg shadow-emerald-500/20 transition-all hover:shadow-xl hover:shadow-emerald-500/30 active:scale-[0.98] md:col-span-1 md:p-5"
             >
-                <div class="rounded-full bg-emerald-500 p-3 text-white">
+                <div class="shrink-0 rounded-xl bg-white/20 p-3 backdrop-blur-sm">
                     <PlusCircle class="h-6 w-6" />
                 </div>
-                <div>
-                    <h3 class="font-bold text-emerald-700 dark:text-emerald-400">Entri Transaksi Baru</h3>
-                    <p class="text-xs text-muted-foreground">Buka keranjang penjualan baru</p>
+                <div class="min-w-0">
+                    <h3 class="font-bold">Transaksi Baru</h3>
+                    <p class="truncate text-xs text-emerald-50/90">Buka keranjang penjualan</p>
                 </div>
             </Link>
             <Link
                 :href="transaksiRoute.url()"
-                class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all hover:scale-[1.02] dark:border-sidebar-border"
+                class="flex flex-col items-start gap-2 rounded-2xl border border-sidebar-border/70 bg-card p-4 text-left transition-all hover:bg-slate-50 active:scale-[0.98] md:flex-row md:items-center md:gap-4 md:p-5 dark:border-sidebar-border dark:hover:bg-zinc-800/50"
             >
-                <div class="rounded-full bg-slate-100 dark:bg-zinc-800 p-3 text-foreground">
-                    <Search class="h-6 w-6" />
+                <div class="shrink-0 rounded-xl bg-slate-100 p-2.5 text-foreground md:rounded-full md:p-3 dark:bg-zinc-800">
+                    <Search class="h-5 w-5 md:h-6 md:w-6" />
                 </div>
-                <div>
-                    <h3 class="font-bold">Cek Stok &amp; Harga</h3>
-                    <p class="text-xs text-muted-foreground">Cari produk &amp; lihat ketersediaan</p>
+                <div class="min-w-0">
+                    <h3 class="text-sm font-bold md:text-base">Cek Stok &amp; Harga</h3>
+                    <p class="hidden text-xs text-muted-foreground sm:block">Cari produk &amp; ketersediaan</p>
                 </div>
             </Link>
             <Link
                 :href="riwayatRoute.url()"
-                class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all hover:scale-[1.02] dark:border-sidebar-border"
+                class="flex flex-col items-start gap-2 rounded-2xl border border-sidebar-border/70 bg-card p-4 text-left transition-all hover:bg-slate-50 active:scale-[0.98] md:flex-row md:items-center md:gap-4 md:p-5 dark:border-sidebar-border dark:hover:bg-zinc-800/50"
             >
-                <div class="rounded-full bg-slate-100 dark:bg-zinc-800 p-3 text-foreground">
-                    <FileText class="h-6 w-6" />
+                <div class="shrink-0 rounded-xl bg-slate-100 p-2.5 text-foreground md:rounded-full md:p-3 dark:bg-zinc-800">
+                    <FileText class="h-5 w-5 md:h-6 md:w-6" />
                 </div>
-                <div>
-                    <h3 class="font-bold">Riwayat Transaksi</h3>
-                    <p class="text-xs text-muted-foreground">Cetak ulang struk / cek penjualan</p>
+                <div class="min-w-0">
+                    <h3 class="text-sm font-bold md:text-base">Riwayat Transaksi</h3>
+                    <p class="hidden text-xs text-muted-foreground sm:block">Cetak ulang struk / penjualan</p>
                 </div>
             </Link>
         </div>
@@ -357,7 +366,7 @@ function applyRange(): void {
                 >
                     <div
                         v-if="showDateFilter"
-                        class="absolute right-0 top-11 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                        class="absolute left-0 top-11 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-4 shadow-lg sm:left-auto sm:right-0 dark:border-zinc-700 dark:bg-zinc-900"
                     >
                         <!-- Hari Ini preset -->
                         <button
@@ -471,39 +480,40 @@ function applyRange(): void {
         />
 
         <!-- Stats Grid -->
-        <div class="grid gap-4 md:grid-cols-4">
+        <!-- 2 kolom sampai xl agar nominal besar (mis. total Semua Waktu) tak terpotong di tablet/desktop sempit. -->
+        <div class="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
             <div
                 v-for="stat in stats"
                 :key="stat.name"
-                class="relative overflow-hidden rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border"
+                class="relative overflow-hidden rounded-xl border border-sidebar-border/70 bg-card p-4 shadow-sm md:p-6 dark:border-sidebar-border"
             >
-                <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-muted-foreground">{{ stat.name }}</span>
-                    <div :class="['rounded-lg p-2 border', stat.color]">
-                        <component :is="stat.icon" class="h-5 w-5" />
+                <div class="flex items-start justify-between gap-2">
+                    <span class="text-xs font-medium text-muted-foreground md:text-sm">{{ stat.name }}</span>
+                    <div :class="['shrink-0 rounded-lg border p-1.5 md:p-2', stat.color]">
+                        <component :is="stat.icon" class="h-4 w-4 md:h-5 md:w-5" />
                     </div>
                 </div>
-                <div class="mt-4 flex items-baseline gap-2">
-                    <span class="text-2xl font-bold tracking-tight">{{ stat.value }}</span>
+                <div class="mt-3 md:mt-4">
+                    <span class="block truncate text-lg font-bold tracking-tight tabular-nums md:text-2xl">{{ stat.value }}</span>
                 </div>
             </div>
         </div>
 
         <!-- Target Harian -->
-        <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border">
-            <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2">
-                    <div class="rounded-lg bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+        <div class="rounded-xl border border-sidebar-border/70 bg-card p-4 md:p-6 dark:border-sidebar-border">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="shrink-0 rounded-lg bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                         <Target class="h-5 w-5" />
                     </div>
-                    <div>
-                        <h2 class="text-lg font-bold tracking-tight">Target Penjualan Hari Ini</h2>
-                        <p class="text-xs text-muted-foreground">
+                    <div class="min-w-0">
+                        <h2 class="text-base font-bold tracking-tight md:text-lg">Target Penjualan Hari Ini</h2>
+                        <p class="truncate text-xs text-muted-foreground">
                             {{ formatRupiah(props.target.tercapai) }} dari {{ formatRupiah(props.target.harian) }}
                         </p>
                     </div>
                 </div>
-                <span class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{{ props.target.persen }}%</span>
+                <span class="shrink-0 text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{{ props.target.persen }}%</span>
             </div>
             <div class="h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800">
                 <div
@@ -520,9 +530,9 @@ function applyRange(): void {
         </div>
 
         <!-- Main Panel: Recent Sales & Session Summary -->
-        <div class="grid gap-6 md:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
             <!-- Left Side: Recent Sales Log -->
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 md:col-span-2 dark:border-sidebar-border">
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-4 md:col-span-2 md:p-6 dark:border-sidebar-border">
                 <div class="flex items-center justify-between border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">
                     <div>
                         <h2 class="text-lg font-bold tracking-tight">Transaksi Terakhir Saya</h2>
@@ -568,7 +578,7 @@ function applyRange(): void {
             </div>
 
             <!-- Right Side: Session Summary (real numbers) -->
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border">
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-4 md:p-6 dark:border-sidebar-border">
                 <h2 class="text-lg font-bold tracking-tight border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">Ringkasan Hari Ini</h2>
                 <div class="space-y-4 text-sm">
                     <div class="flex justify-between border-b border-sidebar-border/40 pb-2 dark:border-sidebar-border/40">
@@ -612,9 +622,9 @@ function applyRange(): void {
         </div>
 
         <!-- Operational Row: Stok, Promo, Terlaris -->
-        <div class="grid gap-6 md:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
             <!-- Stok menipis -->
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border">
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-4 md:p-6 dark:border-sidebar-border">
                 <div class="flex items-center justify-between border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">
                     <div class="flex items-center gap-2">
                         <div class="rounded-lg bg-amber-500/10 p-2 text-amber-600 dark:text-amber-400 border border-amber-500/20">
@@ -669,7 +679,7 @@ function applyRange(): void {
             </div>
 
             <!-- Promo hari ini -->
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border">
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-4 md:p-6 dark:border-sidebar-border">
                 <div class="flex items-center justify-between gap-2 border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">
                     <div class="flex items-center gap-2">
                         <div class="rounded-lg bg-indigo-500/10 p-2 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
@@ -753,7 +763,7 @@ function applyRange(): void {
             </div>
 
             <!-- Produk terlaris -->
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-6 dark:border-sidebar-border">
+            <div class="rounded-xl border border-sidebar-border/70 bg-card p-4 md:p-6 dark:border-sidebar-border">
                 <div class="flex items-center gap-2 border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">
                     <div class="rounded-lg bg-yellow-500/10 p-2 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20">
                         <Trophy class="h-5 w-5" />
