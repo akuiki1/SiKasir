@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
+import { formatRupiah } from '@/lib/format';
 import JsBarcode from 'jsbarcode';
 import {
     Plus,
@@ -167,14 +168,6 @@ result = [...result].sort((a, b) => b.stok - a.stok);
 
 const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedProduks, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredProduks.value);
 
-// Format rupiah
-function formatRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(value);
-}
 
 // Stok bisa pecahan (curah) — tampilkan tanpa nol di belakang yang tak perlu.
 function formatStok(value: number): string {

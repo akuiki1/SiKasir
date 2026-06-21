@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
+import { formatRupiah } from '@/lib/format';
 import {
     Plus,
     Search,
@@ -94,15 +95,6 @@ const filteredPromos = computed(() => {
 });
 
 const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedPromos, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredPromos.value);
-
-// Format rupiah
-function formatRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(value);
-}
 
 // Format date for display
 function formatDate(dateStr: string): string {

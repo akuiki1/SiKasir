@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
+import { formatRupiah } from '@/lib/format';
 import {
     Search,
     Barcode,
@@ -312,14 +313,6 @@ const filteredProduks = computed(() => {
 });
 
 const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedProduks, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredProduks.value, 10);
-
-function formatRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(value);
-}
 
 // Kuantitas curah bisa pecahan (mis. 1,429 liter) — tampilkan rapi.
 function formatQty(value: number): string {

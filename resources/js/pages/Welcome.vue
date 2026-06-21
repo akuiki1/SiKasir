@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { formatRupiah } from '@/lib/format';
 import {
     Flame,
     Sparkles,
@@ -419,13 +420,7 @@ const checkoutViaWhatsApp = () => {
 };
 
 // Formatting helper
-const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(price);
-};
+const formatPrice = formatRupiah;
 
 // Teks sisa masa berlaku promo
 const promoSisaText = (sisaHari: number) => {

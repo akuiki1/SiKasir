@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
+import { formatRupiah, formatCompact } from '@/lib/format';
 import {
     AlertTriangle,
     ArrowDownRight,
@@ -231,17 +232,6 @@ function nextYear(): void {
 }
 
 // ---------------------------------------------------------------
-// Format helpers
-// ---------------------------------------------------------------
-function formatRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
-}
-
-function formatCompactRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-}
-
-// ---------------------------------------------------------------
 // Ringkasan grafik tren omzet
 // ---------------------------------------------------------------
 const maxRevenue = computed(() => Math.max(...props.revenue_chart.map((p) => p.value), 1));
@@ -285,7 +275,7 @@ colorClass = step.end >= 0 ? 'bg-emerald-600' : 'bg-rose-600';
 
         return {
             label: step.label,
-            amountText: `${step.amount < 0 ? '−' : ''}Rp${formatCompactRupiah(Math.abs(step.amount))}`,
+            amountText: `${step.amount < 0 ? '−' : ''}Rp${formatCompact(Math.abs(step.amount))}`,
             colorClass,
             topPct: `${((maxV - hi) / range) * 100}%`,
             heightPct: `${Math.max(((hi - lo) / range) * 100, step.amount !== 0 ? 1.5 : 0.5)}%`,

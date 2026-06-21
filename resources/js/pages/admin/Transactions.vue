@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
+import { formatRupiah } from '@/lib/format';
 import {
     Plus,
     Search,
@@ -102,13 +103,6 @@ const props = defineProps<{
     };
 }>();
 
-function formatRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(value);
-}
 
 function formatMetode(metode: string): string {
     const labels: Record<string, string> = {

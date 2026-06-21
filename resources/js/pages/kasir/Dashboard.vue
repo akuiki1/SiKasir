@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
+import { formatRupiah } from '@/lib/format';
 import {
     PlusCircle,
     Search,
@@ -269,13 +270,6 @@ const paymentMeta: Record<string, { label: string; icon: typeof Banknote; color:
     transfer: { label: 'Transfer', icon: CreditCard, color: 'text-amber-600 dark:text-amber-400' },
 };
 
-function formatRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(value);
-}
 
 function applyRange(): void {
     router.get('/kasir/dashboard', {

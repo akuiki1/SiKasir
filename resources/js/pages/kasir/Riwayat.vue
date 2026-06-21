@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
+import { formatRupiah } from '@/lib/format';
 import {
     Search,
     Filter,
@@ -154,13 +155,6 @@ pages.push(-1);
     return pages;
 });
 
-function formatRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(value);
-}
 
 function formatMetode(metode: string): string {
     const labels: Record<string, string> = {

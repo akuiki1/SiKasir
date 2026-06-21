@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { formatRupiah, formatCompact } from '@/lib/format';
 import {
     AlertTriangle,
     ArrowDownRight,
@@ -338,7 +339,7 @@ colorClass = step.end >= 0 ? 'bg-emerald-600' : 'bg-rose-600';
 
         return {
             label: step.label,
-            amountText: `${step.amount < 0 ? '−' : ''}Rp${formatCompactRupiah(Math.abs(step.amount))}`,
+            amountText: `${step.amount < 0 ? '−' : ''}Rp${formatCompact(Math.abs(step.amount))}`,
             colorClass,
             topPct: `${((maxV - hi) / range) * 100}%`,
             heightPct: `${Math.max(((hi - lo) / range) * 100, step.amount !== 0 ? 1.5 : 0.5)}%`,
@@ -371,24 +372,9 @@ const comparisonCards = computed(() =>
     }),
 );
 
-function formatRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(value);
-}
-
 // Kuantitas bisa pecahan (produk curah) — tampilkan tanpa nol berlebih.
 function formatQty(value: number): string {
     return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 }).format(Number(value) || 0);
-}
-
-function formatCompactRupiah(value: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        notation: 'compact',
-        maximumFractionDigits: 1,
-    }).format(value);
 }
 
 function applyRange(): void {
@@ -1127,7 +1113,7 @@ function printSection(section: string): void {
                         <div v-for="cashier in topCashierRevenueGraph" :key="cashier.nama">
                             <div class="flex items-center justify-between gap-4 text-sm">
                                 <span class="min-w-0 truncate font-semibold">{{ cashier.nama }}</span>
-                                <span class="shrink-0 text-slate-500 dark:text-slate-400">{{ formatCompactRupiah(cashier.revenue) }}</span>
+                                <span class="shrink-0 text-slate-500 dark:text-slate-400">{{ formatCompact(cashier.revenue) }}</span>
                             </div>
                             <div class="mt-2 h-2 rounded-full bg-slate-100 dark:bg-zinc-800">
                                 <div class="h-full rounded-full bg-sky-500" :style="{ width: cashier.width }"></div>
