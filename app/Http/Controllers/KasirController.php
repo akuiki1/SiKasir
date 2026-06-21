@@ -104,8 +104,9 @@ class KasirController extends Controller
             'jumlah' => (int) ($paymentAgg[$metode]->jumlah ?? 0),
         ])->values();
 
-        // --- Stok menipis / habis ---
-        $lowStock = Produk::where('stok', '<=', self::AMBANG_STOK)
+        // --- Stok menipis / habis (produk jasa tidak punya stok, dikecualikan) ---
+        $lowStock = Produk::where('tipe_jual', '!=', 'jasa')
+            ->where('stok', '<=', self::AMBANG_STOK)
             ->orderBy('stok')
             ->orderBy('nama')
             ->limit(8)
@@ -117,7 +118,9 @@ class KasirController extends Controller
                 'status' => $produk->status_stok,
                 'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
             ]);
-        $lowStockCount = Produk::where('stok', '<=', self::AMBANG_STOK)->count();
+        $lowStockCount = Produk::where('tipe_jual', '!=', 'jasa')
+            ->where('stok', '<=', self::AMBANG_STOK)
+            ->count();
 
         // --- Promo aktif sekarang ---
         $now = now();

@@ -143,6 +143,11 @@ class Produk extends Model
 
     public function getStatusStokAttribute(): string
     {
+        // Produk jasa tidak mengelola stok, jadi tidak pernah dianggap habis/menipis.
+        if ($this->tipe_jual === 'jasa') {
+            return 'in-stock';
+        }
+
         $stok = (float) $this->stok;
 
         if ($stok <= 0) {
