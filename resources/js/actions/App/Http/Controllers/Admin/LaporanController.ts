@@ -79,7 +79,7 @@ keuangan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     keuangan.form = keuanganForm
 /**
 * @see \App\Http\Controllers\Admin\LaporanController::penjualan
- * @see app/Http/Controllers/Admin/LaporanController.php:190
+ * @see app/Http/Controllers/Admin/LaporanController.php:193
  * @route '/admin/laporan/penjualan'
  */
 export const penjualan = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -94,7 +94,7 @@ penjualan.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\LaporanController::penjualan
- * @see app/Http/Controllers/Admin/LaporanController.php:190
+ * @see app/Http/Controllers/Admin/LaporanController.php:193
  * @route '/admin/laporan/penjualan'
  */
 penjualan.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ penjualan.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\LaporanController::penjualan
- * @see app/Http/Controllers/Admin/LaporanController.php:190
+ * @see app/Http/Controllers/Admin/LaporanController.php:193
  * @route '/admin/laporan/penjualan'
  */
 penjualan.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -112,7 +112,7 @@ penjualan.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\LaporanController::penjualan
- * @see app/Http/Controllers/Admin/LaporanController.php:190
+ * @see app/Http/Controllers/Admin/LaporanController.php:193
  * @route '/admin/laporan/penjualan'
  */
 penjualan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -122,7 +122,7 @@ penjualan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\LaporanController::penjualan
- * @see app/Http/Controllers/Admin/LaporanController.php:190
+ * @see app/Http/Controllers/Admin/LaporanController.php:193
  * @route '/admin/laporan/penjualan'
  */
     const penjualanForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -132,7 +132,7 @@ penjualan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\LaporanController::penjualan
- * @see app/Http/Controllers/Admin/LaporanController.php:190
+ * @see app/Http/Controllers/Admin/LaporanController.php:193
  * @route '/admin/laporan/penjualan'
  */
         penjualanForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -141,7 +141,7 @@ penjualan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\LaporanController::penjualan
- * @see app/Http/Controllers/Admin/LaporanController.php:190
+ * @see app/Http/Controllers/Admin/LaporanController.php:193
  * @route '/admin/laporan/penjualan'
  */
         penjualanForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -157,7 +157,7 @@ penjualan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     penjualan.form = penjualanForm
 /**
 * @see \App\Http\Controllers\Admin\LaporanController::pelanggan
- * @see app/Http/Controllers/Admin/LaporanController.php:195
+ * @see app/Http/Controllers/Admin/LaporanController.php:292
  * @route '/admin/laporan/pelanggan'
  */
 export const pelanggan = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -172,7 +172,7 @@ pelanggan.definition = {
 
 /**
 * @see \App\Http\Controllers\Admin\LaporanController::pelanggan
- * @see app/Http/Controllers/Admin/LaporanController.php:195
+ * @see app/Http/Controllers/Admin/LaporanController.php:292
  * @route '/admin/laporan/pelanggan'
  */
 pelanggan.url = (options?: RouteQueryOptions) => {
@@ -181,7 +181,7 @@ pelanggan.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Admin\LaporanController::pelanggan
- * @see app/Http/Controllers/Admin/LaporanController.php:195
+ * @see app/Http/Controllers/Admin/LaporanController.php:292
  * @route '/admin/laporan/pelanggan'
  */
 pelanggan.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -190,7 +190,7 @@ pelanggan.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\Admin\LaporanController::pelanggan
- * @see app/Http/Controllers/Admin/LaporanController.php:195
+ * @see app/Http/Controllers/Admin/LaporanController.php:292
  * @route '/admin/laporan/pelanggan'
  */
 pelanggan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -200,7 +200,7 @@ pelanggan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\Admin\LaporanController::pelanggan
- * @see app/Http/Controllers/Admin/LaporanController.php:195
+ * @see app/Http/Controllers/Admin/LaporanController.php:292
  * @route '/admin/laporan/pelanggan'
  */
     const pelangganForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -210,7 +210,7 @@ pelanggan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\Admin\LaporanController::pelanggan
- * @see app/Http/Controllers/Admin/LaporanController.php:195
+ * @see app/Http/Controllers/Admin/LaporanController.php:292
  * @route '/admin/laporan/pelanggan'
  */
         pelangganForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -219,7 +219,7 @@ pelanggan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\Admin\LaporanController::pelanggan
- * @see app/Http/Controllers/Admin/LaporanController.php:195
+ * @see app/Http/Controllers/Admin/LaporanController.php:292
  * @route '/admin/laporan/pelanggan'
  */
         pelangganForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
