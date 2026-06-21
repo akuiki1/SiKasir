@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { formatRupiah } from '@/lib/format';
 import {
-    Flame,
     Sparkles,
     MessageCircle,
     PhoneCall,
@@ -11,9 +9,6 @@ import {
     Moon,
     Sun,
     ArrowRight,
-    Utensils,
-    Heart,
-    Smile,
     Menu,
     X,
     Search,
@@ -26,13 +21,13 @@ import {
     ShieldCheck,
     Leaf,
     Clock,
-    ThumbsUp,
     TrendingUp,
     Tag,
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { useAppearance } from '@/composables/useAppearance';
+import { formatRupiah } from '@/lib/format';
 import { dashboard, login } from '@/routes';
 
 interface Promo {

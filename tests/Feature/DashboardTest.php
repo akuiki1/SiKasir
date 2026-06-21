@@ -257,3 +257,89 @@ test('admin dashboard lists slow-moving in-stock products and excludes jasa', fu
         ->where('slow_movers.1.terjual', fn ($v) => (float) $v === 5.0)
     );
 });
+
+test('product ranking excludes jasa and worst-selling includes zero-sales products', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $laku = Produk::factory()->create(['nama' => 'Kopi', 'harga_modal' => 4000, 'stok' => 50]);
+    Produk::factory()->create(['nama' => 'Donat', 'harga_modal' => 2000, 'stok' => 20]); // 0 terjual
+    $jasa = Produk::factory()->create(['nama' => 'Transfer Bank', 'tipe_jual' => 'jasa', 'harga_modal' => 0, 'stok' => 0]);
+
+    // Transaksi campuran: barang (Kopi) + fee jasa. Hanya Kopi yang boleh masuk ranking barang.
+    $trx = Transaksi::factory()->create([
+        'id_user' => $admin->id,
+        'total_harga' => 35000,
+        'bayar' => 35000,
+        'kembalian' => 0,
+        'created_at' => Carbon::today()->setTime(10, 0),
+    ]);
+    DetailTransaksi::factory()->create([
+        'id_transaksi' => $trx->id_transaksi,
+        'id_produk' => $laku->id_produk,
+        'jumlah' => 3,
+        'harga' => 10000,
+        'modal' => 4000,
+        'subtotal' => 30000,
+    ]);
+    DetailTransaksi::factory()->create([
+        'id_transaksi' => $trx->id_transaksi,
+        'id_produk' => $jasa->id_produk,
+        'jumlah' => 1,
+        'harga' => 5000,
+        'modal' => 0,
+        'subtotal' => 5000,
+        'nominal' => 100000,
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('admin.dashboard', [
+        'start_date' => Carbon::today()->toDateString(),
+        'end_date' => Carbon::today()->toDateString(),
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn (AssertableInertia $page) => $page
+        // Hanya barang (Kopi) yang masuk ranking; produk jasa dikecualikan.
+        ->has('best_selling_products', 1)
+        ->where('best_selling_products.0.nama', 'Kopi')
+        ->where('best_selling_products.0.qty', fn ($v) => (float) $v === 3.0)
+        ->where('best_selling_products.0.revenue', 30000)
+        // Produk paling sepi memuat barang 0 penjualan (Donat), bukan jasa.
+        ->where('worst_selling_products.0.nama', 'Donat')
+        ->where('worst_selling_products.0.qty', fn ($v) => (float) $v === 0.0)
+    );
+});
+
+test('per-product revenue is net of global discount', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $produk = Produk::factory()->create(['nama' => 'Teh', 'harga_modal' => 3000, 'stok' => 50]);
+
+    // Subtotal baris 20.000, tapi diskon global 2.000 → omzet 18.000.
+    $trx = Transaksi::factory()->create([
+        'id_user' => $admin->id,
+        'total_harga' => 18000,
+        'diskon' => 2000,
+        'bayar' => 18000,
+        'kembalian' => 0,
+        'created_at' => Carbon::today()->setTime(9, 0),
+    ]);
+    DetailTransaksi::factory()->create([
+        'id_transaksi' => $trx->id_transaksi,
+        'id_produk' => $produk->id_produk,
+        'jumlah' => 2,
+        'harga' => 10000,
+        'modal' => 3000,
+        'subtotal' => 20000,
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('admin.dashboard', [
+        'start_date' => Carbon::today()->toDateString(),
+        'end_date' => Carbon::today()->toDateString(),
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn (AssertableInertia $page) => $page
+        // Revenue produk = 20.000 − 2.000 diskon global = 18.000, rekonsiliasi dengan omzet.
+        ->where('best_selling_products.0.revenue', 18000)
+        ->where('stats.total_revenue', 18000)
+    );
+});

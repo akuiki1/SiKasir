@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { formatRupiah } from '@/lib/format';
 import {
     Plus,
     Search,
     Tag,
     Percent,
-    Calendar,
     Edit,
     Trash2,
     X,
@@ -27,6 +25,7 @@ import {
 import { ref, computed, onMounted, nextTick } from 'vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
+import { formatRupiah } from '@/lib/format';
 import { store as promoStore, update as promoUpdate, destroy as promoDestroy } from '@/routes/admin/promos';
 
 defineOptions({
