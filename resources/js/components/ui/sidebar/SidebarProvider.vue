@@ -2,7 +2,7 @@
 import type { HTMLAttributes, Ref } from "vue"
 import { defaultDocument, useEventListener, useMediaQuery, useVModel } from "@vueuse/core"
 import { TooltipProvider } from "reka-ui"
-import { computed, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import { cn } from "@/lib/utils"
 import { provideSidebarContext, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_KEYBOARD_SHORTCUT, SIDEBAR_WIDTH, SIDEBAR_WIDTH_ICON } from "./utils"
 
@@ -19,8 +19,19 @@ const emits = defineEmits<{
   "update:open": [open: boolean]
 }>()
 
-const isMobile = useMediaQuery("(max-width: 768px)")
+// Defer the media-query result until after mount so the first client render
+// matches the server (where isMobile is always false). Without this gate the
+// client immediately evaluates matchMedia during setup and renders the mobile
+// <Sheet> branch while the server rendered the desktop <div>, causing a
+// hydration mismatch on viewports <= 768px.
+const isMounted = ref(false)
+const mediaIsMobile = useMediaQuery("(max-width: 768px)")
+const isMobile = computed(() => isMounted.value && mediaIsMobile.value)
 const openMobile = ref(false)
+
+onMounted(() => {
+  isMounted.value = true
+})
 
 const open = useVModel(props, "open", emits, {
   defaultValue: props.defaultOpen ?? false,
