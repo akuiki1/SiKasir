@@ -8,7 +8,7 @@ import { t as Heading_default } from "./assets/Heading-GycAGUxB.js";
 import { t as edit$1 } from "./assets/appearance-C9XoGQxF.js";
 import { t as edit$2 } from "./assets/security-hrxk8y1f.js";
 import { Link, createInertiaApp, router, usePage } from "@inertiajs/vue3";
-import { Fragment, computed, createBlock, createCommentVNode, createTextVNode, createVNode, defineComponent, mergeProps, openBlock, readonly, ref, renderList, renderSlot, resolveDynamicComponent, toDisplayString, unref, useSSRContext, withCtx } from "vue";
+import { Fragment, computed, createBlock, createCommentVNode, createTextVNode, createVNode, defineComponent, mergeProps, onMounted, openBlock, readonly, ref, renderList, renderSlot, resolveDynamicComponent, toDisplayString, unref, useSSRContext, withCtx } from "vue";
 import { renderToString, ssrInterpolate, ssrRenderAttrs, ssrRenderClass, ssrRenderComponent, ssrRenderList, ssrRenderSlot, ssrRenderVNode } from "vue/server-renderer";
 import { cva } from "class-variance-authority";
 import { AvatarFallback, AvatarImage, AvatarRoot, DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuItemIndicator, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Primitive, Separator, TooltipArrow, TooltipContent, TooltipPortal, TooltipProvider, TooltipRoot, TooltipTrigger, createContext, useForwardProps, useForwardPropsEmits } from "reka-ui";
@@ -1553,8 +1553,13 @@ var SidebarProvider_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ *
 	setup(__props, { emit: __emit }) {
 		const props = __props;
 		const emits = __emit;
-		const isMobile = useMediaQuery("(max-width: 768px)");
+		const isMounted = ref(false);
+		const mediaIsMobile = useMediaQuery("(max-width: 768px)");
+		const isMobile = computed(() => isMounted.value && mediaIsMobile.value);
 		const openMobile = ref(false);
+		onMounted(() => {
+			isMounted.value = true;
+		});
 		const open = useVModel(props, "open", emits, {
 			defaultValue: props.defaultOpen ?? false,
 			passive: props.open === void 0
