@@ -187,9 +187,106 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function penjualan(): Response
+    /**
+     * Analisis Penjualan & Performa: waktu sibuk, tren penjualan, dan performa kasir.
+     */
+    public function penjualan(Request $request): Response
     {
-        return Inertia::render('admin/laporan/Penjualan');
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+        ]);
+
+        // Default: bulan berjalan (selaras dengan Laporan Keuangan).
+        $startDate = isset($validated['start_date'])
+            ? Carbon::parse($validated['start_date'])->startOfDay()
+            : Carbon::today()->startOfMonth();
+
+        $endDate = isset($validated['end_date'])
+            ? Carbon::parse($validated['end_date'])->endOfDay()
+            : Carbon::today()->endOfDay();
+
+        if ($startDate->gt($endDate)) {
+            $startDate = $endDate->copy()->startOfMonth();
+        }
+
+        $periodDays = (int) $startDate->diffInDays($endDate) + 1;
+
+        // Transaksi periode aktif — sekali ambil, dipakai untuk semua agregasi.
+        $transactions = Transaksi::with('user:id,name')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->get(['id_transaksi', 'id_user', 'total_harga', 'diskon', 'created_at']);
+
+        $totalRevenue = (int) $transactions->sum('total_harga');
+        $totalTransactions = $transactions->count();
+        $avgTransaction = $totalTransactions > 0 ? intdiv($totalRevenue, $totalTransactions) : 0;
+        $totalDiskon = (int) $transactions->sum('diskon');
+        $diskonCount = $transactions->where('diskon', '>', 0)->count();
+
+        $hourly = $this->finansial->hourlyDistribution($transactions);
+        $weekday = $this->finansial->weekdayDistribution($transactions);
+        $cashiers = $this->finansial->cashierPerformance($transactions);
+
+        // Tren omzet & jumlah transaksi harian (mengikuti filter periode).
+        $byDate = $transactions->groupBy(fn (Transaksi $trx) => $trx->created_at->format('Y-m-d'));
+        $period = new DatePeriod($startDate, new DateInterval('P1D'), $endDate->copy()->addDay());
+        $revenueChart = collect(iterator_to_array($period))
+            ->map(function (\DateTimeInterface $date) use ($byDate) {
+                $group = $byDate->get(Carbon::parse($date)->format('Y-m-d'));
+
+                return [
+                    'label' => Carbon::parse($date)->format('d M'),
+                    'value' => $group ? (int) $group->sum('total_harga') : 0,
+                    'count' => $group ? $group->count() : 0,
+                ];
+            })
+            ->values();
+
+        // Tren pertumbuhan: periode berjalan (s/d sekarang) vs periode setara sebelumnya.
+        // Sengaja tidak terpengaruh filter — indikator kesehatan bisnis "saat ini".
+        $now = Carbon::now();
+        $weekStart = $now->copy()->startOfWeek();
+        $monthStart = $now->copy()->startOfMonth();
+
+        $trend = [
+            'this_week' => $this->windowStats($weekStart, $now),
+            'last_week' => $this->windowStats($weekStart->copy()->subWeek(), $now->copy()->subWeek()),
+            'this_month' => $this->windowStats($monthStart, $now),
+            'last_month' => $this->windowStats($monthStart->copy()->subMonthNoOverflow(), $now->copy()->subMonthNoOverflow()),
+        ];
+
+        return Inertia::render('admin/laporan/Penjualan', [
+            'date_range' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+            ],
+            'period_days' => $periodDays,
+            'summary' => [
+                'total_revenue' => $totalRevenue,
+                'total_transactions' => $totalTransactions,
+                'avg_transaction' => $avgTransaction,
+                'total_diskon' => $totalDiskon,
+                'diskon_count' => $diskonCount,
+            ],
+            'hourly' => $hourly,
+            'weekday' => $weekday,
+            'cashiers' => $cashiers,
+            'trend' => $trend,
+            'revenue_chart' => $revenueChart,
+        ]);
+    }
+
+    /**
+     * Omzet & jumlah transaksi untuk satu jendela waktu (untuk kartu tren WoW/MoM).
+     *
+     * @return array{revenue: int, count: int}
+     */
+    private function windowStats(Carbon $start, Carbon $end): array
+    {
+        return [
+            'revenue' => (int) Transaksi::whereBetween('created_at', [$start, $end])->sum('total_harga'),
+            'count' => (int) Transaksi::whereBetween('created_at', [$start, $end])->count(),
+        ];
     }
 
     public function pelanggan(): Response

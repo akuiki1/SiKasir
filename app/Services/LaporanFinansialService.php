@@ -40,6 +40,17 @@ class LaporanFinansialService
         'transfer' => 'Transfer Bank',
     ];
 
+    /** Hari dalam seminggu (ISO: 1 = Senin … 7 = Minggu). */
+    public const WEEKDAY_LABELS = [
+        1 => 'Senin',
+        2 => 'Selasa',
+        3 => 'Rabu',
+        4 => 'Kamis',
+        5 => 'Jumat',
+        6 => 'Sabtu',
+        7 => 'Minggu',
+    ];
+
     /**
      * Ringkasan finansial inti (omzet, HPP, laba, biaya) untuk satu rentang tanggal.
      *
@@ -151,6 +162,90 @@ class LaporanFinansialService
                 'profit' => (int) ($group->sum('revenue') - $group->sum('cogs')),
                 'transactions' => $group->pluck('id_transaksi')->unique()->count(),
             ])
+            ->values();
+    }
+
+    /**
+     * Distribusi transaksi & omzet per jam (0–23) — untuk analisis waktu sibuk.
+     * Diagregasi di PHP (bukan SQL HOUR()) agar portabel lintas database & konsisten
+     * dengan zona waktu aplikasi pada cast created_at.
+     *
+     * @param  Collection<int, Transaksi>  $transactions
+     * @return list<array{hour: int, label: string, revenue: int, count: int}>
+     */
+    public function hourlyDistribution(Collection $transactions): array
+    {
+        $byHour = $transactions->groupBy(fn (Transaksi $trx) => (int) $trx->created_at->format('G'));
+
+        $rows = [];
+        for ($hour = 0; $hour < 24; $hour++) {
+            $group = $byHour->get($hour);
+            $rows[] = [
+                'hour' => $hour,
+                'label' => sprintf('%02d:00', $hour),
+                'revenue' => $group ? (int) $group->sum('total_harga') : 0,
+                'count' => $group ? $group->count() : 0,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Distribusi transaksi & omzet per hari dalam seminggu (Senin–Minggu).
+     *
+     * @param  Collection<int, Transaksi>  $transactions
+     * @return list<array{weekday: int, label: string, revenue: int, count: int}>
+     */
+    public function weekdayDistribution(Collection $transactions): array
+    {
+        $byDay = $transactions->groupBy(fn (Transaksi $trx) => $trx->created_at->isoWeekday());
+
+        $rows = [];
+        foreach (self::WEEKDAY_LABELS as $iso => $label) {
+            $group = $byDay->get($iso);
+            $rows[] = [
+                'weekday' => $iso,
+                'label' => $label,
+                'revenue' => $group ? (int) $group->sum('total_harga') : 0,
+                'count' => $group ? $group->count() : 0,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Ringkasan performa per kasir: omzet, jumlah transaksi, rata-rata, dan diskon
+     * yang diberikan (frekuensi & nominal) sebagai sinyal kontrol. Diurutkan dari
+     * omzet tertinggi.
+     *
+     * Catatan: pembatalan (void) belum direkam di skema (transaksi dihapus permanen,
+     * tanpa kolom status), jadi frekuensi void tidak tersedia di sini.
+     *
+     * @param  Collection<int, Transaksi>  $transactions  (eager-load relasi user)
+     * @return Collection<int, array{id_user: int, nama: string, revenue: int, transactions: int, avg: int, diskon: int, diskon_count: int}>
+     */
+    public function cashierPerformance(Collection $transactions): Collection
+    {
+        return $transactions
+            ->groupBy('id_user')
+            ->map(function (Collection $group) {
+                $count = $group->count();
+                $revenue = (int) $group->sum('total_harga');
+                $first = $group->first();
+
+                return [
+                    'id_user' => (int) $first->id_user,
+                    'nama' => $first->user?->name ?? 'User Terhapus',
+                    'revenue' => $revenue,
+                    'transactions' => $count,
+                    'avg' => $count > 0 ? intdiv($revenue, $count) : 0,
+                    'diskon' => (int) $group->sum('diskon'),
+                    'diskon_count' => $group->where('diskon', '>', 0)->count(),
+                ];
+            })
+            ->sortByDesc('revenue')
             ->values();
     }
 
