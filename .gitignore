@@ -33,4 +33,7 @@ Thumbs.db
 *.php~
 **/vendor/**
 !vendor/**
+
+# Testing artifacts
+.phpunit.result.cache
 ```
