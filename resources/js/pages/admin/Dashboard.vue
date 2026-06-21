@@ -142,6 +142,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', '
 function getMonthRange(year: number, month: number) {
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 0);
+
     return {
         start: start.toISOString().slice(0, 10),
         end: end.toISOString().slice(0, 10),
@@ -164,28 +165,43 @@ const filterYear = ref(detectInitialYear());
 
 function detectInitialMode(): string {
     const today = new Date().toISOString().slice(0, 10);
+
     if (props.date_range.start_date === today && props.date_range.end_date === today) {
         return 'today';
     }
+
     const yearRange = getYearRange(filterYear.value);
+
     if (props.date_range.start_date === yearRange.start && props.date_range.end_date === yearRange.end) {
         return 'year';
     }
+
     for (let m = 0; m < 12; m++) {
         const range = getMonthRange(filterYear.value, m);
+
         if (range.start === props.date_range.start_date && range.end === props.date_range.end_date) {
             return String(m);
         }
     }
+
     return 'custom';
 }
 
 const selectedMode = ref(detectInitialMode());
 
 const filterBadgeLabel = computed(() => {
-    if (selectedMode.value === 'today') return 'Hari Ini';
-    if (selectedMode.value === 'year') return `Tahun ${filterYear.value}`;
-    if (selectedMode.value !== 'custom') return `${MONTHS[Number(selectedMode.value)]} ${filterYear.value}`;
+    if (selectedMode.value === 'today') {
+return 'Hari Ini';
+}
+
+    if (selectedMode.value === 'year') {
+return `Tahun ${filterYear.value}`;
+}
+
+    if (selectedMode.value !== 'custom') {
+return `${MONTHS[Number(selectedMode.value)]} ${filterYear.value}`;
+}
+
     return 'Custom';
 });
 
@@ -295,6 +311,7 @@ const busiestHour = computed(() => props.top_sales_hours[0]);
 
 const waterfallView = computed(() => {
     const steps = props.waterfall;
+
     if (!steps || steps.length === 0) {
         return { bars: [], zeroTop: 100 };
     }
@@ -310,9 +327,14 @@ const waterfallView = computed(() => {
         const lo = Math.min(step.start, step.end);
 
         let colorClass = 'bg-rose-400';
-        if (step.type === 'income') colorClass = 'bg-emerald-500';
-        else if (step.type === 'subtotal') colorClass = 'bg-sky-500';
-        else if (step.type === 'result') colorClass = step.end >= 0 ? 'bg-emerald-600' : 'bg-rose-600';
+
+        if (step.type === 'income') {
+colorClass = 'bg-emerald-500';
+} else if (step.type === 'subtotal') {
+colorClass = 'bg-sky-500';
+} else if (step.type === 'result') {
+colorClass = step.end >= 0 ? 'bg-emerald-600' : 'bg-rose-600';
+}
 
         return {
             label: step.label,
@@ -330,6 +352,7 @@ const comparisonCards = computed(() =>
     props.comparison.map((card) => {
         const signFlip = (card.current < 0) !== (card.previous < 0);
         let good: boolean | null = null;
+
         if (card.delta_pct !== null) {
             const increased = card.delta_pct > 0;
             good = card.higher_is_better ? increased : !increased;

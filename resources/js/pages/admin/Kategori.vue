@@ -12,9 +12,9 @@ import {
     AlertCircle,
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
-import { store as kategoriStore, update as kategoriUpdate, destroy as kategoriDestroy } from '@/routes/admin/kategori';
-import { usePagination } from '@/composables/usePagination';
 import Pagination from '@/components/Pagination.vue';
+import { usePagination } from '@/composables/usePagination';
+import { store as kategoriStore, update as kategoriUpdate, destroy as kategoriDestroy } from '@/routes/admin/kategori';
 
 defineOptions({
     layout: {

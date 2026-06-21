@@ -24,9 +24,9 @@ import {
     Boxes,
 } from 'lucide-vue-next';
 import { ref, computed, onMounted, nextTick } from 'vue';
-import { store as promoStore, update as promoUpdate, destroy as promoDestroy } from '@/routes/admin/promos';
-import { usePagination } from '@/composables/usePagination';
 import Pagination from '@/components/Pagination.vue';
+import { usePagination } from '@/composables/usePagination';
+import { store as promoStore, update as promoUpdate, destroy as promoDestroy } from '@/routes/admin/promos';
 
 defineOptions({
     layout: {

@@ -23,10 +23,10 @@ import {
     Loader2,
 } from 'lucide-vue-next';
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 import { toast } from 'vue-sonner';
-import { usePagination } from '@/composables/usePagination';
 import Pagination from '@/components/Pagination.vue';
+import { usePagination } from '@/composables/usePagination';
+import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 
 defineOptions({
     layout: {
@@ -591,12 +591,19 @@ function setItemQuantity(item: CartItem, event: Event) {
     // Biarkan kosong sementara saat kasir sedang mengetik ulang.
     if (digits === '') {
         el.value = '';
+
         return;
     }
 
     let next = parseInt(digits, 10);
-    if (next < 1) next = 1;
-    if (next > item.stock) next = item.stock;
+
+    if (next < 1) {
+next = 1;
+}
+
+    if (next > item.stock) {
+next = item.stock;
+}
 
     item.qty = next;
     item.subtotal = item.harga * item.qty;
@@ -607,8 +614,14 @@ function setItemQuantity(item: CartItem, event: Event) {
 function normalizeItemQuantity(item: CartItem, event: Event) {
     const el = event.target as HTMLInputElement;
     let next = parseInt(el.value.replace(/\D/g, ''), 10);
-    if (!Number.isFinite(next) || next < 1) next = 1;
-    if (next > item.stock) next = item.stock;
+
+    if (!Number.isFinite(next) || next < 1) {
+next = 1;
+}
+
+    if (next > item.stock) {
+next = item.stock;
+}
 
     item.qty = next;
     item.subtotal = item.harga * item.qty;

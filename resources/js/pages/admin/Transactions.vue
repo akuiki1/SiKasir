@@ -26,9 +26,9 @@ import {
     CalendarDays,
 } from 'lucide-vue-next';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-import { store as transaksiStore, update as transaksiUpdate, destroy as transaksiDestroy } from '@/routes/admin/transactions';
-import { usePagination } from '@/composables/usePagination';
 import Pagination from '@/components/Pagination.vue';
+import { usePagination } from '@/composables/usePagination';
+import { store as transaksiStore, update as transaksiUpdate, destroy as transaksiDestroy } from '@/routes/admin/transactions';
 
 defineOptions({
     layout: {
@@ -137,8 +137,15 @@ const sortOptions = [
 
 const activeFilterCount = computed(() => {
     let count = 0;
-    if (filterKasir.value) count++;
-    if (sortBy.value) count++;
+
+    if (filterKasir.value) {
+count++;
+}
+
+    if (sortBy.value) {
+count++;
+}
+
     return count;
 });
 
@@ -161,6 +168,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', '
 function getMonthRange(year: number, month: number) {
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 0);
+
     return {
         start: start.toISOString().slice(0, 10),
         end: end.toISOString().slice(0, 10),
@@ -182,30 +190,43 @@ const dateEndDate = ref(props.date_range.end_date);
 
 function detectDateMode(): string {
     const today = new Date().toISOString().slice(0, 10);
+
     if (props.date_range.start_date === today && props.date_range.end_date === today) {
         return 'today';
     }
+
     const yearRange = getYearRange(filterYear.value);
+
     if (props.date_range.start_date === yearRange.start && props.date_range.end_date === yearRange.end) {
         return 'year';
     }
+
     for (let m = 0; m < 12; m++) {
         const range = getMonthRange(filterYear.value, m);
+
         if (range.start === props.date_range.start_date && range.end === props.date_range.end_date) {
             return String(m);
         }
     }
+
     return 'custom';
 }
 
 const selectedDateMode = ref(detectDateMode());
 
 const periodLabel = computed(() => {
-    if (selectedDateMode.value === 'today') return 'Hari Ini';
-    if (selectedDateMode.value === 'year') return `Tahun ${filterYear.value}`;
+    if (selectedDateMode.value === 'today') {
+return 'Hari Ini';
+}
+
+    if (selectedDateMode.value === 'year') {
+return `Tahun ${filterYear.value}`;
+}
+
     if (selectedDateMode.value !== 'custom') {
         return `${MONTHS[Number(selectedDateMode.value)]} ${filterYear.value}`;
     }
+
     return props.date_range.start_date === props.date_range.end_date
         ? props.date_range.start_date
         : `${props.date_range.start_date} – ${props.date_range.end_date}`;
@@ -269,15 +290,23 @@ const filteredTransaksis = computed(() => {
     let result = props.transaksis.filter((t) => {
         const matchSearch = !q || t.kode.toLowerCase().includes(q) || t.kasir.toLowerCase().includes(q);
         const matchKasir = !filterKasir.value || String(t.id_user) === filterKasir.value;
+
         return matchSearch && matchKasir;
     });
 
-    if (sortBy.value === 'date_asc')   result = [...result].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    else if (sortBy.value === 'date_desc')  result = [...result].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    else if (sortBy.value === 'total_asc')  result = [...result].sort((a, b) => a.total_harga - b.total_harga);
-    else if (sortBy.value === 'total_desc') result = [...result].sort((a, b) => b.total_harga - a.total_harga);
-    else if (sortBy.value === 'item_asc')   result = [...result].sort((a, b) => a.jumlah_item - b.jumlah_item);
-    else if (sortBy.value === 'item_desc')  result = [...result].sort((a, b) => b.jumlah_item - a.jumlah_item);
+    if (sortBy.value === 'date_asc')   {
+result = [...result].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+} else if (sortBy.value === 'date_desc')  {
+result = [...result].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+} else if (sortBy.value === 'total_asc')  {
+result = [...result].sort((a, b) => a.total_harga - b.total_harga);
+} else if (sortBy.value === 'total_desc') {
+result = [...result].sort((a, b) => b.total_harga - a.total_harga);
+} else if (sortBy.value === 'item_asc')   {
+result = [...result].sort((a, b) => a.jumlah_item - b.jumlah_item);
+} else if (sortBy.value === 'item_desc')  {
+result = [...result].sort((a, b) => b.jumlah_item - a.jumlah_item);
+}
 
     return result;
 });

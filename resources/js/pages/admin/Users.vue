@@ -14,9 +14,9 @@ import {
     AlertCircle,
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
-import { store as userStore, update as userUpdate, destroy as userDestroy } from '@/routes/admin/users';
-import { usePagination } from '@/composables/usePagination';
 import Pagination from '@/components/Pagination.vue';
+import { usePagination } from '@/composables/usePagination';
+import { store as userStore, update as userUpdate, destroy as userDestroy } from '@/routes/admin/users';
 
 defineOptions({
     layout: {

@@ -86,9 +86,18 @@ const toggleTheme = () => {
 };
 
 const getRankTag = (index: number): string => {
-    if (index === 0) return 'Terlaris 🔥';
-    if (index === 1) return '#2 Best Seller';
-    if (index === 2) return '#3 Favorit';
+    if (index === 0) {
+return 'Terlaris 🔥';
+}
+
+    if (index === 1) {
+return '#2 Best Seller';
+}
+
+    if (index === 2) {
+return '#3 Favorit';
+}
+
     return `#${index + 1} Pilihan`;
 };
 
@@ -239,6 +248,7 @@ const addToCart = (product: AddableProduct) => {
     // Tolak produk yang stoknya sudah habis.
     if (product.stok <= 0) {
         showToast(`Stok ${product.nama} habis`);
+
         return;
     }
 
@@ -250,8 +260,10 @@ const addToCart = (product: AddableProduct) => {
         // Jangan tambah melebihi stok yang tersedia di database.
         if (existing.quantity >= existing.stok) {
             showToast(`Stok ${product.nama} cuma ${existing.stok}`);
+
             return;
         }
+
         existing.quantity += 1;
     } else {
         cart.value.push({
@@ -270,19 +282,24 @@ const addToCart = (product: AddableProduct) => {
 
 const increaseQty = (id: number) => {
     const item = cart.value.find((i) => i.id_produk === id);
+
     if (item) {
         if (item.quantity >= item.stok) {
             showToast(`Stok ${item.nama} cuma ${item.stok}`);
+
             return;
         }
+
         item.quantity += 1;
     }
 };
 
 const decreaseQty = (id: number) => {
     const item = cart.value.find((i) => i.id_produk === id);
+
     if (item) {
         item.quantity -= 1;
+
         if (item.quantity <= 0) {
             removeFromCart(id);
         }
@@ -297,13 +314,19 @@ const setCartQuantity = (item: CartItem, event: Event) => {
     // Biarkan kosong sementara saat pelanggan mengetik ulang.
     if (digits === '') {
         el.value = '';
+
         return;
     }
 
     let next = parseInt(digits, 10);
-    if (next < 1) next = 1;
+
+    if (next < 1) {
+next = 1;
+}
+
     if (next > item.stok) {
         next = item.stok;
+
         // Beri tahu sekali saat pertama kali mentok di batas stok (hindari spam tiap ketik).
         if (item.quantity !== item.stok) {
             showToast(`Stok ${item.nama} cuma ${item.stok}`);
@@ -318,8 +341,15 @@ const setCartQuantity = (item: CartItem, event: Event) => {
 const normalizeCartQuantity = (item: CartItem, event: Event) => {
     const el = event.target as HTMLInputElement;
     let next = parseInt(el.value.replace(/\D/g, ''), 10);
-    if (!Number.isFinite(next) || next < 1) next = 1;
-    if (next > item.stok) next = item.stok;
+
+    if (!Number.isFinite(next) || next < 1) {
+next = 1;
+}
+
+    if (next > item.stok) {
+next = item.stok;
+}
+
     item.quantity = next;
     el.value = String(next);
 };
@@ -338,9 +368,11 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 const showToast = (message: string) => {
     toastMessage.value = message;
+
     if (toastTimer) {
         clearTimeout(toastTimer);
     }
+
     toastTimer = setTimeout(() => {
         toastMessage.value = null;
     }, 2200);
@@ -351,12 +383,14 @@ const searchQuery = ref('');
 
 const filteredProducts = computed(() => {
     const query = searchQuery.value.trim().toLowerCase();
+
     if (!query) {
         return props.allProducts;
     }
 
     return props.allProducts.filter((product) => {
         const haystack = `${product.nama} ${product.kategori ?? ''}`.toLowerCase();
+
         return haystack.includes(query);
     });
 });
@@ -398,9 +432,11 @@ const promoSisaText = (sisaHari: number) => {
     if (sisaHari <= 0) {
         return 'Berakhir hari ini';
     }
+
     if (sisaHari === 1) {
         return 'Sisa 1 hari lagi';
     }
+
     return `Sisa ${sisaHari} hari lagi`;
 };
 </script>

@@ -119,7 +119,7 @@ const mainNavGroups = computed<NavGroup[]>(() => {
                         icon: TrendingUp,
                     },
                     {
-                        title: 'Analisis Keuangan',
+                        title: 'Laporan Keuangan',
                         href: '/admin/laporan/keuangan',
                         icon: Wallet,
                     },

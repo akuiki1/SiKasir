@@ -14,13 +14,13 @@ import {
     ChevronRight,
 } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
+import Pagination from '@/components/Pagination.vue';
+import { usePagination } from '@/composables/usePagination';
 import {
     store as pengeluaransStore,
     update as pengeluaransUpdate,
     destroy as pengeluaransDestroy,
 } from '@/routes/admin/pengeluarans';
-import { usePagination } from '@/composables/usePagination';
-import Pagination from '@/components/Pagination.vue';
 
 interface Pengeluaran {
     id_pengeluaran: number;
@@ -64,6 +64,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', '
 function getMonthRange(year: number, month: number) {
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 0);
+
     return {
         start: start.toISOString().slice(0, 10),
         end: end.toISOString().slice(0, 10),
@@ -77,25 +78,33 @@ const dateEndDate = ref(props.date_range.end_date);
 
 function detectDateMode(): string {
     const today = new Date().toISOString().slice(0, 10);
+
     if (props.date_range.start_date === today && props.date_range.end_date === today) {
         return 'today';
     }
+
     for (let m = 0; m < 12; m++) {
         const range = getMonthRange(filterYear.value, m);
+
         if (range.start === props.date_range.start_date && range.end === props.date_range.end_date) {
             return String(m);
         }
     }
+
     return 'custom';
 }
 
 const selectedDateMode = ref(detectDateMode());
 
 const periodLabel = computed(() => {
-    if (selectedDateMode.value === 'today') return 'Hari Ini';
+    if (selectedDateMode.value === 'today') {
+return 'Hari Ini';
+}
+
     if (selectedDateMode.value !== 'custom') {
         return `${MONTHS[Number(selectedDateMode.value)]} ${filterYear.value}`;
     }
+
     return props.date_range.start_date === props.date_range.end_date
         ? props.date_range.start_date
         : `${props.date_range.start_date} – ${props.date_range.end_date}`;
@@ -121,6 +130,7 @@ function selectToday(): void {
 
 function prevFilterYear(): void {
     filterYear.value--;
+
     if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
         selectMonth(Number(selectedDateMode.value));
     }
@@ -128,6 +138,7 @@ function prevFilterYear(): void {
 
 function nextFilterYear(): void {
     filterYear.value++;
+
     if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
         selectMonth(Number(selectedDateMode.value));
     }

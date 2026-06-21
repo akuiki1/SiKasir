@@ -130,14 +130,24 @@ const visiblePages = computed(() => {
     const current = props.transaksis.current_page;
 
     if (total <= 7) {
-        for (let i = 1; i <= total; i++) pages.push(i);
+        for (let i = 1; i <= total; i++) {
+pages.push(i);
+}
     } else {
         pages.push(1);
-        if (current > 3) pages.push(-1);
+
+        if (current > 3) {
+pages.push(-1);
+}
+
         for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
             pages.push(i);
         }
-        if (current < total - 2) pages.push(-1);
+
+        if (current < total - 2) {
+pages.push(-1);
+}
+
         pages.push(total);
     }
 
@@ -278,9 +288,11 @@ async function printSessionReport(): Promise<void> {
         if (searchQuery.value) {
             params.set('search', searchQuery.value);
         }
+
         if (props.filters.start_date) {
             params.set('start_date', props.filters.start_date);
         }
+
         if (props.filters.end_date) {
             params.set('end_date', props.filters.end_date);
         }
