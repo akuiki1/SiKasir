@@ -25,13 +25,13 @@ function isActive(href: NavItem['href']): boolean {
         class="fixed inset-x-0 bottom-0 z-50 border-t border-sidebar-border/70 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden"
         aria-label="Navigasi kasir"
     >
-        <div class="mx-auto flex max-w-md items-stretch justify-around">
+        <div class="mx-auto flex h-[3.75rem] max-w-md items-stretch justify-around">
             <Link
                 v-for="item in items"
                 :key="item.title"
                 :href="item.href"
                 :class="[
-                    'group relative flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[0.7rem] font-medium transition-colors',
+                    'group relative flex flex-1 flex-col items-center justify-center gap-1 text-[0.7rem] font-medium transition-colors',
                     isActive(item.href)
                         ? 'text-primary'
                         : 'text-muted-foreground hover:text-foreground',

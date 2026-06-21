@@ -1113,7 +1113,7 @@ function submitTransaction() {
         >
             <div
                 v-if="cartOpen"
-                class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm @2xl/pos:hidden"
+                class="fixed inset-0 z-[55] bg-black/50 backdrop-blur-sm @2xl/pos:hidden"
                 @click="cartOpen = false"
             ></div>
         </Transition>
@@ -1122,7 +1122,7 @@ function submitTransaction() {
         <aside
             :class="[
                 'flex flex-col bg-card shadow-2xl transition-transform duration-300 ease-out',
-                'fixed inset-x-0 bottom-0 z-50 max-h-[88vh] overflow-y-auto rounded-t-3xl border-t border-sidebar-border/70 dark:border-sidebar-border',
+                'fixed inset-x-0 bottom-0 z-[60] max-h-[88vh] overflow-y-auto rounded-t-3xl border-t border-sidebar-border/70 dark:border-sidebar-border',
                 cartOpen ? 'translate-y-0' : 'translate-y-full',
                 '@2xl/pos:static @2xl/pos:z-auto @2xl/pos:max-h-none @2xl/pos:w-[300px] @2xl/pos:shrink-0 @2xl/pos:translate-y-0 @2xl/pos:self-start @2xl/pos:overflow-visible @2xl/pos:rounded-2xl @2xl/pos:border @2xl/pos:shadow-sm @4xl/pos:w-[340px] @6xl/pos:w-[380px]',
             ]"
@@ -1354,7 +1354,7 @@ function submitTransaction() {
             </div>
 
             <!-- Ringkasan + pembayaran -->
-            <div class="shrink-0 border-t border-sidebar-border/70 bg-slate-50/60 dark:border-sidebar-border dark:bg-zinc-900/40">
+            <div class="shrink-0 border-t border-sidebar-border/70 bg-slate-50/60 pb-[env(safe-area-inset-bottom)] dark:border-sidebar-border dark:bg-zinc-900/40">
                 <template v-if="cartItems.length">
                     <!-- Pelanggan & promo: selalu terlihat agar kasir tidak terlewat memilih -->
                     <div class="space-y-2.5 border-b border-sidebar-border/70 px-4 py-3 dark:border-sidebar-border">
@@ -1578,7 +1578,8 @@ function submitTransaction() {
         </div>
 
         <!-- ============ Bottom bar keranjang (mobile) ============ -->
-        <div class="fixed inset-x-0 bottom-0 z-30 border-t border-sidebar-border/70 bg-card/95 p-3 backdrop-blur @2xl/pos:hidden dark:border-sidebar-border">
+        <!-- Ditumpuk tepat di atas Bottom Navigation (tinggi 3.75rem + safe area), bukan di bawahnya. -->
+        <div class="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 border-t border-sidebar-border/70 bg-card/95 p-3 backdrop-blur @2xl/pos:hidden dark:border-sidebar-border">
             <button
                 type="button"
                 class="flex w-full items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-3 text-white shadow-lg transition active:scale-[0.99]"
