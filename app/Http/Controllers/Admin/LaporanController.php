@@ -7,6 +7,7 @@ use App\Models\DetailTransaksi;
 use App\Models\Pengeluaran;
 use App\Models\Produksi;
 use App\Models\Transaksi;
+use App\Services\LaporanFinansialService;
 use DateInterval;
 use DatePeriod;
 use Illuminate\Http\Request;
@@ -16,29 +17,7 @@ use Inertia\Response;
 
 class LaporanController extends Controller
 {
-    /** Label ramah untuk tiap tipe pengeluaran. */
-    private const EXPENSE_LABELS = [
-        'bahan_baku' => 'Bahan Baku',
-        'kemasan' => 'Kemasan',
-        'operasional' => 'Operasional',
-        'transportasi' => 'Transportasi',
-        'gaji' => 'Gaji',
-        'peralatan' => 'Peralatan',
-        'sewa' => 'Sewa',
-        'listrik_air' => 'Listrik & Air',
-        'promosi' => 'Promosi',
-        'pajak' => 'Pajak',
-        'lainnya' => 'Lainnya',
-    ];
-
-    /** Tipe pengeluaran yang merupakan modal barang (dikecualikan dari biaya operasional). */
-    private const COGS_EXPENSE_TYPES = ['bahan_baku', 'kemasan'];
-
-    private const PAYMENT_LABELS = [
-        'cash' => 'Tunai',
-        'qris' => 'QRIS',
-        'transfer' => 'Transfer Bank',
-    ];
+    public function __construct(private readonly LaporanFinansialService $finansial) {}
 
     /**
      * Laporan Keuangan: Laba Rugi, Arus Kas, dan Rekonsiliasi Pembayaran.
@@ -68,7 +47,7 @@ class LaporanController extends Controller
         // ---------------------------------------------------------------
         // 1. LABA RUGI (PROFIT & LOSS)
         // ---------------------------------------------------------------
-        $summary = $this->periodSummary($startDate, $endDate);
+        $summary = $this->finansial->periodSummary($startDate, $endDate);
         $totalRevenue = $summary['revenue'];
         $totalCogs = $summary['cogs'];
         $grossProfit = $summary['gross_profit'];
@@ -87,38 +66,27 @@ class LaporanController extends Controller
         $totalDiskon = (int) Transaksi::whereBetween('created_at', [$startDate, $endDate])->sum('diskon');
 
         // Rincian biaya operasional per kategori (untuk waterfall & tabel laba rugi).
-        $expenseBreakdown = Pengeluaran::whereBetween('created_at', [$startDate, $endDate])
-            ->whereNotIn('tipe', self::COGS_EXPENSE_TYPES)
-            ->selectRaw('tipe, SUM(nominal) as total')
-            ->groupBy('tipe')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn ($row) => [
-                'tipe' => $row->tipe,
-                'label' => self::EXPENSE_LABELS[$row->tipe] ?? ucfirst($row->tipe),
-                'nominal' => (int) $row->total,
-            ])
-            ->values();
+        $expenseBreakdown = $this->finansial->expenseBreakdown($startDate, $endDate);
 
-        $waterfall = $this->buildWaterfall($totalRevenue, $totalCogs, $grossProfit, $expenseBreakdown, $netProfit);
+        $waterfall = $this->finansial->buildWaterfall($totalRevenue, $totalCogs, $grossProfit, $expenseBreakdown, $netProfit);
 
         // Perbandingan dengan periode setara sebelumnya (durasi sama, tepat sebelum periode aktif).
         $previousEnd = $startDate->copy()->subDay()->endOfDay();
         $previousStart = $previousEnd->copy()->subDays($periodDays - 1)->startOfDay();
-        $previous = $this->periodSummary($previousStart, $previousEnd);
+        $previous = $this->finansial->periodSummary($previousStart, $previousEnd);
 
         $comparison = [
-            $this->comparisonCard('Omzet', $totalRevenue, $previous['revenue'], true),
-            $this->comparisonCard('Laba Kotor', $grossProfit, $previous['gross_profit'], true),
-            $this->comparisonCard('Biaya Operasional', $operationalExpenses, $previous['expenses'], false),
-            $this->comparisonCard('Laba Bersih', $netProfit, $previous['net_profit'], true),
+            $this->finansial->comparisonCard('Omzet', $totalRevenue, $previous['revenue'], true),
+            $this->finansial->comparisonCard('Laba Kotor', $grossProfit, $previous['gross_profit'], true),
+            $this->finansial->comparisonCard('Biaya Operasional', $operationalExpenses, $previous['expenses'], false),
+            $this->finansial->comparisonCard('Laba Bersih', $netProfit, $previous['net_profit'], true),
         ];
 
         $monthlyCostWarning = $periodDays < 28 && Pengeluaran::whereBetween('created_at', [$startDate, $endDate])
             ->whereIn('tipe', ['gaji', 'sewa', 'pajak'])
             ->exists();
 
-        $insight = $this->buildInsight(
+        $insight = $this->finansial->buildInsight(
             $totalRevenue,
             $totalCogs,
             $grossProfit,
@@ -147,7 +115,7 @@ class LaporanController extends Controller
         // Kas keluar untuk modal barang: biaya batch produksi + pembelian bahan/kemasan.
         $biayaProduksi = (int) Produksi::whereBetween('created_at', [$startDate, $endDate])->sum('total_biaya');
         $belanjaBahan = (int) Pengeluaran::whereBetween('created_at', [$startDate, $endDate])
-            ->whereIn('tipe', self::COGS_EXPENSE_TYPES)
+            ->whereIn('tipe', LaporanFinansialService::COGS_EXPENSE_TYPES)
             ->sum('nominal');
         $pembelianProduksi = $biayaProduksi + $belanjaBahan;
 
@@ -181,9 +149,9 @@ class LaporanController extends Controller
                 'jumlah' => $group->count(),
             ]);
 
-        $methods = collect(array_keys(self::PAYMENT_LABELS))->map(fn (string $metode) => [
+        $methods = collect(array_keys(LaporanFinansialService::PAYMENT_LABELS))->map(fn (string $metode) => [
             'metode' => $metode,
-            'label' => self::PAYMENT_LABELS[$metode],
+            'label' => LaporanFinansialService::PAYMENT_LABELS[$metode],
             'total' => (int) ($paymentAgg[$metode]['total'] ?? 0),
             'jumlah' => (int) ($paymentAgg[$metode]['jumlah'] ?? 0),
         ])->values();
@@ -227,116 +195,5 @@ class LaporanController extends Controller
     public function pelanggan(): Response
     {
         return Inertia::render('admin/laporan/Pelanggan');
-    }
-
-    /**
-     * Ringkasan finansial inti (omzet, HPP, laba, biaya) untuk satu rentang tanggal.
-     *
-     * @return array{revenue: int, cogs: int, gross_profit: int, expenses: int, net_profit: int}
-     */
-    private function periodSummary(Carbon $start, Carbon $end): array
-    {
-        $revenue = (int) Transaksi::whereBetween('created_at', [$start, $end])->sum('total_harga');
-
-        $cogs = (int) DetailTransaksi::whereHas('transaksi', fn ($q) => $q->whereBetween('created_at', [$start, $end]))
-            ->get(['modal', 'jumlah'])
-            ->sum(fn (DetailTransaksi $detail) => $detail->modal * $detail->jumlah);
-
-        $expenses = (int) Pengeluaran::whereBetween('created_at', [$start, $end])
-            ->whereNotIn('tipe', self::COGS_EXPENSE_TYPES)
-            ->sum('nominal');
-
-        $grossProfit = $revenue - $cogs;
-
-        return [
-            'revenue' => $revenue,
-            'cogs' => $cogs,
-            'gross_profit' => $grossProfit,
-            'expenses' => $expenses,
-            'net_profit' => $grossProfit - $expenses,
-        ];
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, array{tipe: string, label: string, nominal: int}>  $expenseBreakdown
-     * @return list<array{label: string, type: string, amount: int, start: int, end: int}>
-     */
-    private function buildWaterfall(int $totalRevenue, int $totalCogs, int $grossProfit, $expenseBreakdown, int $netProfit): array
-    {
-        $waterfall = [];
-        $waterfall[] = ['label' => 'Omzet', 'type' => 'income', 'amount' => $totalRevenue, 'start' => 0, 'end' => $totalRevenue];
-        $running = $totalRevenue;
-        $waterfall[] = ['label' => 'HPP', 'type' => 'deduction', 'amount' => -$totalCogs, 'start' => $running, 'end' => $running - $totalCogs];
-        $running -= $totalCogs;
-        $waterfall[] = ['label' => 'Laba Kotor', 'type' => 'subtotal', 'amount' => $grossProfit, 'start' => 0, 'end' => $grossProfit];
-        foreach ($expenseBreakdown as $expense) {
-            $waterfall[] = [
-                'label' => $expense['label'],
-                'type' => 'deduction',
-                'amount' => -$expense['nominal'],
-                'start' => $running,
-                'end' => $running - $expense['nominal'],
-            ];
-            $running -= $expense['nominal'];
-        }
-        $waterfall[] = ['label' => 'Laba Bersih', 'type' => 'result', 'amount' => $netProfit, 'start' => 0, 'end' => $netProfit];
-
-        return $waterfall;
-    }
-
-    /**
-     * @return array{label: string, current: int, previous: int, delta_pct: float|null, higher_is_better: bool}
-     */
-    private function comparisonCard(string $label, int $current, int $previous, bool $higherIsBetter): array
-    {
-        return [
-            'label' => $label,
-            'current' => $current,
-            'previous' => $previous,
-            'delta_pct' => $previous !== 0 ? (($current - $previous) / abs($previous)) * 100 : null,
-            'higher_is_better' => $higherIsBetter,
-        ];
-    }
-
-    private function rupiah(int $value): string
-    {
-        return ($value < 0 ? '−' : '').'Rp'.number_format(abs($value), 0, ',', '.');
-    }
-
-    /**
-     * @param  array{label: string, nominal: int}|null  $topExpense
-     * @param  array{revenue: int, cogs: int, gross_profit: int, expenses: int, net_profit: int}  $previous
-     * @return array{tone: string, message: string}
-     */
-    private function buildInsight(int $revenue, int $cogs, int $grossProfit, int $expenses, int $netProfit, float $margin, ?array $topExpense, array $previous): array
-    {
-        if ($netProfit >= 0) {
-            $tone = 'success';
-            $message = 'Bisnis untung '.$this->rupiah($netProfit).' (margin '.number_format($margin, 1, ',', '.').'%) pada periode ini.';
-        } elseif ($grossProfit < 0) {
-            $tone = 'danger';
-            $message = 'HPP ('.$this->rupiah($cogs).') melebihi omzet ('.$this->rupiah($revenue).') — ada produk terjual di bawah modal. Bisnis rugi '.$this->rupiah(abs($netProfit)).'.';
-        } else {
-            $tone = 'danger';
-            $topText = $topExpense !== null
-                ? ' — terutama '.$topExpense['label'].' ('.$this->rupiah($topExpense['nominal']).')'
-                : '';
-            $message = 'Laba kotor masih positif ('.$this->rupiah($grossProfit).'), tapi biaya operasional '.$this->rupiah($expenses).$topText.' melebihinya, jadi bisnis rugi '.$this->rupiah(abs($netProfit)).'.';
-        }
-
-        $changes = [];
-        if ($previous['revenue'] > 0) {
-            $revenuePct = (($revenue - $previous['revenue']) / $previous['revenue']) * 100;
-            $changes[] = 'omzet '.($revenuePct >= 0 ? 'naik' : 'turun').' '.number_format(abs($revenuePct), 0).'%';
-        }
-        if ($previous['expenses'] > 0) {
-            $expensePct = (($expenses - $previous['expenses']) / $previous['expenses']) * 100;
-            $changes[] = 'biaya operasional '.($expensePct >= 0 ? 'naik' : 'turun').' '.number_format(abs($expensePct), 0).'%';
-        }
-        if ($changes !== []) {
-            $message .= ' Dibanding periode sebelumnya: '.implode(' & ', $changes).'.';
-        }
-
-        return ['tone' => $tone, 'message' => $message];
     }
 }
