@@ -1,7 +1,7 @@
 import { n as useAppearance, t as initializeTheme } from "./assets/useAppearance-DAHt6sku.js";
 import { n as cn, r as toUrl, t as Button_default } from "./assets/button-BASArwVF.js";
 import { t as Input_default } from "./assets/input-VcrzL7za.js";
-import { t as AppLogoIcon_default } from "./assets/AppLogoIcon-C3RaVnKf.js";
+import { t as AppLogoIcon_default } from "./assets/AppLogoIcon-Bjl50QHb.js";
 import { i as logout, n as home } from "./assets/routes-VTLDKrk-.js";
 import { t as edit } from "./assets/profile-C0rmUldE.js";
 import { t as Heading_default } from "./assets/Heading-GycAGUxB.js";
@@ -13,7 +13,7 @@ import { renderToString, ssrInterpolate, ssrRenderAttrs, ssrRenderClass, ssrRend
 import { cva } from "class-variance-authority";
 import { AvatarFallback, AvatarImage, AvatarRoot, DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuItemIndicator, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Primitive, Separator, TooltipArrow, TooltipContent, TooltipPortal, TooltipProvider, TooltipRoot, TooltipTrigger, createContext, useForwardProps, useForwardPropsEmits } from "reka-ui";
 import { defaultDocument, reactiveOmit, useEventListener, useMediaQuery, useVModel } from "@vueuse/core";
-import { Check, ChevronDown, ChevronRight, ChevronsUpDown, Circle, Contact, DollarSign, Factory, History, LayoutGrid, LogOut, Monitor, Moon, MoreHorizontal, Package, PanelLeftClose, PanelLeftOpen, Settings, ShoppingCart, Sun, Tag, Tags, TrendingUp, Users, UsersRound, Wallet, Warehouse, X } from "lucide-vue-next";
+import { Boxes, Check, ChevronDown, ChevronRight, ChevronsUpDown, Circle, Contact, DollarSign, Factory, History, LayoutGrid, LogOut, Monitor, Moon, MoreHorizontal, Package, PanelLeftClose, PanelLeftOpen, Settings, ShoppingCart, Sun, Tag, Tags, TrendingUp, Users, UsersRound, Wallet, Warehouse, X } from "lucide-vue-next";
 import { Toaster, toast } from "vue-sonner";
 import createServer from "@inertiajs/vue3/server";
 //#region resources/js/components/ui/sheet/Sheet.vue?vue&type=script&setup=true&lang.ts
@@ -1221,8 +1221,12 @@ var SidebarMenuButton_vue_vue_type_script_setup_true_lang_default = /* @__PURE__
 		const props = __props;
 		const { isMobile, state } = useSidebar();
 		const delegatedProps = reactiveOmit(props, "tooltip");
+		const isMounted = ref(false);
+		onMounted(() => {
+			isMounted.value = true;
+		});
 		return (_ctx, _push, _parent, _attrs) => {
-			if (!__props.tooltip) _push(ssrRenderComponent(SidebarMenuButtonChild_default, mergeProps({
+			if (!__props.tooltip || !isMounted.value) _push(ssrRenderComponent(SidebarMenuButtonChild_default, mergeProps({
 				...unref(delegatedProps),
 				..._ctx.$attrs
 			}, _attrs), {
@@ -1879,8 +1883,8 @@ var AppLogo_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ define
 	props: { subtitle: {} },
 	setup(__props) {
 		return (_ctx, _push, _parent, _attrs) => {
-			_push(`<!--[--><div class="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">`);
-			_push(ssrRenderComponent(AppLogoIcon_default, { class: "size-5 fill-current text-white dark:text-black" }, null, _parent));
+			_push(`<!--[--><div class="flex aspect-square size-9 items-center justify-center">`);
+			_push(ssrRenderComponent(AppLogoIcon_default, { class: "size-9" }, null, _parent));
 			_push(`</div><div class="ml-1 grid flex-1 text-left text-sm"><span class="truncate leading-tight font-semibold">Cemilan Mba Tutut</span>`);
 			if (__props.subtitle) _push(`<span class="truncate text-xs leading-tight font-normal text-muted-foreground">${ssrInterpolate(__props.subtitle)}</span>`);
 			else _push(`<!---->`);
@@ -3320,6 +3324,11 @@ var AppSidebar_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ def
 							title: "Analisis Penjualan",
 							href: "/admin/laporan/penjualan",
 							icon: TrendingUp
+						},
+						{
+							title: "Stok & Inventaris",
+							href: "/admin/laporan/inventaris",
+							icon: Boxes
 						},
 						{
 							title: "Laporan Keuangan",
@@ -4846,27 +4855,28 @@ var render = await createInertiaApp({
 	resolve: async (name, page) => {
 		const pages = /* @__PURE__ */ Object.assign({
 			"./pages/Dashboard.vue": () => import("./assets/Dashboard-DA5J6WNz.js"),
-			"./pages/Welcome.vue": () => import("./assets/Welcome-DubmN8H8.js"),
-			"./pages/admin/Dashboard.vue": () => import("./assets/Dashboard-DImWgZHE.js"),
-			"./pages/admin/Kategori.vue": () => import("./assets/Kategori-PltUCPw5.js"),
-			"./pages/admin/Pelanggan.vue": () => import("./assets/Pelanggan-CEOOnKAl.js"),
-			"./pages/admin/Pengeluarans.vue": () => import("./assets/Pengeluarans-DnWMa-ni.js"),
-			"./pages/admin/Products.vue": () => import("./assets/Products-Dd0K1kQQ.js"),
-			"./pages/admin/Produksi.vue": () => import("./assets/Produksi-Dv_eMTNr.js"),
-			"./pages/admin/Promos.vue": () => import("./assets/Promos-BhqlUuE6.js"),
-			"./pages/admin/Stok.vue": () => import("./assets/Stok-CxClf2Yz.js"),
-			"./pages/admin/Transactions.vue": () => import("./assets/Transactions-DCC648K3.js"),
-			"./pages/admin/Users.vue": () => import("./assets/Users-2eaiwiXo.js"),
-			"./pages/admin/laporan/Keuangan.vue": () => import("./assets/Keuangan-CwZS01Cw.js"),
-			"./pages/admin/laporan/Pelanggan.vue": () => import("./assets/Pelanggan-CqoPKZBq.js"),
-			"./pages/admin/laporan/Penjualan.vue": () => import("./assets/Penjualan-BpUMex_j.js"),
+			"./pages/Welcome.vue": () => import("./assets/Welcome-DzBebV7_.js"),
+			"./pages/admin/Dashboard.vue": () => import("./assets/Dashboard-CLAg-fcs.js"),
+			"./pages/admin/Kategori.vue": () => import("./assets/Kategori-Cxwx4h96.js"),
+			"./pages/admin/Pelanggan.vue": () => import("./assets/Pelanggan-CFk85YMF.js"),
+			"./pages/admin/Pengeluarans.vue": () => import("./assets/Pengeluarans-DpAy8i8H.js"),
+			"./pages/admin/Products.vue": () => import("./assets/Products-D_cdLUwh.js"),
+			"./pages/admin/Produksi.vue": () => import("./assets/Produksi-QWPyQnHG.js"),
+			"./pages/admin/Promos.vue": () => import("./assets/Promos-EUtj1tTN.js"),
+			"./pages/admin/Stok.vue": () => import("./assets/Stok-BxdvcMsh.js"),
+			"./pages/admin/Transactions.vue": () => import("./assets/Transactions-DlSPjpF5.js"),
+			"./pages/admin/Users.vue": () => import("./assets/Users-BWIKhUF2.js"),
+			"./pages/admin/laporan/Inventaris.vue": () => import("./assets/Inventaris-Dypr5jnU.js"),
+			"./pages/admin/laporan/Keuangan.vue": () => import("./assets/Keuangan-RQe8tDuT.js"),
+			"./pages/admin/laporan/Pelanggan.vue": () => import("./assets/Pelanggan-DtJ__AFK.js"),
+			"./pages/admin/laporan/Penjualan.vue": () => import("./assets/Penjualan-DYRtNuQo.js"),
 			"./pages/auth/ForgotPassword.vue": () => import("./assets/ForgotPassword-CxMgEwKE.js"),
 			"./pages/auth/Login.vue": () => import("./assets/Login-BBliiNnz.js"),
 			"./pages/auth/ResetPassword.vue": () => import("./assets/ResetPassword-Clea5Q1h.js"),
 			"./pages/auth/VerifyEmail.vue": () => import("./assets/VerifyEmail-9kP-Ql0A.js"),
-			"./pages/kasir/Dashboard.vue": () => import("./assets/Dashboard-B2Qd4SkR2.js"),
-			"./pages/kasir/Riwayat.vue": () => import("./assets/Riwayat-2U-hF5TE.js"),
-			"./pages/kasir/Transaksi.vue": () => import("./assets/Transaksi-BkmQDSMV.js"),
+			"./pages/kasir/Dashboard.vue": () => import("./assets/Dashboard-DBt21s3Y.js"),
+			"./pages/kasir/Riwayat.vue": () => import("./assets/Riwayat-D-anUt8O.js"),
+			"./pages/kasir/Transaksi.vue": () => import("./assets/Transaksi-Dq59yXk2.js"),
 			"./pages/settings/Appearance.vue": () => import("./assets/Appearance-nwn_-qEb.js"),
 			"./pages/settings/Profile.vue": () => import("./assets/Profile-C7VQucxV.js"),
 			"./pages/settings/Security.vue": () => import("./assets/Security-DKwUM-ty.js")

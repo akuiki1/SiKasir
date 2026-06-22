@@ -477,9 +477,9 @@ const promoSisaText = (sisaHari: number) => {
                     <!-- Brand Logo -->
                     <div class="flex items-center gap-2">
                         <div
-                            class="flex h-10 w-10 transform items-center justify-center rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 text-white shadow-md shadow-orange-500/20 transition-all hover:scale-105"
+                            class="flex h-11 w-11 transform items-center justify-center transition-all hover:scale-105"
                         >
-                            <AppLogoIcon class="h-6 w-6" />
+                            <AppLogoIcon class="h-11 w-11" />
                         </div>
                         <span
                             class="bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500 bg-clip-text font-['Outfit',sans-serif] text-xl font-extrabold tracking-tight text-transparent sm:text-2xl"
@@ -1569,9 +1569,9 @@ const promoSisaText = (sisaHari: number) => {
                     <div class="col-span-2 space-y-4 md:col-span-1">
                         <div class="flex items-center gap-2">
                             <div
-                                class="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500 text-white"
+                                class="flex h-10 w-10 items-center justify-center"
                             >
-                                <AppLogoIcon class="h-5 w-5" />
+                                <AppLogoIcon class="h-10 w-10" />
                             </div>
                             <span
                                 class="font-['Outfit',sans-serif] text-xl font-black tracking-tight text-white"
