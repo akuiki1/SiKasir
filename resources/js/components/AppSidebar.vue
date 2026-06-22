@@ -15,6 +15,7 @@ import {
     Wallet,
     TrendingUp,
     UsersRound,
+    Boxes,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -117,6 +118,11 @@ const mainNavGroups = computed<NavGroup[]>(() => {
                         title: 'Analisis Penjualan',
                         href: '/admin/laporan/penjualan',
                         icon: TrendingUp,
+                    },
+                    {
+                        title: 'Stok & Inventaris',
+                        href: '/admin/laporan/inventaris',
+                        icon: Boxes,
                     },
                     {
                         title: 'Laporan Keuangan',

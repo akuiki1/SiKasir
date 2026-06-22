@@ -161,6 +161,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Laporan / Analisis
         Route::get('admin/laporan/keuangan', [LaporanController::class, 'keuangan'])->name('admin.laporan.keuangan');
         Route::get('admin/laporan/penjualan', [LaporanController::class, 'penjualan'])->name('admin.laporan.penjualan');
+        Route::get('admin/laporan/inventaris', [LaporanController::class, 'inventaris'])->name('admin.laporan.inventaris');
         Route::get('admin/laporan/pelanggan', [LaporanController::class, 'pelanggan'])->name('admin.laporan.pelanggan');
 
         // Promo

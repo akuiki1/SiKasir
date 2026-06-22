@@ -8,6 +8,7 @@ use App\Models\Pengeluaran;
 use App\Models\Produksi;
 use App\Models\Transaksi;
 use App\Services\LaporanFinansialService;
+use App\Services\LaporanStokService;
 use DateInterval;
 use DatePeriod;
 use Illuminate\Http\Request;
@@ -17,7 +18,10 @@ use Inertia\Response;
 
 class LaporanController extends Controller
 {
-    public function __construct(private readonly LaporanFinansialService $finansial) {}
+    public function __construct(
+        private readonly LaporanFinansialService $finansial,
+        private readonly LaporanStokService $stok,
+    ) {}
 
     /**
      * Laporan Keuangan: Laba Rugi, Arus Kas, dan Rekonsiliasi Pembayaran.
@@ -190,6 +194,44 @@ class LaporanController extends Controller
     public function penjualan(): Response
     {
         return Inertia::render('admin/laporan/Penjualan');
+    }
+
+    /**
+     * Manajemen Stok & Inventaris: Analisis ABC (perputaran stok) — produk
+     * dikelompokkan Fast-moving / Slow-moving / Dead-stock berdasarkan periode.
+     */
+    public function inventaris(Request $request): Response
+    {
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+        ]);
+
+        // Default: 90 hari terakhir — jendela cukup panjang untuk menilai perputaran.
+        $endDate = isset($validated['end_date'])
+            ? Carbon::parse($validated['end_date'])->endOfDay()
+            : Carbon::today()->endOfDay();
+
+        $startDate = isset($validated['start_date'])
+            ? Carbon::parse($validated['start_date'])->startOfDay()
+            : $endDate->copy()->subDays(89)->startOfDay();
+
+        if ($startDate->gt($endDate)) {
+            $startDate = $endDate->copy()->subDays(89)->startOfDay();
+        }
+
+        $analysis = $this->stok->abcAnalysis($startDate, $endDate);
+
+        return Inertia::render('admin/laporan/Inventaris', [
+            'date_range' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+            ],
+            'period_days' => $analysis['period_days'],
+            'summary' => $analysis['summary'],
+            'totals' => $analysis['totals'],
+            'products' => $analysis['products'],
+        ]);
     }
 
     public function pelanggan(): Response
