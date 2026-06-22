@@ -5,26 +5,29 @@ import {
     MessageCircle,
     PhoneCall,
     CheckCircle2,
-    Star,
     Moon,
     Sun,
     ArrowRight,
     Menu,
     X,
     Search,
-    ShoppingBag,
     ShoppingCart,
     Plus,
     Minus,
     Trash2,
-    Award,
     ShieldCheck,
     Leaf,
     Clock,
     TrendingUp,
     Tag,
+    ArrowUpDown,
+    ChevronLeft,
+    ChevronRight,
+    MapPin,
+    Instagram,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import type { DirectiveBinding } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { useAppearance } from '@/composables/useAppearance';
 import { formatRupiah } from '@/lib/format';
@@ -35,8 +38,10 @@ interface Promo {
     label: string;
     tipe: 'persen' | 'nominal';
     nilai: number;
+    harga_promo: number | null;
     sisa_hari: number;
     tanggal_selesai: string;
+    berakhir_pada: string;
 }
 
 interface BestSeller {
@@ -81,130 +86,9 @@ const toggleTheme = () => {
     updateAppearance(appearance.value === 'dark' ? 'light' : 'dark');
 };
 
-const getRankTag = (index: number): string => {
-    if (index === 0) {
-return 'Terlaris 🔥';
-}
-
-    if (index === 1) {
-return '#2 Best Seller';
-}
-
-    if (index === 2) {
-return '#3 Favorit';
-}
-
-    return `#${index + 1} Pilihan`;
-};
-
-// Static data for the flavor quiz section only
-const quizProducts = [
-    {
-        id: 1,
-        name: 'Keripik Singkong Pedas Daun Jeruk',
-        image: '/images/singkong.png',
-        description:
-            'Irisan singkong tipis super renyah dibalut sambal merah cabai asli berkualitas dengan wangi segar daun jeruk purut melimpah.',
-        price: 15000,
-        tag: 'Pedas & Segar',
-        rating: 4.9,
-        reviews: 142,
-        flavorType: 'spicy-lime',
-    },
-    {
-        id: 2,
-        name: 'Pisang Lumer Cokelat Premium',
-        image: '/images/pisang.png',
-        description:
-            'Keripik pisang kepok pilihan yang diselimuti cokelat premium Belgia lumer yang lezat. Manisnya pas dan tidak bikin seret.',
-        price: 18000,
-        tag: 'Manis & Lumer',
-        rating: 4.8,
-        reviews: 98,
-        flavorType: 'sweet',
-    },
-    {
-        id: 3,
-        name: 'Basreng Pedas Jeruk Nipis',
-        image: '/images/basreng.png',
-        description:
-            'Bakso goreng khas Bandung yang diiris tipis, digoreng garing, dan dilumuri bumbu pedas bubuk cabai asli berpadu kesegaran jeruk nipis.',
-        price: 16000,
-        tag: 'Terlaris 🔥',
-        rating: 5.0,
-        reviews: 215,
-        flavorType: 'super-spicy',
-    },
-    {
-        id: 4,
-        name: 'Makaroni Bantet Gurih Original',
-        image: '/images/makaroni.png',
-        description:
-            'Makaroni bantet renyah dengan cita rasa gurih asin klasik hasil olahan bawang putih segar dan bumbu rahasia warisan keluarga.',
-        price: 12000,
-        tag: 'Asin Gurih',
-        rating: 4.7,
-        reviews: 84,
-        flavorType: 'savory',
-    },
-];
-
-// Interactive Quiz State
-const selectedFlavor = ref<string | null>(null);
-const quizCompleted = ref(false);
-
-const quizOptions = [
-    {
-        id: 'super-spicy',
-        label: 'Pedas Gila Nampol',
-        emoji: '🥵',
-        color: 'bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20',
-    },
-    {
-        id: 'spicy-lime',
-        label: 'Pedas Segar Daun Jeruk',
-        emoji: '🍃',
-        color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20',
-    },
-    {
-        id: 'sweet',
-        label: 'Manis Lembut Lumer',
-        emoji: '🍫',
-        color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20',
-    },
-    {
-        id: 'savory',
-        label: 'Asin Gurih Bikin Candu',
-        emoji: '🍿',
-        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20',
-    },
-];
-
-const matchedProduct = computed(() => {
-    if (!selectedFlavor.value) {
-        return null;
-    }
-
-    return (
-        quizProducts.find((p) => p.flavorType === selectedFlavor.value) ||
-        quizProducts[0]
-    );
-});
-
-const selectQuizFlavor = (flavor: string) => {
-    selectedFlavor.value = flavor;
-    quizCompleted.value = true;
-};
-
-const resetQuiz = () => {
-    selectedFlavor.value = null;
-    quizCompleted.value = false;
-};
-
 // Nomor WhatsApp tujuan (admin Cemilan Mba Tutut)
 const WHATSAPP_NUMBER = '6281254744177';
 
-// WhatsApp Direct Link Generator
 const getWhatsAppLink = (productName: string) => {
     const message = encodeURIComponent(
         `Halo Kak! Saya tertarik untuk memesan produk Cemilan "${productName}" dari Cemilan Mba Tutut. Bagaimana cara memesannya ya?`,
@@ -241,7 +125,6 @@ type AddableProduct = Pick<
 >;
 
 const addToCart = (product: AddableProduct) => {
-    // Tolak produk yang stoknya sudah habis.
     if (product.stok <= 0) {
         showToast(`Stok ${product.nama} habis`);
 
@@ -253,7 +136,6 @@ const addToCart = (product: AddableProduct) => {
     );
 
     if (existing) {
-        // Jangan tambah melebihi stok yang tersedia di database.
         if (existing.quantity >= existing.stok) {
             showToast(`Stok ${product.nama} cuma ${existing.stok}`);
 
@@ -272,7 +154,6 @@ const addToCart = (product: AddableProduct) => {
         });
     }
 
-    // Jangan auto-buka keranjang — cukup tampilkan notifikasi singkat.
     showToast(`${product.nama} ditambahkan ke keranjang`);
 };
 
@@ -302,12 +183,10 @@ const decreaseQty = (id: number) => {
     }
 };
 
-// Qty diketik langsung: ambil hanya digit, clamp ke [1, stok].
 const setCartQuantity = (item: CartItem, event: Event) => {
     const el = event.target as HTMLInputElement;
     const digits = el.value.replace(/\D/g, '');
 
-    // Biarkan kosong sementara saat pelanggan mengetik ulang.
     if (digits === '') {
         el.value = '';
 
@@ -317,13 +196,12 @@ const setCartQuantity = (item: CartItem, event: Event) => {
     let next = parseInt(digits, 10);
 
     if (next < 1) {
-next = 1;
-}
+        next = 1;
+    }
 
     if (next > item.stok) {
         next = item.stok;
 
-        // Beri tahu sekali saat pertama kali mentok di batas stok (hindari spam tiap ketik).
         if (item.quantity !== item.stok) {
             showToast(`Stok ${item.nama} cuma ${item.stok}`);
         }
@@ -333,18 +211,17 @@ next = 1;
     el.value = String(next);
 };
 
-// Saat input kehilangan fokus: pastikan qty minimal 1 dan tidak melebihi stok.
 const normalizeCartQuantity = (item: CartItem, event: Event) => {
     const el = event.target as HTMLInputElement;
     let next = parseInt(el.value.replace(/\D/g, ''), 10);
 
     if (!Number.isFinite(next) || next < 1) {
-next = 1;
-}
+        next = 1;
+    }
 
     if (next > item.stok) {
-next = item.stok;
-}
+        next = item.stok;
+    }
 
     item.quantity = next;
     el.value = String(next);
@@ -358,7 +235,7 @@ const clearCart = () => {
     cart.value = [];
 };
 
-// ===== Toast Notification (feedback tambah ke keranjang) =====
+// ===== Toast Notification =====
 const toastMessage = ref<string | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -374,24 +251,160 @@ const showToast = (message: string) => {
     }, 2200);
 };
 
-// ===== Product Search =====
+// ===== Katalog: pencarian, filter kategori, & sorting =====
 const searchQuery = ref('');
+const activeCategory = ref('Semua');
+const sortBy = ref<'rekomendasi' | 'termurah' | 'termahal' | 'nama'>(
+    'rekomendasi',
+);
+
+const sortOptions = [
+    { value: 'rekomendasi', label: 'Rekomendasi' },
+    { value: 'termurah', label: 'Harga termurah' },
+    { value: 'termahal', label: 'Harga termahal' },
+    { value: 'nama', label: 'Nama A–Z' },
+] as const;
+
+const categories = computed(() => {
+    const unik = Array.from(
+        new Set(
+            props.allProducts
+                .map((p) => p.kategori)
+                .filter((k): k is string => !!k),
+        ),
+    ).sort((a, b) => a.localeCompare(b, 'id-ID'));
+
+    return ['Semua', ...unik];
+});
+
+const effectivePrice = (product: Product | BestSeller): number =>
+    product.promo?.harga_promo ?? product.harga_jual;
 
 const filteredProducts = computed(() => {
     const query = searchQuery.value.trim().toLowerCase();
 
-    if (!query) {
-        return props.allProducts;
-    }
+    let result = props.allProducts.filter((product) => {
+        const cocokKategori =
+            activeCategory.value === 'Semua' ||
+            product.kategori === activeCategory.value;
 
-    return props.allProducts.filter((product) => {
-        const haystack = `${product.nama} ${product.kategori ?? ''}`.toLowerCase();
+        if (!cocokKategori) {
+            return false;
+        }
+
+        if (!query) {
+            return true;
+        }
+
+        const haystack =
+            `${product.nama} ${product.kategori ?? ''}`.toLowerCase();
 
         return haystack.includes(query);
     });
+
+    if (sortBy.value === 'termurah') {
+        result = [...result].sort(
+            (a, b) => effectivePrice(a) - effectivePrice(b),
+        );
+    } else if (sortBy.value === 'termahal') {
+        result = [...result].sort(
+            (a, b) => effectivePrice(b) - effectivePrice(a),
+        );
+    } else if (sortBy.value === 'nama') {
+        result = [...result].sort((a, b) =>
+            a.nama.localeCompare(b.nama, 'id-ID'),
+        );
+    }
+
+    return result;
 });
 
-// Checkout: kirim pesan otomatis via WhatsApp (TANPA mengurangi stok)
+// "Muat lebih banyak" — tampilkan bertahap.
+const catalogLimit = ref(8);
+const visibleProducts = computed(() =>
+    filteredProducts.value.slice(0, catalogLimit.value),
+);
+
+watch([searchQuery, activeCategory, sortBy], () => {
+    catalogLimit.value = 8;
+});
+
+const resetKatalog = () => {
+    searchQuery.value = '';
+    activeCategory.value = 'Semua';
+    sortBy.value = 'rekomendasi';
+};
+
+// ===== Status stok =====
+const LOW_STOCK_THRESHOLD = 5;
+
+const stockState = (stok: number): 'aman' | 'menipis' | 'habis' => {
+    if (stok <= 0) {
+        return 'habis';
+    }
+
+    if (stok <= LOW_STOCK_THRESHOLD) {
+        return 'menipis';
+    }
+
+    return 'aman';
+};
+
+// ===== Best seller: scroll horizontal =====
+const favScroller = ref<HTMLElement | null>(null);
+
+const scrollFav = (dir: number) => {
+    favScroller.value?.scrollBy({ left: dir * 320, behavior: 'smooth' });
+};
+
+// ===== Hero slider (foto usaha → promo hari ini) =====
+const heroSlide = ref(0);
+const heroSlideCount = 2;
+let heroTimer: ReturnType<typeof setInterval> | null = null;
+
+const startHeroTimer = () => {
+    if (heroTimer) {
+        clearInterval(heroTimer);
+    }
+
+    heroTimer = setInterval(() => {
+        heroSlide.value = (heroSlide.value + 1) % heroSlideCount;
+    }, 6000);
+};
+
+const goToSlide = (i: number) => {
+    heroSlide.value = i;
+    startHeroTimer();
+};
+
+// Promo unggulan untuk slide kedua (produk promo pertama dari data nyata).
+const promoOfDay = computed<Product | BestSeller | null>(() => {
+    return (
+        props.allProducts.find((p) => p.promo) ??
+        props.bestSellers.find((p) => p.promo) ??
+        null
+    );
+});
+
+// ===== Lokasi / Maps =====
+// Peta inline pakai OpenStreetMap (frameable & tanpa API key; embed Google
+// "output=embed" kini diblokir X-Frame-Options). Tombol "Buka di Google Maps"
+// tetap mengarah ke Google untuk navigasi/arah.
+// Koordinat ≈ Barabai, Hulu Sungai Tengah — sesuaikan bila titik usaha bergeser.
+const LOKASI_LAT = -2.5833;
+const LOKASI_LNG = 115.3833;
+const ALAMAT =
+    'Jl. Putera Harapan, Matang Ginalun, Barabai, Hulu Sungai Tengah, Kalimantan Selatan';
+const mapsEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${
+    LOKASI_LNG - 0.02
+}%2C${LOKASI_LAT - 0.02}%2C${LOKASI_LNG + 0.02}%2C${
+    LOKASI_LAT + 0.02
+}&layer=mapnik&marker=${LOKASI_LAT}%2C${LOKASI_LNG}`;
+const mapsLinkUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    'Cemilan Mba Tutut ' + ALAMAT,
+)}`;
+
+// Checkout via WhatsApp
 const checkoutViaWhatsApp = () => {
     if (cart.value.length === 0) {
         return;
@@ -414,10 +427,8 @@ const checkoutViaWhatsApp = () => {
     );
 };
 
-// Formatting helper
 const formatPrice = formatRupiah;
 
-// Teks sisa masa berlaku promo
 const promoSisaText = (sisaHari: number) => {
     if (sisaHari <= 0) {
         return 'Berakhir hari ini';
@@ -429,1308 +440,1088 @@ const promoSisaText = (sisaHari: number) => {
 
     return `Sisa ${sisaHari} hari lagi`;
 };
+
+// ===== Motion: scroll-reveal & hitung mundur (client-only → aman SSR) =====
+const isMounted = ref(false);
+const nowTs = ref(0);
+let countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+    isMounted.value = true;
+    nowTs.value = Date.now();
+    document.documentElement.classList.add('motion-ready');
+
+    countdownTimer = setInterval(() => {
+        nowTs.value = Date.now();
+    }, 1000);
+
+    startHeroTimer();
+});
+
+onBeforeUnmount(() => {
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+    }
+
+    if (heroTimer) {
+        clearInterval(heroTimer);
+    }
+});
+
+const vReveal = {
+    mounted(
+        el: HTMLElement,
+        binding: DirectiveBinding<{ delay?: number } | undefined>,
+    ) {
+        const delay = binding.value?.delay ?? 0;
+
+        if (delay) {
+            el.style.transitionDelay = `${delay}ms`;
+        }
+
+        if (typeof IntersectionObserver === 'undefined') {
+            el.classList.add('is-visible');
+
+            return;
+        }
+
+        const io = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        el.classList.add('is-visible');
+                        io.unobserve(el);
+                    }
+                });
+            },
+            { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+        );
+
+        io.observe(el);
+    },
+};
+
+const promoCountdown = (berakhirPada: string): string | null => {
+    const end = new Date(berakhirPada).getTime();
+
+    if (!Number.isFinite(end)) {
+        return null;
+    }
+
+    let diff = Math.floor((end - nowTs.value) / 1000);
+
+    if (diff <= 0) {
+        return null;
+    }
+
+    const hari = Math.floor(diff / 86400);
+    diff -= hari * 86400;
+    const jam = Math.floor(diff / 3600);
+    diff -= jam * 3600;
+    const menit = Math.floor(diff / 60);
+    const detik = diff - menit * 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+
+    return hari > 0
+        ? `${hari}h ${pad(jam)}:${pad(menit)}:${pad(detik)}`
+        : `${pad(jam)}:${pad(menit)}:${pad(detik)}`;
+};
 </script>
 
 <template>
-    <Head title="Cemilan Mba Tutut - Aneka Cemilan & Frozen Food Barabai">
+    <Head title="Cemilan Mba Tutut — Snack & Frozen Food Rumahan Barabai">
+        <meta
+            name="description"
+            content="Cemilan Mba Tutut: keripik, basreng, makaroni & frozen food rumahan khas Barabai. Mayoritas serba 10 ribuan, dibuat fresh tiap hari. Pesan mudah lewat WhatsApp."
+        />
+        <meta property="og:type" content="website" />
+        <meta
+            property="og:title"
+            content="Cemilan Mba Tutut — Snack & Frozen Food Rumahan Barabai"
+        />
+        <meta
+            property="og:description"
+            content="Aneka cemilan serba 10 ribuan & frozen food rumahan khas Barabai. Pesan mudah lewat WhatsApp."
+        />
+        <meta property="og:image" content="/images/hero.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
         <link
-            href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
             rel="stylesheet"
         />
     </Head>
 
     <div
-        class="min-h-screen bg-[#FFFDF9] font-['Plus_Jakarta_Sans',sans-serif] text-[#2D2A26] transition-colors duration-300 selection:bg-amber-200 selection:text-amber-900 dark:bg-neutral-950 dark:text-neutral-100"
+        class="kg min-h-screen overflow-x-clip bg-[var(--kg-bg)] font-['Plus_Jakarta_Sans',sans-serif] text-[var(--kg-on)] antialiased transition-colors duration-300 selection:bg-[#ffdbce] selection:text-[#802a00]"
     >
-        <!-- Premium Floating Background Elements -->
-        <div class="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-            <div
-                class="absolute top-[10%] left-[-5%] h-72 w-72 rounded-full bg-amber-200/40 blur-3xl dark:bg-amber-900/10"
-            ></div>
-            <div
-                class="absolute top-[40%] right-[-5%] h-96 w-96 rounded-full bg-orange-200/40 blur-3xl dark:bg-orange-900/10"
-            ></div>
-            <div
-                class="absolute bottom-[10%] left-[10%] h-80 w-80 rounded-full bg-yellow-100/50 blur-3xl dark:bg-yellow-900/5"
-            ></div>
-
-            <!-- Floating Chips Shapes Simulation -->
-            <div
-                class="absolute top-[18%] right-[15%] hidden h-10 w-10 rotate-12 animate-bounce rounded-xl bg-amber-400/20 duration-1000 md:block"
-            ></div>
-            <div
-                class="absolute top-[60%] left-[5%] hidden h-8 w-8 -rotate-45 animate-pulse rounded-lg bg-orange-400/20 md:block"
-            ></div>
-            <div
-                class="absolute right-[8%] bottom-[20%] hidden h-12 w-12 rotate-45 rounded-2xl bg-yellow-400/15 md:block"
-            ></div>
-        </div>
-
-        <!-- Sticky Glassmorphism Header -->
+        <!-- Floating glass nav -->
         <header
-            class="sticky top-0 z-50 w-full border-b border-amber-100/50 bg-[#FFFDF9]/85 backdrop-blur-md transition-all duration-300 dark:border-neutral-800/60 dark:bg-neutral-950/80"
+            class="fixed inset-x-0 top-3 z-50 mx-auto flex w-[95%] max-w-[1180px] items-center justify-between rounded-full border border-black/5 bg-[var(--kg-surface)]/70 px-4 py-2.5 shadow-sm backdrop-blur-xl md:top-6 md:px-6 md:py-3 dark:border-white/10"
         >
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="flex h-20 items-center justify-between">
-                    <!-- Brand Logo -->
-                    <div class="flex items-center gap-2">
-                        <div
-                            class="flex h-12 w-12 transform items-center justify-center transition-all hover:scale-105"
-                        >
-                            <AppLogoIcon class="h-12 w-12" />
-                        </div>
-                        <span
-                            class="bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500 bg-clip-text font-['Outfit',sans-serif] text-xl font-extrabold tracking-tight text-transparent sm:text-2xl"
-                        >
-                            Cemilan Mba Tutut
-                        </span>
-                        <span
-                            class="hidden rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-orange-600 sm:inline-block dark:bg-amber-400/10 dark:text-amber-400"
-                        >
-                            UMKM Barabai
-                        </span>
-                    </div>
+            <a href="#home" class="flex items-center gap-2">
+                <AppLogoIcon class="h-9 w-9" />
+                <span
+                    class="font-display text-lg font-extrabold tracking-tight text-[var(--kg-primary)] sm:text-xl"
+                    >Cemilan Mba Tutut</span
+                >
+            </a>
 
-                    <!-- Navigation Links - Desktop -->
-                    <nav class="hidden items-center gap-6 lg:flex xl:gap-8">
-                        <a
-                            href="#home"
-                            class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
-                            >Beranda</a
-                        >
-                        <a
-                            href="#menu"
-                            class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
-                            >Best Seller</a
-                        >
-                        <a
-                            href="#katalog"
-                            class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
-                            >Katalog</a
-                        >
-                        <a
-                            href="#quiz"
-                            class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
-                            >Kuis Rasa</a
-                        >
-                        <a
-                            href="#about"
-                            class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
-                            >Mengapa Kami</a
-                        >
-                        <a
-                            href="#testimoni"
-                            class="text-sm font-semibold text-neutral-600 transition-colors hover:text-orange-600 dark:text-neutral-300 dark:hover:text-amber-400"
-                            >Ulasan</a
-                        >
-                    </nav>
-
-                    <!-- Header Actions -->
-                    <div class="hidden items-center gap-4 lg:flex">
-                        <!-- Appearance Mode Switcher -->
-                        <button
-                            @click="toggleTheme"
-                            class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-amber-200/50 bg-amber-50/50 text-neutral-700 transition-all hover:bg-amber-100/50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                            title="Ganti Tema"
-                        >
-                            <Sun
-                                v-if="appearance === 'dark'"
-                                class="h-4 w-4 text-amber-400"
-                            />
-                            <Moon v-else class="h-4 w-4 text-slate-700" />
-                        </button>
-
-                        <!-- Preserved Authentication Button -->
-                        <Link
-                            v-if="$page.props.auth.user"
-                            :href="dashboard()"
-                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-neutral-950/10 transition-all hover:bg-neutral-800 hover:shadow-lg dark:bg-amber-500 dark:text-neutral-950 dark:shadow-orange-500/10 dark:hover:bg-amber-400"
-                        >
-                            <span>Dashboard Admin</span>
-                            <ArrowRight class="h-4 w-4" />
-                        </Link>
-                        <template v-else>
-                            <Link
-                                :href="login()"
-                                class="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50/30 px-5 py-2.5 text-sm font-semibold text-orange-700 transition-all hover:bg-amber-100/50 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-amber-400 dark:hover:bg-neutral-800"
-                            >
-                                Masuk Aplikasi
-                            </Link>
-                        </template>
-                    </div>
-
-                    <!-- Mobile Menu Button -->
-                    <div class="flex items-center gap-2 lg:hidden">
-                        <button
-                            @click="toggleTheme"
-                            class="mr-1 flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200/50 bg-amber-50/50 text-neutral-700 transition-all dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
-                        >
-                            <Sun
-                                v-if="appearance === 'dark'"
-                                class="h-4 w-4 text-amber-400"
-                            />
-                            <Moon v-else class="h-4 w-4" />
-                        </button>
-                        <button
-                            @click="isMobileMenuOpen = !isMobileMenuOpen"
-                            class="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-neutral-800 transition-all hover:bg-amber-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
-                        >
-                            <Menu v-if="!isMobileMenuOpen" class="h-5 w-5" />
-                            <X v-else class="h-5 w-5" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Mobile Navigation Overlay -->
-            <div
-                v-if="isMobileMenuOpen"
-                class="border-t border-amber-100 bg-[#FFFDF9] px-4 py-4 shadow-lg lg:hidden dark:border-neutral-800 dark:bg-neutral-950"
+            <nav
+                class="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 text-sm font-semibold lg:flex"
             >
-                <div class="flex flex-col gap-3">
-                    <a
-                        href="#home"
-                        @click="isMobileMenuOpen = false"
-                        class="block rounded-lg px-3 py-2 text-base font-semibold hover:bg-amber-50 hover:text-orange-600 dark:hover:bg-neutral-900"
-                        >Beranda</a
-                    >
-                    <a
-                        href="#menu"
-                        @click="isMobileMenuOpen = false"
-                        class="block rounded-lg px-3 py-2 text-base font-semibold hover:bg-amber-50 hover:text-orange-600 dark:hover:bg-neutral-900"
-                        >Best Seller</a
-                    >
-                    <a
-                        href="#katalog"
-                        @click="isMobileMenuOpen = false"
-                        class="block rounded-lg px-3 py-2 text-base font-semibold hover:bg-amber-50 hover:text-orange-600 dark:hover:bg-neutral-900"
-                        >Katalog</a
-                    >
-                    <a
-                        href="#quiz"
-                        @click="isMobileMenuOpen = false"
-                        class="block rounded-lg px-3 py-2 text-base font-semibold hover:bg-amber-50 hover:text-orange-600 dark:hover:bg-neutral-900"
-                        >Kuis Rasa</a
-                    >
-                    <a
-                        href="#about"
-                        @click="isMobileMenuOpen = false"
-                        class="block rounded-lg px-3 py-2 text-base font-semibold hover:bg-amber-50 hover:text-orange-600 dark:hover:bg-neutral-900"
-                        >Mengapa Kami</a
-                    >
-                    <a
-                        href="#testimoni"
-                        @click="isMobileMenuOpen = false"
-                        class="block rounded-lg px-3 py-2 text-base font-semibold hover:bg-amber-50 hover:text-orange-600 dark:hover:bg-neutral-900"
-                        >Ulasan</a
-                    >
+                <a
+                    href="#home"
+                    class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                    >Beranda</a
+                >
+                <a
+                    href="#favorit"
+                    class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                    >Favorit</a
+                >
+                <a
+                    href="#katalog"
+                    class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                    >Katalog</a
+                >
+                <a
+                    href="#lokasi"
+                    class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                    >Lokasi</a
+                >
+            </nav>
 
-                    <div
-                        class="my-2 border-t border-amber-100/50 pt-2 dark:border-neutral-800"
+            <div class="flex items-center gap-2">
+                <button
+                    @click="toggleTheme"
+                    title="Ganti tema"
+                    class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[var(--kg-sec)] transition-colors hover:bg-[var(--kg-sc)] hover:text-[var(--kg-on)]"
+                >
+                    <Sun v-if="appearance === 'dark'" class="h-5 w-5" />
+                    <Moon v-else class="h-5 w-5" />
+                </button>
+                <button
+                    @click="isCartOpen = true"
+                    title="Keranjang"
+                    class="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[var(--kg-sec)] transition-colors hover:bg-[var(--kg-sc)] hover:text-[var(--kg-on)]"
+                >
+                    <ShoppingCart class="h-5 w-5" />
+                    <span
+                        v-if="cartItemCount > 0"
+                        class="absolute -top-0.5 -right-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[var(--kg-signal)] px-1 text-[10px] font-bold text-white"
+                        >{{ cartItemCount }}</span
                     >
-                        <Link
-                            v-if="$page.props.auth.user"
-                            :href="dashboard()"
-                            class="flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-950 py-3 text-sm font-semibold text-white shadow-md dark:bg-amber-500 dark:text-neutral-950"
-                        >
-                            <span>Dashboard Admin</span>
-                            <ArrowRight class="h-4 w-4" />
-                        </Link>
-                        <template v-else>
-                            <Link
-                                :href="login()"
-                                class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 py-3 text-sm font-semibold text-orange-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-amber-400"
-                            >
-                                Masuk Aplikasi
-                            </Link>
-                        </template>
-                    </div>
-                </div>
+                </button>
+                <Link
+                    v-if="$page.props.auth.user"
+                    :href="dashboard()"
+                    class="hidden items-center gap-1.5 rounded-full bg-[var(--kg-signal)] px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95 sm:inline-flex"
+                >
+                    <span>Dashboard</span>
+                </Link>
+                <Link
+                    v-else
+                    :href="login()"
+                    class="hidden items-center gap-1.5 rounded-full bg-[var(--kg-signal)] px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95 sm:inline-flex"
+                >
+                    <span>Masuk Aplikasi</span>
+                </Link>
+                <button
+                    @click="isMobileMenuOpen = !isMobileMenuOpen"
+                    class="flex h-9 w-9 items-center justify-center rounded-full text-[var(--kg-on)] lg:hidden"
+                >
+                    <Menu v-if="!isMobileMenuOpen" class="h-5 w-5" />
+                    <X v-else class="h-5 w-5" />
+                </button>
             </div>
         </header>
 
-        <!-- Hero Section -->
-        <section
-            id="home"
-            class="relative z-10 overflow-hidden pt-12 pb-24 md:pt-20 md:pb-32"
-        >
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div
-                    class="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center"
+        <!-- Mobile menu -->
+        <transition name="fade">
+            <div
+                v-if="isMobileMenuOpen"
+                class="fixed inset-x-4 top-20 z-40 rounded-3xl border border-black/5 bg-[var(--kg-surface)] p-4 shadow-2xl lg:hidden dark:border-white/10"
+            >
+                <a
+                    v-for="link in [
+                        { href: '#home', label: 'Beranda' },
+                        { href: '#favorit', label: 'Favorit' },
+                        { href: '#katalog', label: 'Katalog' },
+                        { href: '#lokasi', label: 'Lokasi' },
+                    ]"
+                    :key="link.href"
+                    :href="link.href"
+                    @click="isMobileMenuOpen = false"
+                    class="block rounded-2xl px-4 py-3 text-base font-semibold text-[var(--kg-on)] transition-colors hover:bg-[var(--kg-sc)]"
+                    >{{ link.label }}</a
                 >
-                    <!-- Left: Hero Text -->
-                    <div
-                        class="space-y-6 text-center lg:col-span-6 lg:text-left"
-                    >
-                        <div
-                            class="inline-flex animate-bounce items-center gap-2 rounded-full border border-orange-200/50 bg-orange-100/80 px-4 py-1.5 text-xs font-semibold text-orange-800 shadow-xs dark:border-orange-900/50 dark:bg-orange-950/50 dark:text-orange-400"
-                        >
-                            <Sparkles class="h-3.5 w-3.5 text-amber-500" />
-                            <span>100% Homemade Tanpa Pengawet</span>
-                        </div>
-
-                        <h1
-                            class="font-['Outfit',sans-serif] text-4xl leading-tight font-extrabold tracking-tight text-neutral-900 sm:text-5xl md:text-6xl dark:text-white"
-                        >
-                            Kriuknya
-                            <span
-                                class="bg-gradient-to-r from-orange-600 to-amber-500 bg-clip-text text-transparent"
-                                >Nagih</span
-                            >,<br />
-                            Rasanya Selalu
-                            <span class="relative inline-block">
-                                <span class="relative z-10">Juara!</span>
-                                <span
-                                    class="absolute bottom-1 left-0 -z-1 h-3 w-full bg-amber-200 dark:bg-amber-500/20"
-                                ></span>
-                            </span>
-                        </h1>
-
-                        <p
-                            class="mx-auto max-w-xl text-base leading-relaxed text-neutral-600 md:text-lg lg:mx-0 dark:text-neutral-300"
-                        >
-                            Nikmati aneka cemilan serba 10 ribuan, dari yang
-                            jadul sampai kekinian, plus frozen food seperti
-                            pancake durian & ice cream. Cemilan rumahan khas
-                            Barabai yang bikin nagih.
-                        </p>
-
-                        <!-- CTA Actions -->
-                        <div
-                            class="flex flex-col items-center justify-center gap-4 pt-2 sm:flex-row lg:justify-start"
-                        >
-                            <a
-                                href="#menu"
-                                class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-orange-500/20 transition-all duration-300 hover:scale-[1.02] hover:from-orange-500 hover:to-amber-400 hover:shadow-xl sm:w-auto"
-                            >
-                                <ShoppingBag class="h-5 w-5" />
-                                <span>Pesan Sekarang</span>
-                            </a>
-                            <a
-                                href="#quiz"
-                                class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-amber-300 bg-amber-50/50 px-8 py-4 text-base font-bold text-orange-800 transition-all duration-300 hover:scale-[1.02] hover:bg-amber-100/80 sm:w-auto dark:border-neutral-800 dark:bg-neutral-900 dark:text-amber-400 dark:hover:bg-neutral-800"
-                            >
-                                <span>Cari Rasa Khasmu</span>
-                                <ArrowRight class="h-5 w-5" />
-                            </a>
-                        </div>
-
-                        <!-- Mini Trust Badges -->
-                        <div
-                            class="mx-auto grid max-w-md grid-cols-3 gap-4 border-t border-amber-100/50 pt-6 lg:mx-0 dark:border-neutral-900"
-                        >
-                            <div
-                                class="flex flex-col items-center lg:items-start"
-                            >
-                                <span
-                                    class="text-2xl font-bold text-orange-600 dark:text-amber-400"
-                                    >10K</span
-                                >
-                                <span
-                                    class="text-xs text-neutral-500 dark:text-neutral-400"
-                                    >Aneka Cemilan</span
-                                >
-                            </div>
-                            <div
-                                class="flex flex-col items-center lg:items-start"
-                            >
-                                <span
-                                    class="text-2xl font-bold text-orange-600 dark:text-amber-400"
-                                    >Frozen</span
-                                >
-                                <span
-                                    class="text-xs text-neutral-500 dark:text-neutral-400"
-                                    >Food Tersedia</span
-                                >
-                            </div>
-                            <div
-                                class="flex flex-col items-center lg:items-start"
-                            >
-                                <span
-                                    class="text-2xl font-bold text-orange-600 dark:text-amber-400"
-                                    >100%</span
-                                >
-                                <span
-                                    class="text-xs text-neutral-500 dark:text-neutral-400"
-                                    >Homemade</span
-                                >
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right: Hero Visual Artwork -->
-                    <div
-                        class="relative flex items-center justify-center lg:col-span-6"
-                    >
-                        <div
-                            class="relative aspect-square w-full max-w-[480px] rotate-1 transform overflow-hidden rounded-3xl border-4 border-white bg-amber-100 shadow-2xl transition-transform duration-500 hover:rotate-0 dark:border-neutral-900 dark:bg-neutral-900"
-                        >
-                            <!-- Premium Background Design inside Image Wrapper -->
-                            <div
-                                class="absolute inset-0 bg-gradient-to-tr from-amber-500/20 to-orange-500/10"
-                            ></div>
-
-                            <!-- The generated Hero Snack Packaging Image -->
-                            <img
-                                src="/images/hero.png"
-                                alt="Aneka Cemilan Mba Tutut Barabai"
-                                class="h-full w-full transform object-cover transition-all duration-700 hover:scale-105"
-                            />
-
-                            <!-- Floating Promo Sticker -->
-                            <div
-                                class="absolute right-6 bottom-6 rotate-6 transform rounded-2xl border-2 border-orange-500 bg-[#FFFDF9] px-5 py-3 text-neutral-900 shadow-xl transition-transform hover:rotate-0 dark:bg-neutral-900 dark:text-white"
-                            >
-                                <span
-                                    class="block text-xs font-semibold tracking-widest text-orange-600 uppercase dark:text-amber-400"
-                                    >Harga Hemat</span
-                                >
-                                <span class="block text-xl font-extrabold"
-                                    >Serba 10 Ribu</span
-                                >
-                            </div>
-                        </div>
-
-                        <!-- Aesthetic shapes floating behind Hero Image -->
-                        <div
-                            class="absolute -top-6 -left-6 -z-1 hidden h-16 w-16 rounded-full bg-amber-400/20 blur-xl sm:block"
-                        ></div>
-                        <div
-                            class="absolute -right-6 -bottom-6 -z-1 hidden h-24 w-24 rounded-full bg-orange-400/20 blur-xl sm:block"
-                        ></div>
-                    </div>
-                </div>
             </div>
-        </section>
+        </transition>
 
-        <!-- Value Proposition / Features Section -->
-        <section
-            id="about"
-            class="border-y border-amber-100/30 bg-amber-50/40 py-20 dark:border-neutral-900/30 dark:bg-neutral-900/30"
-        >
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="mx-auto mb-16 max-w-3xl space-y-3 text-center">
+        <main class="pt-24 md:pt-28">
+            <!-- ===== HERO SLIDER ===== -->
+            <section
+                id="home"
+                class="mx-auto max-w-[1180px] px-5 md:px-8"
+            >
+                <div
+                    v-reveal
+                    class="reveal relative aspect-[4/5] w-full overflow-hidden rounded-[2rem] bg-[var(--kg-sc)] shadow-xl sm:aspect-[16/10] lg:aspect-[2/1]"
+                >
+                    <!-- Slide 1: foto usaha + teks -->
+                    <div
+                        class="absolute inset-0 transition-opacity duration-700"
+                        :class="
+                            heroSlide === 0
+                                ? 'opacity-100'
+                                : 'pointer-events-none opacity-0'
+                        "
+                    >
+                        <img
+                            src="/images/hero.png"
+                            alt="Rumah Cemilan Mba Tutut, Barabai"
+                            class="h-full w-full object-cover"
+                        />
+                        <div
+                            class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10 sm:bg-gradient-to-r sm:from-black/80 sm:via-black/45 sm:to-transparent"
+                        ></div>
+                        <div
+                            class="absolute inset-0 flex flex-col justify-end p-6 sm:max-w-[60%] sm:justify-center sm:p-12 lg:p-16"
+                        >
+                            <span
+                                class="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur"
+                            >
+                                <Sparkles class="h-3.5 w-3.5" /> Homemade · khas
+                                Barabai
+                            </span>
+                            <h1
+                                class="font-display text-3xl leading-[1.05] font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl"
+                            >
+                                Ngemil nagih,<br />harga
+                                <span class="text-[#ff8a4d] italic">10rb-an.</span>
+                            </h1>
+                            <p
+                                class="mt-4 max-w-md text-sm text-white/85 sm:text-base"
+                            >
+                                Keripik, basreng, makaroni & frozen food rumahan.
+                                Dibuat fresh tiap hari di Barabai, diantar atau
+                                ambil di tempat.
+                            </p>
+                            <div class="mt-6 flex flex-wrap gap-3">
+                                <a
+                                    :href="getGeneralWhatsAppLink()"
+                                    target="_blank"
+                                    class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
+                                >
+                                    <MessageCircle class="h-4.5 w-4.5" /> Pesan via
+                                    WhatsApp
+                                </a>
+                                <a
+                                    href="#katalog"
+                                    class="inline-flex items-center gap-2 rounded-full bg-white/15 px-6 py-3 text-sm font-bold text-white backdrop-blur transition-colors hover:bg-white/25"
+                                >
+                                    Lihat katalog
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Slide 2: promo hari ini + foto produk -->
+                    <div
+                        class="absolute inset-0 transition-opacity duration-700"
+                        :class="
+                            heroSlide === 1
+                                ? 'opacity-100'
+                                : 'pointer-events-none opacity-0'
+                        "
+                    >
+                        <img
+                            :src="promoOfDay?.foto_url || '/images/hero.png'"
+                            :alt="promoOfDay?.nama || 'Promo Cemilan Mba Tutut'"
+                            class="h-full w-full object-cover"
+                        />
+                        <div
+                            class="absolute inset-0 bg-gradient-to-t from-[#521800]/85 via-[#521800]/45 to-black/10 sm:bg-gradient-to-r sm:from-[#521800]/85 sm:via-[#521800]/45 sm:to-transparent"
+                        ></div>
+                        <div
+                            class="absolute inset-0 flex flex-col justify-end p-6 sm:max-w-[60%] sm:justify-center sm:p-12 lg:p-16"
+                        >
+                            <span
+                                class="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--kg-signal)] px-3 py-1 text-xs font-bold text-white"
+                            >
+                                <Tag class="h-3.5 w-3.5" /> Promo hari ini
+                            </span>
+                            <template v-if="promoOfDay && promoOfDay.promo">
+                                <h2
+                                    class="font-display text-3xl leading-[1.05] font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl"
+                                >
+                                    {{ promoOfDay.nama }}
+                                </h2>
+                                <div class="mt-4 flex items-center gap-3">
+                                    <span
+                                        class="font-display text-2xl font-extrabold text-white sm:text-4xl"
+                                        >{{
+                                            formatPrice(
+                                                promoOfDay.promo.harga_promo ??
+                                                    promoOfDay.harga_jual,
+                                            )
+                                        }}</span
+                                    >
+                                    <span
+                                        v-if="promoOfDay.promo.harga_promo !== null"
+                                        class="text-base text-white/70 line-through sm:text-xl"
+                                        >{{
+                                            formatPrice(promoOfDay.harga_jual)
+                                        }}</span
+                                    >
+                                    <span
+                                        class="rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-[#a73a00]"
+                                        >{{ promoOfDay.promo.label }}</span
+                                    >
+                                </div>
+                                <p
+                                    v-if="
+                                        isMounted &&
+                                        promoCountdown(promoOfDay.promo.berakhir_pada)
+                                    "
+                                    class="mt-3 inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-white/90 tabular-nums"
+                                >
+                                    <Clock class="h-4 w-4" /> Berakhir
+                                    {{ promoCountdown(promoOfDay.promo.berakhir_pada) }}
+                                </p>
+                                <div class="mt-6">
+                                    <a
+                                        :href="getWhatsAppLink(promoOfDay.nama)"
+                                        target="_blank"
+                                        class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
+                                    >
+                                        <MessageCircle class="h-4.5 w-4.5" /> Ambil
+                                        promo via WhatsApp
+                                    </a>
+                                </div>
+                            </template>
+                            <template v-else>
+                                <h2
+                                    class="font-display text-3xl leading-[1.05] font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl"
+                                >
+                                    Serba 10 ribuan,<br />bikin nagih.
+                                </h2>
+                                <div class="mt-6">
+                                    <a
+                                        href="#katalog"
+                                        class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
+                                    >
+                                        Jelajahi katalog
+                                    </a>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Floating "mulai dari" badge -->
+                    <div
+                        class="absolute top-5 right-5 hidden flex-col items-center rounded-3xl bg-white/95 px-5 py-3 shadow-2xl backdrop-blur sm:flex"
+                    >
+                        <span
+                            class="font-display text-2xl font-extrabold text-[#a73a00]"
+                            >10rb</span
+                        >
+                        <span
+                            class="text-[10px] font-bold tracking-widest text-[#5d5e62] uppercase"
+                            >mulai dari</span
+                        >
+                    </div>
+
+                    <!-- Slide controls -->
+                    <div
+                        class="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 sm:left-12 sm:translate-x-0 lg:left-16"
+                    >
+                        <button
+                            v-for="i in heroSlideCount"
+                            :key="i"
+                            @click="goToSlide(i - 1)"
+                            :aria-label="`Slide ${i}`"
+                            class="h-2 rounded-full transition-all duration-300"
+                            :class="
+                                heroSlide === i - 1
+                                    ? 'w-8 bg-white'
+                                    : 'w-2 bg-white/50 hover:bg-white/80'
+                            "
+                        ></button>
+                    </div>
+                    <button
+                        @click="goToSlide((heroSlide + 1) % heroSlideCount)"
+                        aria-label="Slide berikutnya"
+                        class="absolute right-5 bottom-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur transition-colors hover:bg-white/35 sm:bottom-5"
+                    >
+                        <ChevronRight class="h-5 w-5" />
+                    </button>
+                </div>
+            </section>
+
+            <!-- ===== BENTO FEATURES ===== -->
+            <section class="mx-auto max-w-[1180px] px-5 py-16 md:px-8 md:py-24">
+                <div
+                    v-reveal
+                    class="reveal mb-8 max-w-2xl md:mb-12"
+                >
                     <span
-                        class="text-xs font-extrabold tracking-widest text-orange-600 uppercase dark:text-amber-400"
-                        >Keunggulan Kami</span
+                        class="text-xs font-bold tracking-widest text-[var(--kg-primary)] uppercase"
+                        >Kenapa Mba Tutut</span
                     >
                     <h2
-                        class="font-['Outfit',sans-serif] text-3xl font-bold text-neutral-900 sm:text-4xl dark:text-white"
+                        class="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
                     >
-                        Dibuat dengan Hati untuk Kualitas Terbaik
+                        Cemilan rumahan, dibuat sepenuh hati.
                     </h2>
-                    <p class="text-neutral-600 dark:text-neutral-300">
-                        Kami sangat berkomitmen menyajikan produk bermutu tinggi
-                        demi kepuasan ngemil Anda sekeluarga.
-                    </p>
                 </div>
 
-                <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
-                    <!-- Card 1 -->
+                <div class="grid grid-cols-1 gap-5 md:grid-cols-3">
                     <div
-                        class="group rounded-3xl border border-amber-100/50 bg-[#FFFDF9] p-8 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-neutral-800/80 dark:bg-neutral-900"
+                        v-reveal
+                        class="bento-card flex h-[280px] flex-col justify-between rounded-[2rem] border border-[#ff5c00]/10 bg-[#ff5c00]/5 p-8 dark:border-[#ff5c00]/20 dark:bg-[#ff5c00]/10"
                     >
                         <div
-                            class="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 transition-transform group-hover:scale-110 dark:bg-orange-950/50 dark:text-orange-400"
+                            class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ffdbce] text-[#a73a00]"
                         >
-                            <Leaf class="h-6 w-6" />
+                            <Leaf class="h-7 w-7" />
                         </div>
-                        <h3 class="mb-3 text-xl font-bold">
-                            100% Bahan Alami Lokal
-                        </h3>
-                        <p
-                            class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400"
-                        >
-                            Kami bermitra langsung dengan petani lokal untuk
-                            mendapatkan singkong, pisang, dan rempah segar
-                            kualitas terbaik di setiap musim.
-                        </p>
+                        <div>
+                            <h3 class="font-display text-2xl font-bold">
+                                Homemade
+                            </h3>
+                            <p class="mt-2 text-[var(--kg-sec)]">
+                                Resep keluarga, tanpa pengawet. Dibuat fresh dalam
+                                jumlah terbatas tiap hari.
+                            </p>
+                        </div>
                     </div>
 
-                    <!-- Card 2 -->
                     <div
-                        class="group rounded-3xl border border-amber-100/50 bg-[#FFFDF9] p-8 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-neutral-800/80 dark:bg-neutral-900"
+                        v-reveal="{ delay: 100 }"
+                        class="bento-card flex h-[280px] flex-col justify-between rounded-[2rem] border border-[#8494ac]/30 bg-[#d3e4fe]/40 p-8 dark:border-white/10 dark:bg-[#1c2c40]/40"
                     >
                         <div
-                            class="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 transition-transform group-hover:scale-110 dark:bg-amber-950/50 dark:text-amber-400"
+                            class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#d3e4fe] text-[#0b1c30]"
                         >
-                            <ShieldCheck class="h-6 w-6" />
+                            <ShieldCheck class="h-7 w-7" />
                         </div>
-                        <h3 class="mb-3 text-xl font-bold">
-                            Higienis & Selalu Fresh
-                        </h3>
-                        <p
-                            class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400"
-                        >
-                            Diolah dengan proses yang bersih dan rapi. Cemilan
-                            selalu dibuat fresh, dan frozen food disimpan dengan
-                            baik agar kualitasnya tetap terjaga sampai ke tangan
-                            Anda.
-                        </p>
+                        <div>
+                            <h3 class="font-display text-2xl font-bold">
+                                Higiene & rapi
+                            </h3>
+                            <p class="mt-2 text-[var(--kg-sec)]">
+                                Diproses bersih dengan kemasan rapi agar kesegaran
+                                rasa terjaga lebih lama.
+                            </p>
+                        </div>
                     </div>
 
-                    <!-- Card 3 -->
                     <div
-                        class="group rounded-3xl border border-amber-100/50 bg-[#FFFDF9] p-8 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-neutral-800/80 dark:bg-neutral-900"
+                        v-reveal="{ delay: 200 }"
+                        class="bento-card flex h-[280px] flex-col justify-between rounded-[2rem] border border-black/5 bg-[var(--kg-sc)] p-8 dark:border-white/10"
                     >
                         <div
-                            class="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100 text-yellow-600 transition-transform group-hover:scale-110 dark:bg-yellow-950/50 dark:text-yellow-400"
+                            class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--kg-surface)] text-[var(--kg-primary)] shadow-sm"
                         >
-                            <Award class="h-6 w-6" />
+                            <Tag class="h-7 w-7" />
                         </div>
-                        <h3 class="mb-3 text-xl font-bold">
-                            Pilihan Lengkap & Kekinian
-                        </h3>
-                        <p
-                            class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400"
-                        >
-                            Dari cemilan jadul yang bikin kangen sampai varian
-                            kekinian, ditambah frozen food seperti pancake durian
-                            dan ice cream. Lengkap untuk segala suasana.
-                        </p>
+                        <div>
+                            <h3 class="font-display text-2xl font-bold">
+                                Serba 10 ribuan
+                            </h3>
+                            <p class="mt-2 text-[var(--kg-sec)]">
+                                Enak tak harus mahal — pas untuk stok cemilan
+                                mingguan keluarga.
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Best Seller Catalog Section -->
-        <section id="menu" class="relative z-10 py-24">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <!-- ===== PRODUK FAVORIT (scroll horizontal) ===== -->
+            <section id="favorit" class="overflow-hidden pb-16 md:pb-24">
                 <div
-                    class="mb-16 flex flex-col justify-between gap-6 md:flex-row md:items-end"
+                    v-reveal
+                    class="reveal mx-auto mb-8 flex max-w-[1180px] items-end justify-between px-5 md:px-8"
                 >
-                    <div class="max-w-xl space-y-3">
-                        <span
-                            class="text-xs font-extrabold tracking-widest text-orange-600 uppercase dark:text-amber-400"
-                            >Varian Best Seller</span
-                        >
+                    <div>
                         <h2
-                            class="font-['Outfit',sans-serif] text-3xl font-bold text-neutral-900 sm:text-4xl dark:text-white"
+                            class="font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
                         >
-                            Menu Cemilan Terfavorit
+                            Produk favorit
                         </h2>
-                        <p class="text-neutral-600 dark:text-neutral-300">
-                            Paling banyak dipesan oleh pelanggan setia Cemilan
-                            Mba Tutut. Yuk pilih kriuk favoritmu hari ini!
+                        <p class="mt-1 text-[var(--kg-sec)]">
+                            Paling banyak dicari pelanggan.
                         </p>
                     </div>
-                    <div>
-                        <a
-                            :href="getGeneralWhatsAppLink()"
-                            target="_blank"
-                            class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3.5 font-bold text-white shadow-md shadow-emerald-600/10 transition-all hover:bg-emerald-500 hover:shadow-lg"
+                    <div class="flex gap-2">
+                        <button
+                            @click="scrollFav(-1)"
+                            aria-label="Sebelumnya"
+                            class="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--kg-sc)] text-[var(--kg-on)] transition-colors hover:bg-[var(--kg-signal)] hover:text-white"
                         >
-                            <MessageCircle class="h-5 w-5" />
-                            <span>Tanya Menu Lengkap</span>
-                        </a>
+                            <ChevronLeft class="h-5 w-5" />
+                        </button>
+                        <button
+                            @click="scrollFav(1)"
+                            aria-label="Berikutnya"
+                            class="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--kg-sc)] text-[var(--kg-on)] transition-colors hover:bg-[var(--kg-signal)] hover:text-white"
+                        >
+                            <ChevronRight class="h-5 w-5" />
+                        </button>
                     </div>
                 </div>
 
-                <!-- Products Grid -->
                 <div
                     v-if="props.bestSellers.length > 0"
-                    class="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3 xl:grid-cols-5"
+                    ref="favScroller"
+                    class="no-scrollbar flex snap-x gap-5 overflow-x-auto px-5 pb-4 md:px-8"
                 >
                     <div
                         v-for="(product, index) in props.bestSellers"
                         :key="product.id_produk"
-                        class="group flex flex-col overflow-hidden rounded-2xl border border-amber-100/50 bg-[#FFFDF9] shadow-xs transition-all duration-300 hover:-translate-y-2 hover:border-orange-500/40 hover:shadow-2xl sm:rounded-3xl dark:border-neutral-800/80 dark:bg-neutral-900"
+                        class="group w-[260px] shrink-0 snap-start sm:w-[300px]"
                     >
-                        <!-- Image Container with rank badge -->
                         <div
-                            class="relative aspect-square w-full overflow-hidden bg-amber-50/50 dark:bg-neutral-900"
+                            class="relative mb-4 aspect-square overflow-hidden rounded-3xl bg-[var(--kg-sc)]"
                         >
-                            <span
-                                :class="[
-                                    'absolute top-3 left-3 z-10 rounded-lg px-2 py-1 text-[10px] font-extrabold text-white shadow-md sm:top-4 sm:left-4 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-xs',
-                                    index === 0 ? 'bg-orange-600' : 'bg-neutral-700',
-                                ]"
-                            >
-                                {{ getRankTag(index) }}
-                            </span>
-
-                            <!-- Promo ribbon -->
-                            <span
-                                v-if="product.promo"
-                                class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-2 py-1 text-[10px] font-extrabold text-white shadow-md sm:top-4 sm:right-4"
-                            >
-                                <Tag class="h-3 w-3" />
-                                {{ product.promo.label }}
-                            </span>
-
                             <img
                                 :src="product.foto_url || '/images/hero.png'"
                                 :alt="product.nama"
-                                class="h-full w-full transform object-cover transition-transform duration-500 group-hover:scale-110"
+                                loading="lazy"
+                                class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                             />
+                            <span
+                                v-if="index === 0"
+                                class="absolute top-4 left-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-extrabold tracking-tight text-[var(--kg-primary)] uppercase backdrop-blur"
+                                >Best seller</span
+                            >
+                            <span
+                                v-if="product.promo"
+                                class="absolute top-4 right-4 inline-flex items-center gap-1 rounded-full bg-[var(--kg-signal)] px-2.5 py-1 text-[11px] font-extrabold text-white"
+                                >{{ product.promo.label }}</span
+                            >
+                            <button
+                                @click="addToCart(product)"
+                                :disabled="product.stok <= 0"
+                                class="absolute right-4 bottom-4 flex h-12 w-12 translate-y-2 items-center justify-center rounded-full bg-[var(--kg-signal)] text-white opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100 disabled:bg-neutral-400"
+                                aria-label="Tambah ke keranjang"
+                            >
+                                <ShoppingCart class="h-5 w-5" />
+                            </button>
                         </div>
-
-                        <!-- Card Content -->
-                        <div
-                            class="flex flex-1 flex-col justify-between gap-3 p-3 sm:p-5"
-                        >
-                            <div class="space-y-1.5">
-                                <!-- Total Terjual -->
-                                <div class="flex items-center gap-1.5">
-                                    <TrendingUp class="h-3.5 w-3.5 shrink-0 text-orange-500" />
-                                    <span
-                                        class="text-[11px] font-bold text-neutral-500 sm:text-xs dark:text-neutral-400"
-                                    >
-                                        {{ product.total_terjual.toLocaleString('id-ID') }} terjual
-                                    </span>
-                                </div>
-
-                                <h3
-                                    class="line-clamp-2 text-sm font-bold leading-snug text-neutral-900 transition-colors group-hover:text-orange-600 sm:text-base dark:text-white dark:group-hover:text-amber-400"
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <h4
+                                    class="truncate font-bold text-[var(--kg-on)]"
                                 >
                                     {{ product.nama }}
-                                </h3>
+                                </h4>
+                                <p
+                                    class="mt-1 flex items-center gap-1 text-xs text-[var(--kg-sec)]"
+                                >
+                                    <TrendingUp class="h-3.5 w-3.5" />
+                                    {{
+                                        product.total_terjual.toLocaleString(
+                                            'id-ID',
+                                        )
+                                    }}
+                                    terjual
+                                </p>
                             </div>
-
-                            <div class="space-y-2.5">
+                            <div class="text-right">
                                 <span
-                                    class="block text-base font-extrabold text-orange-600 sm:text-lg dark:text-amber-400"
+                                    class="block font-bold text-[var(--kg-primary)]"
+                                    >{{
+                                        formatPrice(
+                                            product.promo?.harga_promo ??
+                                                product.harga_jual,
+                                        )
+                                    }}</span
+                                >
+                                <span
+                                    v-if="
+                                        product.promo &&
+                                        product.promo.harga_promo !== null
+                                    "
+                                    class="text-[11px] text-[var(--kg-sec)] line-through"
                                     >{{ formatPrice(product.harga_jual) }}</span
                                 >
-
-                                <!-- Promo info: promo apa + sisa masa berlaku -->
-                                <div
-                                    v-if="product.promo"
-                                    class="space-y-1 rounded-xl border border-red-200/70 bg-red-50/70 p-2 dark:border-red-900/40 dark:bg-red-950/30"
-                                >
-                                    <div class="flex items-center gap-1.5">
-                                        <Tag class="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
-                                        <span class="line-clamp-1 text-[11px] font-bold text-red-700 dark:text-red-300">
-                                            {{ product.promo.nama }}
-                                        </span>
-                                    </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <Clock class="h-3.5 w-3.5 shrink-0 text-red-500 dark:text-red-400" />
-                                        <span class="text-[11px] font-semibold text-red-600 dark:text-red-400">
-                                            {{ promoSisaText(product.promo.sisa_hari) }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="flex items-center gap-2">
-                                    <button
-                                        @click="addToCart(product)"
-                                        :disabled="product.stok <= 0"
-                                        class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:hover:bg-neutral-300 dark:disabled:bg-neutral-700"
-                                    >
-                                        <Plus class="h-4 w-4" />
-                                        <span>{{ product.stok <= 0 ? 'Stok habis' : 'Keranjang' }}</span>
-                                    </button>
-                                    <a
-                                        :href="getWhatsAppLink(product.nama)"
-                                        target="_blank"
-                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs transition-colors hover:bg-emerald-500"
-                                        title="Pesan langsung via WhatsApp"
-                                    >
-                                        <MessageCircle class="h-5 w-5" />
-                                    </a>
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <!-- Empty state -->
+            <!-- ===== KATALOG ===== -->
+            <section
+                id="katalog"
+                class="mx-auto max-w-[1180px] px-5 py-4 md:px-8"
+            >
                 <div
-                    v-else
-                    class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 py-20 text-center dark:border-neutral-700"
+                    v-reveal
+                    class="reveal mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between"
                 >
-                    <ShoppingBag class="mb-4 h-12 w-12 text-amber-300 dark:text-neutral-600" />
-                    <p class="text-neutral-500 dark:text-neutral-400">Belum ada produk tersedia.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Full Product Catalog Section -->
-        <section
-            id="katalog"
-            class="relative z-10 border-t border-amber-100/30 bg-amber-50/30 py-24 dark:border-neutral-900/30 dark:bg-neutral-900/20"
-        >
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="mx-auto mb-10 max-w-2xl space-y-3 text-center sm:mb-12">
-                    <span
-                        class="text-xs font-extrabold tracking-widest text-orange-600 uppercase dark:text-amber-400"
-                        >Katalog Lengkap</span
-                    >
                     <h2
-                        class="font-['Outfit',sans-serif] text-2xl font-bold text-neutral-900 sm:text-4xl dark:text-white"
+                        class="font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
                     >
-                        Semua Produk Cemilan Kami
+                        Katalog lengkap
                     </h2>
-                    <p class="text-sm text-neutral-600 sm:text-base dark:text-neutral-300">
-                        Tambahkan cemilan favoritmu ke keranjang, lalu checkout
-                        langsung lewat WhatsApp. Mudah & cepat!
-                    </p>
-                </div>
-
-                <!-- Search Bar -->
-                <div class="mx-auto mb-10 max-w-xl">
-                    <div class="relative">
-                        <Search
-                            class="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-neutral-400"
-                        />
-                        <input
-                            v-model="searchQuery"
-                            type="text"
-                            inputmode="search"
-                            placeholder="Cari cemilan favoritmu..."
-                            class="w-full rounded-2xl border border-amber-200 bg-white py-3.5 pr-12 pl-12 text-sm font-medium text-neutral-800 shadow-xs transition-all outline-none placeholder:text-neutral-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-400/30 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
-                        />
-                        <button
-                            v-if="searchQuery"
-                            @click="searchQuery = ''"
-                            class="absolute top-1/2 right-3 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-amber-50 hover:text-neutral-700 dark:hover:bg-neutral-800"
-                            title="Hapus pencarian"
-                        >
-                            <X class="h-4 w-4" />
-                        </button>
-                    </div>
-                    <p
-                        v-if="searchQuery"
-                        class="mt-3 text-center text-xs text-neutral-500 dark:text-neutral-400"
-                    >
-                        Menampilkan {{ filteredProducts.length }} produk untuk
-                        "<span class="font-semibold text-orange-600 dark:text-amber-400">{{ searchQuery }}</span>"
-                    </p>
-                </div>
-
-                <!-- Catalog Grid -->
-                <div
-                    v-if="filteredProducts.length > 0"
-                    class="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
-                >
-                    <div
-                        v-for="product in filteredProducts"
-                        :key="product.id_produk"
-                        class="group flex flex-col overflow-hidden rounded-2xl border border-amber-100/50 bg-[#FFFDF9] shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/40 hover:shadow-xl sm:rounded-3xl dark:border-neutral-800/80 dark:bg-neutral-900"
-                    >
-                        <!-- Image -->
-                        <div
-                            class="relative aspect-square w-full overflow-hidden bg-amber-50/50 dark:bg-neutral-900"
-                        >
-                            <span
-                                v-if="product.kategori"
-                                class="absolute top-3 left-3 z-10 rounded-lg bg-white/90 px-2 py-1 text-[10px] font-bold text-orange-600 shadow-xs dark:bg-neutral-800/90 dark:text-amber-400"
-                            >
-                                {{ product.kategori }}
-                            </span>
-                            <!-- Promo ribbon -->
-                            <span
-                                v-if="product.promo"
-                                class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 px-2 py-1 text-[10px] font-extrabold text-white shadow-md"
-                            >
-                                <Tag class="h-3 w-3" />
-                                {{ product.promo.label }}
-                            </span>
-                            <img
-                                :src="product.foto_url || '/images/hero.png'"
-                                :alt="product.nama"
-                                class="h-full w-full transform object-cover transition-transform duration-500 group-hover:scale-110"
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="relative w-full sm:w-[280px]">
+                            <Search
+                                class="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-[var(--kg-sec)]"
+                            />
+                            <input
+                                v-model="searchQuery"
+                                type="text"
+                                inputmode="search"
+                                placeholder="Cari cemilan…"
+                                class="w-full rounded-2xl border-none bg-[var(--kg-surface)] py-3 pr-4 pl-12 text-sm shadow-sm outline-none ring-1 ring-black/5 transition focus:ring-2 focus:ring-[var(--kg-signal)] dark:ring-white/10"
                             />
                         </div>
-
-                        <!-- Content -->
-                        <div
-                            class="flex flex-1 flex-col justify-between gap-3 p-3 sm:p-4"
+                        <label
+                            class="inline-flex items-center gap-2 rounded-2xl bg-[var(--kg-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--kg-sec)] shadow-sm ring-1 ring-black/5 dark:ring-white/10"
                         >
-                            <h3
-                                class="line-clamp-2 text-sm font-bold leading-snug text-neutral-900 transition-colors group-hover:text-orange-600 dark:text-white dark:group-hover:text-amber-400"
+                            <ArrowUpDown class="h-4 w-4" />
+                            <select
+                                v-model="sortBy"
+                                aria-label="Urutkan produk"
+                                class="cursor-pointer border-none bg-transparent text-sm font-semibold text-[var(--kg-on)] outline-none"
                             >
-                                {{ product.nama }}
-                            </h3>
-
-                            <div class="space-y-2.5">
-                                <span
-                                    class="block text-base font-extrabold text-orange-600 dark:text-amber-400"
-                                    >{{ formatPrice(product.harga_jual) }}</span
+                                <option
+                                    v-for="opt in sortOptions"
+                                    :key="opt.value"
+                                    :value="opt.value"
                                 >
-
-                                <!-- Promo info: promo apa + sisa masa berlaku -->
-                                <div
-                                    v-if="product.promo"
-                                    class="space-y-1 rounded-xl border border-red-200/70 bg-red-50/70 p-2 dark:border-red-900/40 dark:bg-red-950/30"
-                                >
-                                    <div class="flex items-center gap-1.5">
-                                        <Tag class="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
-                                        <span class="line-clamp-1 text-[11px] font-bold text-red-700 dark:text-red-300">
-                                            {{ product.promo.nama }}
-                                        </span>
-                                    </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <Clock class="h-3.5 w-3.5 shrink-0 text-red-500 dark:text-red-400" />
-                                        <span class="text-[11px] font-semibold text-red-600 dark:text-red-400">
-                                            {{ promoSisaText(product.promo.sisa_hari) }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <button
-                                    @click="addToCart(product)"
-                                    :disabled="product.stok <= 0"
-                                    class="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-orange-500 active:scale-95 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:hover:bg-neutral-300 dark:disabled:bg-neutral-700"
-                                >
-                                    <Plus class="h-4 w-4" />
-                                    <span>{{ product.stok <= 0 ? 'Stok habis' : 'Keranjang' }}</span>
-                                </button>
-                            </div>
-                        </div>
+                                    {{ opt.label }}
+                                </option>
+                            </select>
+                        </label>
                     </div>
                 </div>
 
-                <!-- No search result -->
+                <!-- Pills kategori -->
                 <div
-                    v-else-if="props.allProducts.length > 0"
-                    class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 py-16 text-center dark:border-neutral-700"
+                    v-reveal
+                    class="reveal no-scrollbar mb-8 flex gap-2 overflow-x-auto pb-1"
                 >
-                    <Search class="mb-4 h-12 w-12 text-amber-300 dark:text-neutral-600" />
-                    <p class="font-bold text-neutral-700 dark:text-neutral-300">
-                        Produk tidak ditemukan
-                    </p>
-                    <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                        Coba kata kunci lain ya.
-                    </p>
                     <button
-                        @click="searchQuery = ''"
-                        class="mt-4 cursor-pointer rounded-xl border border-amber-200 px-5 py-2.5 text-sm font-semibold text-orange-700 transition-colors hover:bg-amber-50 dark:border-neutral-700 dark:text-amber-400 dark:hover:bg-neutral-800"
+                        v-for="kat in categories"
+                        :key="kat"
+                        @click="activeCategory = kat"
+                        :class="[
+                            'shrink-0 cursor-pointer rounded-full px-5 py-2.5 text-sm font-bold transition-all',
+                            activeCategory === kat
+                                ? 'bg-[var(--kg-signal)] text-white shadow-sm'
+                                : 'bg-[var(--kg-surface)] text-[var(--kg-sec)] ring-1 ring-black/5 hover:text-[var(--kg-primary)] dark:ring-white/10',
+                        ]"
                     >
-                        Reset Pencarian
+                        {{ kat }}
                     </button>
                 </div>
 
-                <!-- Empty state -->
+                <!-- Grid katalog -->
                 <div
-                    v-else
-                    class="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 py-20 text-center dark:border-neutral-700"
+                    v-if="visibleProducts.length > 0"
+                    class="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
                 >
-                    <ShoppingBag class="mb-4 h-12 w-12 text-amber-300 dark:text-neutral-600" />
-                    <p class="text-neutral-500 dark:text-neutral-400">Belum ada produk tersedia.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Interactive Quiz Section ("Flavor Matcher") -->
-        <section
-            id="quiz"
-            class="border-y border-amber-100/30 bg-gradient-to-tr from-amber-500/10 via-orange-500/5 to-transparent py-20 dark:border-neutral-900/30 dark:from-amber-950/20 dark:via-neutral-950 dark:to-transparent"
-        >
-            <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-                <div
-                    class="relative overflow-hidden rounded-3xl border border-orange-500/10 bg-[#FFFDF9] p-8 shadow-2xl md:p-12 dark:border-neutral-800/80 dark:bg-neutral-900"
-                >
-                    <!-- Decorative quiz bg glow -->
                     <div
-                        class="absolute top-[-10%] right-[-10%] h-40 w-40 rounded-full bg-orange-400/20 blur-2xl"
-                    ></div>
-
-                    <!-- Intro Section -->
-                    <div
-                        v-if="!quizCompleted"
-                        class="relative z-10 space-y-6 text-center"
+                        v-for="product in visibleProducts"
+                        :key="product.id_produk"
+                        class="group flex flex-col rounded-3xl bg-[var(--kg-surface)] p-3 shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-4 dark:ring-white/10"
                     >
                         <div
-                            class="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-orange-600 dark:bg-amber-950/50 dark:text-amber-400"
+                            class="relative mb-4 aspect-square overflow-hidden rounded-2xl bg-[var(--kg-sc)]"
                         >
-                            <Sparkles class="h-6 w-6 animate-pulse" />
+                            <span
+                                v-if="product.promo"
+                                class="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-[var(--kg-signal)] px-2 py-0.5 text-[10px] font-extrabold text-white"
+                                >{{ product.promo.label }}</span
+                            >
+                            <span
+                                v-if="stockState(product.stok) === 'habis'"
+                                class="absolute inset-0 z-10 flex items-center justify-center bg-black/45 text-sm font-bold text-white"
+                                >Stok habis</span
+                            >
+                            <img
+                                :src="product.foto_url || '/images/hero.png'"
+                                :alt="product.nama"
+                                loading="lazy"
+                                class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
                         </div>
-                        <h2
-                            class="font-['Outfit',sans-serif] text-3xl font-extrabold text-neutral-900 dark:text-white"
+
+                        <h5
+                            class="mb-1 text-[10px] font-bold tracking-widest text-[var(--kg-sec)] uppercase"
                         >
-                            Bingung Pilih Cemilan? 🤔
-                        </h2>
+                            {{ product.kategori || 'Cemilan' }}
+                        </h5>
+                        <h4
+                            class="mb-2 line-clamp-2 leading-snug font-bold text-[var(--kg-on)]"
+                        >
+                            {{ product.nama }}
+                        </h4>
+
+                        <!-- Hitung mundur promo -->
                         <p
-                            class="mx-auto max-w-md text-neutral-600 dark:text-neutral-300"
+                            v-if="product.promo"
+                            class="mb-2 inline-flex w-fit items-center gap-1 rounded-lg bg-[#ff5c00]/10 px-2 py-0.5 text-[11px] font-bold text-[var(--kg-primary)]"
                         >
-                            Ikuti kuis 1-detik kami untuk menemukan varian
-                            cemilan terbaik yang paling cocok dengan seleramu
-                            saat ini!
+                            <Clock class="h-3.5 w-3.5" />
+                            <span
+                                v-if="
+                                    isMounted &&
+                                    promoCountdown(product.promo.berakhir_pada)
+                                "
+                                class="tabular-nums"
+                                >{{
+                                    promoCountdown(product.promo.berakhir_pada)
+                                }}</span
+                            >
+                            <span v-else>{{
+                                promoSisaText(product.promo.sisa_hari)
+                            }}</span>
                         </p>
 
-                        <div
-                            class="mx-auto grid max-w-2xl grid-cols-1 gap-4 pt-4 sm:grid-cols-2"
-                        >
+                        <div class="mt-auto flex items-center justify-between gap-2">
+                            <div>
+                                <span
+                                    class="block font-bold text-[var(--kg-primary)]"
+                                    >{{
+                                        formatPrice(
+                                            product.promo?.harga_promo ??
+                                                product.harga_jual,
+                                        )
+                                    }}</span
+                                >
+                                <span
+                                    v-if="
+                                        product.promo &&
+                                        product.promo.harga_promo !== null
+                                    "
+                                    class="text-[11px] text-[var(--kg-sec)] line-through"
+                                    >{{ formatPrice(product.harga_jual) }}</span
+                                >
+                            </div>
                             <button
-                                v-for="option in quizOptions"
-                                :key="option.id"
-                                @click="selectQuizFlavor(option.id)"
-                                :class="[
-                                    'flex cursor-pointer items-center gap-4 rounded-2xl border border-amber-100 p-5 text-left font-bold transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:border-neutral-800',
-                                    option.color,
-                                ]"
+                                @click="addToCart(product)"
+                                :disabled="product.stok <= 0"
+                                class="flex h-10 w-10 items-center justify-center rounded-full bg-[#ff5c00]/10 text-[var(--kg-primary)] transition-colors hover:bg-[var(--kg-signal)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#ff5c00]/10 disabled:hover:text-[var(--kg-primary)]"
+                                aria-label="Tambah ke keranjang"
                             >
-                                <span class="text-3xl">{{ option.emoji }}</span>
-                                <span class="text-sm md:text-base">{{
-                                    option.label
-                                }}</span>
+                                <Plus class="h-5 w-5" />
                             </button>
                         </div>
                     </div>
-
-                    <!-- Result Section -->
-                    <div v-else class="relative z-10 space-y-8">
-                        <div class="space-y-2 text-center">
-                            <span
-                                class="text-xs font-bold tracking-widest text-emerald-600 uppercase dark:text-emerald-400"
-                                >Match Sempurna Ditemukan! 🎉</span
-                            >
-                            <h3
-                                class="font-['Outfit',sans-serif] text-2xl font-extrabold"
-                            >
-                                Ini Cemilan Paling Cocok Buat Kamu
-                            </h3>
-                        </div>
-
-                        <div
-                            v-if="matchedProduct"
-                            class="grid grid-cols-1 items-center gap-8 rounded-2xl border border-amber-100/50 bg-amber-50/40 p-6 md:grid-cols-12 dark:border-neutral-800/80 dark:bg-neutral-900/50"
-                        >
-                            <!-- Product Image -->
-                            <div
-                                class="aspect-square overflow-hidden rounded-2xl bg-white shadow-md md:col-span-4 dark:bg-neutral-800"
-                            >
-                                <img
-                                    :src="matchedProduct.image"
-                                    :alt="matchedProduct.name"
-                                    class="h-full w-full object-cover"
-                                />
-                            </div>
-
-                            <!-- Product Info -->
-                            <div class="space-y-4 md:col-span-8">
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="rounded-full bg-orange-600 px-3 py-1 text-[10px] font-extrabold text-white shadow-xs"
-                                    >
-                                        {{ matchedProduct.tag }}
-                                    </span>
-                                    <div
-                                        class="flex items-center text-amber-400"
-                                    >
-                                        <Star
-                                            class="h-4.5 w-4.5 fill-current"
-                                        />
-                                        <span
-                                            class="ml-1 text-sm font-bold text-neutral-600 dark:text-neutral-300"
-                                        >
-                                            {{ matchedProduct.rating }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <h4
-                                    class="text-xl font-bold text-neutral-900 dark:text-white"
-                                >
-                                    {{ matchedProduct.name }}
-                                </h4>
-                                <p
-                                    class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400"
-                                >
-                                    {{ matchedProduct.description }}
-                                </p>
-
-                                <div
-                                    class="flex flex-col items-stretch justify-between gap-4 pt-2 sm:flex-row sm:items-center"
-                                >
-                                    <div>
-                                        <span
-                                            class="block text-[10px] font-bold tracking-wider text-neutral-400 uppercase"
-                                            >Harga Spesial Kuis</span
-                                        >
-                                        <span
-                                            class="text-2xl font-black text-orange-600 dark:text-amber-400"
-                                            >{{
-                                                formatPrice(
-                                                    matchedProduct.price,
-                                                )
-                                            }}</span
-                                        >
-                                    </div>
-                                    <div class="flex gap-2">
-                                        <button
-                                            @click="resetQuiz"
-                                            class="cursor-pointer rounded-xl border border-amber-200 px-5 py-3 text-sm font-semibold transition-colors hover:bg-amber-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
-                                        >
-                                            Ulangi Kuis
-                                        </button>
-                                        <a
-                                            :href="
-                                                getWhatsAppLink(
-                                                    matchedProduct.name,
-                                                )
-                                            "
-                                            target="_blank"
-                                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-6 py-3 font-bold text-white shadow-md transition-all hover:bg-orange-500 hover:shadow-lg"
-                                        >
-                                            <MessageCircle class="h-5 w-5" />
-                                            <span>Pesan Sekarang</span>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Testimonial Section -->
-        <section id="testimoni" class="relative z-10 py-24">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div class="mx-auto mb-16 max-w-3xl space-y-3 text-center">
-                    <span
-                        class="text-xs font-extrabold tracking-widest text-orange-600 uppercase dark:text-amber-400"
-                        >Testimoni Nyata</span
-                    >
-                    <h2
-                        class="font-['Outfit',sans-serif] text-3xl font-bold text-neutral-900 sm:text-4xl dark:text-white"
-                    >
-                        Apa Kata Pelanggan Kami?
-                    </h2>
-                    <p class="text-neutral-600 dark:text-neutral-300">
-                        Cerita dari pelanggan setia di Barabai dan sekitarnya
-                        yang sudah mencoba cemilan kami.
-                    </p>
                 </div>
 
-                <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
-                    <!-- Testimonial 1 -->
-                    <div
-                        class="flex flex-col justify-between space-y-6 rounded-3xl border border-amber-100/50 bg-[#FFFDF9] p-8 shadow-xs transition-all hover:shadow-md dark:border-neutral-800/80 dark:bg-neutral-900"
-                    >
-                        <div class="space-y-4">
-                            <div class="flex text-amber-400">
-                                <Star
-                                    v-for="n in 5"
-                                    :key="n"
-                                    class="h-4.5 w-4.5 fill-current"
-                                />
-                            </div>
-                            <p
-                                class="text-sm leading-relaxed text-neutral-600 italic dark:text-neutral-400"
-                            >
-                                "Sumpah keripik singkong pedas daun jeruknya
-                                juara banget! Bumbunya melimpah dan ada daun
-                                jeruk aslinya yang bikin wangi segar. Garingnya
-                                pas dan ga keras sama sekali!"
-                            </p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 font-bold text-orange-600"
-                            >
-                                NJ
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-bold">
-                                    Norjannah
-                                </h4>
-                                <span class="text-xs text-neutral-400"
-                                    >Ibu Rumah Tangga, Barabai</span
-                                >
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Testimonial 2 -->
-                    <div
-                        class="flex flex-col justify-between space-y-6 rounded-3xl border border-amber-100/50 bg-[#FFFDF9] p-8 shadow-xs transition-all hover:shadow-md dark:border-neutral-800/80 dark:bg-neutral-900"
-                    >
-                        <div class="space-y-4">
-                            <div class="flex text-amber-400">
-                                <Star
-                                    v-for="n in 5"
-                                    :key="n"
-                                    class="h-4.5 w-4.5 fill-current"
-                                />
-                            </div>
-                            <p
-                                class="text-sm leading-relaxed text-neutral-600 italic dark:text-neutral-400"
-                            >
-                                "Langganan frozen food-nya, pancake duriannya
-                                enak banget dan duriannya berasa! Cemilan serba
-                                10 ribunya juga banyak pilihan. Cocok buat stok
-                                di rumah. Mantap Mba Tutut!"
-                            </p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 font-bold text-amber-600"
-                            >
-                                MR
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-bold">M. Rizki</h4>
-                                <span class="text-xs text-neutral-400"
-                                    >Mahasiswa, Kandangan</span
-                                >
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Testimonial 3 -->
-                    <div
-                        class="flex flex-col justify-between space-y-6 rounded-3xl border border-amber-100/50 bg-[#FFFDF9] p-8 shadow-xs transition-all hover:shadow-md dark:border-neutral-800/80 dark:bg-neutral-900"
-                    >
-                        <div class="space-y-4">
-                            <div class="flex text-amber-400">
-                                <Star
-                                    v-for="n in 5"
-                                    :key="n"
-                                    class="h-4.5 w-4.5 fill-current"
-                                />
-                            </div>
-                            <p
-                                class="text-sm leading-relaxed text-neutral-600 italic dark:text-neutral-400"
-                            >
-                                "Pelayanan ramah banget dan ordernya gampang
-                                lewat WhatsApp. Cemilannya fresh, basreng
-                                pedasnya mantap abis. Sering jadi langganan kalau
-                                ada acara keluarga!"
-                            </p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-600"
-                            >
-                                HW
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-bold">Hesti Wulandari</h4>
-                                <span class="text-xs text-neutral-400"
-                                    >Karyawan Swasta, Amuntai</span
-                                >
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Dynamic CTA Banner Section -->
-        <section class="relative z-10 overflow-hidden py-16">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <!-- Empty state -->
                 <div
-                    class="relative space-y-6 rounded-3xl bg-gradient-to-r from-orange-600 to-amber-500 p-8 text-center text-white shadow-2xl md:p-16 dark:from-orange-800 dark:to-amber-600"
+                    v-else
+                    class="flex flex-col items-center justify-center rounded-3xl bg-[var(--kg-surface)] py-20 text-center ring-1 ring-black/5 dark:ring-white/10"
                 >
-                    <!-- Light effect -->
-                    <div
-                        class="backdrop-blur-2xs absolute inset-0 bg-white/5"
-                    ></div>
+                    <Search class="mb-4 h-12 w-12 text-[var(--kg-sec)]/50" />
+                    <p class="font-bold">Produk tidak ditemukan</p>
+                    <p class="mt-1 text-sm text-[var(--kg-sec)]">
+                        Coba kata kunci atau kategori lain ya.
+                    </p>
+                    <button
+                        @click="resetKatalog"
+                        class="mt-4 cursor-pointer rounded-full bg-[var(--kg-sc)] px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-[var(--kg-signal)] hover:text-white"
+                    >
+                        Reset filter
+                    </button>
+                </div>
 
-                    <div class="relative z-10 mx-auto max-w-2xl space-y-4">
+                <!-- Muat lebih banyak -->
+                <div
+                    v-if="filteredProducts.length > catalogLimit"
+                    class="mt-12 text-center"
+                >
+                    <button
+                        @click="catalogLimit += 8"
+                        class="cursor-pointer rounded-full bg-[var(--kg-sc)] px-10 py-4 font-bold transition-colors hover:bg-[var(--kg-signal)] hover:text-white"
+                    >
+                        Muat lebih banyak
+                    </button>
+                </div>
+            </section>
+
+            <!-- ===== GOOGLE MAPS / LOKASI ===== -->
+            <section
+                id="lokasi"
+                class="mx-auto max-w-[1180px] px-5 py-16 md:px-8 md:py-24"
+            >
+                <div
+                    v-reveal
+                    class="reveal grid grid-cols-1 gap-6 overflow-hidden rounded-[2rem] bg-[var(--kg-surface)] shadow-sm ring-1 ring-black/5 lg:grid-cols-2 dark:ring-white/10"
+                >
+                    <!-- Info -->
+                    <div class="flex flex-col justify-center p-8 md:p-12">
+                        <span
+                            class="text-xs font-bold tracking-widest text-[var(--kg-primary)] uppercase"
+                            >Kunjungi kami</span
+                        >
                         <h2
-                            class="font-['Outfit',sans-serif] text-3xl font-extrabold sm:text-4xl"
+                            class="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
                         >
-                            Mau Ngemil Enak Tanpa Ribet?
+                            Ambil di tempat,<br />atau diantar.
                         </h2>
-                        <p class="font-medium text-orange-50 md:text-lg">
-                            Pesan cemilan & frozen food favoritmu langsung lewat
-                            WhatsApp. Bisa diantar di area Barabai & sekitarnya,
-                            atau ambil langsung di tempat. Praktis!
-                        </p>
-                        <div
-                            class="flex flex-col items-center justify-center gap-4 pt-4 sm:flex-row"
-                        >
+
+                        <ul class="mt-8 space-y-5">
+                            <li class="flex items-start gap-3">
+                                <span
+                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff5c00]/10 text-[var(--kg-primary)]"
+                                >
+                                    <MapPin class="h-5 w-5" />
+                                </span>
+                                <div>
+                                    <p class="font-bold">Alamat</p>
+                                    <p class="text-sm text-[var(--kg-sec)]">
+                                        Jl. Putera Harapan, Matang Ginalun,
+                                        Barabai, Hulu Sungai Tengah, Kalsel.
+                                    </p>
+                                </div>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span
+                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff5c00]/10 text-[var(--kg-primary)]"
+                                >
+                                    <Clock class="h-5 w-5" />
+                                </span>
+                                <div>
+                                    <p class="font-bold">Jam buka</p>
+                                    <p class="text-sm text-[var(--kg-sec)]">
+                                        Senin–Sabtu, 08.00–18.00 WIB. Minggu &
+                                        libur nasional tutup.
+                                    </p>
+                                </div>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span
+                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ff5c00]/10 text-[var(--kg-primary)]"
+                                >
+                                    <PhoneCall class="h-5 w-5" />
+                                </span>
+                                <div>
+                                    <p class="font-bold">Kontak</p>
+                                    <p class="text-sm text-[var(--kg-sec)]">
+                                        +62 812-5474-4177 (WhatsApp)
+                                    </p>
+                                </div>
+                            </li>
+                        </ul>
+
+                        <div class="mt-8 flex flex-wrap gap-3">
                             <a
                                 :href="getGeneralWhatsAppLink()"
                                 target="_blank"
-                                class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 text-base font-extrabold text-orange-700 shadow-xl transition-all hover:scale-105 hover:bg-neutral-100 sm:w-auto"
+                                class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
                             >
-                                <MessageCircle
-                                    class="h-5 w-5 text-orange-600"
-                                />
-                                <span>Pesan Sekarang via WA</span>
+                                <MessageCircle class="h-4.5 w-4.5" /> Chat admin
                             </a>
-                            <span
-                                class="text-xs font-semibold opacity-90 sm:text-sm"
-                                >atau hubungi admin kami (0812-5474-4177)</span
+                            <a
+                                :href="mapsLinkUrl"
+                                target="_blank"
+                                class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-sc)] px-6 py-3 text-sm font-bold transition-colors hover:bg-[var(--kg-sc-high)]"
                             >
+                                Buka di Google Maps
+                                <ArrowRight class="h-4 w-4" />
+                            </a>
                         </div>
                     </div>
-                </div>
-            </div>
-        </section>
 
-        <!-- Footer -->
+                    <!-- Map embed -->
+                    <div class="min-h-[320px] w-full lg:min-h-full">
+                        <iframe
+                            :src="mapsEmbedUrl"
+                            title="Lokasi Cemilan Mba Tutut di Google Maps"
+                            class="h-full min-h-[320px] w-full border-0"
+                            loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade"
+                            allowfullscreen
+                        ></iframe>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- ===== FOOTER (modern) ===== -->
         <footer
-            class="dark:bg-neutral-980 border-t border-neutral-800 bg-neutral-900 pt-16 pb-8 text-neutral-300 transition-colors duration-300"
+            class="mt-8 border-t border-black/5 bg-[var(--kg-surface)] dark:border-white/10"
         >
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-[1180px] px-5 py-16 md:px-8">
                 <div
-                    class="grid grid-cols-2 gap-8 border-b border-neutral-800 pb-10 md:grid-cols-4 md:gap-12 md:pb-12"
+                    class="grid grid-cols-1 gap-12 md:grid-cols-12 md:gap-8"
                 >
-                    <!-- Brand column -->
-                    <div class="col-span-2 space-y-4 md:col-span-1">
+                    <!-- Brand -->
+                    <div class="md:col-span-5">
                         <div class="flex items-center gap-2">
-                            <div
-                                class="flex h-10 w-10 items-center justify-center"
-                            >
-                                <AppLogoIcon class="h-10 w-10" />
-                            </div>
+                            <AppLogoIcon class="h-9 w-9" />
                             <span
-                                class="font-['Outfit',sans-serif] text-xl font-black tracking-tight text-white"
+                                class="font-display text-xl font-extrabold tracking-tight text-[var(--kg-primary)]"
                                 >Cemilan Mba Tutut</span
                             >
                         </div>
-                        <p class="text-xs leading-relaxed text-neutral-400">
-                            Cemilan Mba Tutut adalah UMKM asal Barabai yang
-                            menyajikan aneka cemilan serba 10 ribuan, kue kering,
-                            dan frozen food rumahan. Enak, terjangkau, dan bikin
-                            nagih.
+                        <p class="mt-4 max-w-sm text-sm text-[var(--kg-sec)]">
+                            UMKM asal Barabai yang menyajikan aneka cemilan serba
+                            10 ribuan, kue kering, dan frozen food rumahan. Enak,
+                            terjangkau, dan bikin nagih.
                         </p>
+                        <div class="mt-6 flex gap-3">
+                            <a
+                                :href="getGeneralWhatsAppLink()"
+                                target="_blank"
+                                aria-label="WhatsApp"
+                                class="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--kg-sc)] text-[var(--kg-primary)] transition-colors hover:bg-[var(--kg-signal)] hover:text-white"
+                            >
+                                <MessageCircle class="h-5 w-5" />
+                            </a>
+                            <a
+                                href="https://instagram.com/rumahcemilan_mbatutut12barabai"
+                                target="_blank"
+                                aria-label="Instagram"
+                                class="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--kg-sc)] text-[var(--kg-primary)] transition-colors hover:bg-[var(--kg-signal)] hover:text-white"
+                            >
+                                <Instagram class="h-5 w-5" />
+                            </a>
+                            <a
+                                :href="mapsLinkUrl"
+                                target="_blank"
+                                aria-label="Lokasi"
+                                class="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--kg-sc)] text-[var(--kg-primary)] transition-colors hover:bg-[var(--kg-signal)] hover:text-white"
+                            >
+                                <MapPin class="h-5 w-5" />
+                            </a>
+                        </div>
                     </div>
 
-                    <!-- Navigation Link column -->
-                    <div class="space-y-4">
-                        <h4
-                            class="text-sm font-bold tracking-wider text-white uppercase"
+                    <!-- Navigasi -->
+                    <div class="md:col-span-3">
+                        <h5
+                            class="mb-5 text-xs font-bold tracking-widest text-[var(--kg-on)] uppercase"
                         >
                             Navigasi
-                        </h4>
-                        <ul class="space-y-2 text-xs">
-                            <li>
-                                <a
-                                    href="#home"
-                                    class="transition-colors hover:text-amber-400"
-                                    >Beranda</a
-                                >
-                            </li>
-                            <li>
-                                <a
-                                    href="#menu"
-                                    class="transition-colors hover:text-amber-400"
-                                    >Best Seller</a
-                                >
-                            </li>
-                            <li>
-                                <a
-                                    href="#katalog"
-                                    class="transition-colors hover:text-amber-400"
-                                    >Katalog Produk</a
-                                >
-                            </li>
-                            <li>
-                                <a
-                                    href="#quiz"
-                                    class="transition-colors hover:text-amber-400"
-                                    >Kuis Rasa</a
-                                >
-                            </li>
-                            <li>
-                                <a
-                                    href="#about"
-                                    class="transition-colors hover:text-amber-400"
-                                    >Mengapa Kami</a
-                                >
-                            </li>
-                        </ul>
+                        </h5>
+                        <nav class="flex flex-col gap-3 text-sm">
+                            <a
+                                href="#home"
+                                class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                                >Beranda</a
+                            >
+                            <a
+                                href="#favorit"
+                                class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                                >Produk favorit</a
+                            >
+                            <a
+                                href="#katalog"
+                                class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                                >Katalog</a
+                            >
+                            <a
+                                href="#lokasi"
+                                class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                                >Lokasi</a
+                            >
+                        </nav>
                     </div>
 
-                    <!-- Contact column -->
-                    <div class="space-y-4">
-                        <h4
-                            class="text-sm font-bold tracking-wider text-white uppercase"
+                    <!-- Kontak & jam -->
+                    <div class="md:col-span-4">
+                        <h5
+                            class="mb-5 text-xs font-bold tracking-widest text-[var(--kg-on)] uppercase"
                         >
-                            Hubungi Kami
-                        </h4>
-                        <ul class="space-y-2 text-xs text-neutral-400">
+                            Hubungi kami
+                        </h5>
+                        <ul class="space-y-3 text-sm text-[var(--kg-sec)]">
                             <li class="flex items-center gap-2">
-                                <PhoneCall class="h-3.5 w-3.5 text-amber-400" />
+                                <PhoneCall
+                                    class="h-4 w-4 shrink-0 text-[var(--kg-primary)]"
+                                />
                                 <span>+62 812-5474-4177</span>
                             </li>
                             <li class="flex items-center gap-2">
-                                <MessageCircle
-                                    class="h-3.5 w-3.5 text-amber-400"
+                                <Instagram
+                                    class="h-4 w-4 shrink-0 text-[var(--kg-primary)]"
                                 />
                                 <span>@rumahcemilan_mbatutut12barabai</span>
                             </li>
-                            <li>
-                                Jl. Putera Harapan, Matang Ginalun, Barabai, Hulu
-                                Sungai Tengah, Kalimantan Selatan
+                            <li class="flex items-start gap-2">
+                                <MapPin
+                                    class="mt-0.5 h-4 w-4 shrink-0 text-[var(--kg-primary)]"
+                                />
+                                <span
+                                    >Jl. Putera Harapan, Matang Ginalun,
+                                    Barabai, HST, Kalsel</span
+                                >
                             </li>
-                        </ul>
-                    </div>
-
-                    <!-- Dynamic operation info -->
-                    <div class="space-y-4">
-                        <h4
-                            class="text-sm font-bold tracking-wider text-white uppercase"
-                        >
-                            Jam Operasional
-                        </h4>
-                        <ul class="space-y-2 text-xs text-neutral-400">
-                            <li class="flex items-center gap-1.5">
-                                <Clock class="h-3.5 w-3.5 text-amber-400" />
-                                <span>Senin - Sabtu: 08.00 - 18.00 WIB</span>
-                            </li>
-                            <li class="font-semibold text-orange-500">
-                                Hari Minggu & Libur Nasional Tutup
+                            <li class="flex items-center gap-2">
+                                <Clock
+                                    class="h-4 w-4 shrink-0 text-[var(--kg-primary)]"
+                                />
+                                <span>Senin–Sabtu, 08.00–18.00 WIB</span>
                             </li>
                         </ul>
                     </div>
                 </div>
 
-                <!-- Copyright -->
                 <div
-                    class="flex flex-col items-center justify-between gap-4 pt-8 text-xs text-neutral-500 sm:flex-row"
+                    class="mt-12 flex flex-col items-center justify-between gap-4 border-t border-black/5 pt-8 text-xs text-[var(--kg-sec)] sm:flex-row dark:border-white/10"
                 >
                     <p>
-                        &copy; 2026 Cemilan Mba Tutut Barabai. Seluruh Hak Cipta
-                        Dilindungi Undang-Undang.
+                        © 2026 Cemilan Mba Tutut Barabai. Seluruh hak cipta
+                        dilindungi.
                     </p>
-                    <div class="flex gap-4">
+                    <div class="flex items-center gap-4">
                         <Link
                             :href="login()"
-                            class="transition-colors hover:text-neutral-400"
+                            class="transition-colors hover:text-[var(--kg-primary)]"
                             >Portal Admin</Link
                         >
-                        <span>&bull;</span>
+                        <span>•</span>
                         <a
-                            href="#"
-                            class="transition-colors hover:text-neutral-400"
-                            >Kebijakan Privasi</a
+                            href="#home"
+                            class="transition-colors hover:text-[var(--kg-primary)]"
+                            >Kembali ke atas</a
                         >
                     </div>
                 </div>
             </div>
         </footer>
 
-        <!-- Floating WhatsApp Button -->
+        <!-- Floating WhatsApp -->
         <a
             :href="getGeneralWhatsAppLink()"
             target="_blank"
-            class="fixed right-6 bottom-6 z-50 flex h-14 w-14 transform items-center justify-center rounded-full bg-emerald-500 text-white shadow-2xl transition-all hover:scale-110 hover:bg-emerald-400 active:scale-95"
-            title="Chat Admin WhatsApp"
+            class="fixed right-5 bottom-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-2xl transition-transform hover:scale-110 active:scale-95"
+            title="Chat admin WhatsApp"
         >
             <MessageCircle class="h-7 w-7" />
         </a>
 
-        <!-- Floating Cart Button -->
+        <!-- Floating cart -->
         <button
             @click="isCartOpen = true"
-            class="fixed right-6 bottom-24 z-50 flex h-14 w-14 transform cursor-pointer items-center justify-center rounded-full bg-orange-600 text-white shadow-2xl transition-all hover:scale-110 hover:bg-orange-500 active:scale-95"
-            title="Buka Keranjang"
+            class="fixed right-5 bottom-24 z-40 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-[var(--kg-signal)] text-white shadow-2xl transition-transform hover:scale-110 active:scale-95"
+            title="Buka keranjang"
         >
             <ShoppingCart class="h-7 w-7" />
             <span
                 v-if="cartItemCount > 0"
-                class="absolute -top-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-[#FFFDF9] bg-red-500 px-1.5 text-xs font-extrabold text-white dark:border-neutral-950"
+                class="absolute -top-1 -right-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-[var(--kg-bg)] bg-[#a73a00] px-1.5 text-xs font-extrabold text-white"
+                >{{ cartItemCount }}</span
             >
-                {{ cartItemCount }}
-            </span>
         </button>
 
-        <!-- Cart Drawer -->
+        <!-- Cart drawer -->
         <transition name="fade">
             <div
                 v-if="isCartOpen"
-                class="fixed inset-0 z-[60] bg-neutral-950/50 backdrop-blur-sm"
+                class="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
                 @click="isCartOpen = false"
             ></div>
         </transition>
@@ -1738,86 +1529,78 @@ const promoSisaText = (sisaHari: number) => {
         <transition name="slide">
             <aside
                 v-if="isCartOpen"
-                class="fixed top-0 right-0 z-[70] flex h-full w-full max-w-md flex-col bg-[#FFFDF9] shadow-2xl dark:bg-neutral-950"
+                class="fixed top-0 right-0 z-[70] flex h-full w-full max-w-md flex-col bg-[var(--kg-bg)] shadow-2xl"
             >
-                <!-- Drawer Header -->
                 <div
-                    class="flex items-center justify-between border-b border-amber-100/60 px-4 py-4 sm:px-6 sm:py-5 dark:border-neutral-800"
+                    class="flex items-center justify-between border-b border-black/5 px-5 py-5 dark:border-white/10"
                 >
                     <div class="flex items-center gap-3">
                         <div
-                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-amber-400"
+                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ff5c00]/10 text-[var(--kg-primary)]"
                         >
                             <ShoppingCart class="h-5 w-5" />
                         </div>
                         <div>
-                            <h3
-                                class="font-['Outfit',sans-serif] text-lg font-extrabold text-neutral-900 dark:text-white"
-                            >
-                                Keranjang Belanja
+                            <h3 class="font-display text-lg font-extrabold">
+                                Keranjang
                             </h3>
-                            <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                            <p class="text-xs text-[var(--kg-sec)]">
                                 {{ cartItemCount }} item dipilih
                             </p>
                         </div>
                     </div>
                     <button
                         @click="isCartOpen = false"
-                        class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-amber-50 hover:text-neutral-800 dark:hover:bg-neutral-900 dark:hover:text-white"
+                        class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[var(--kg-sec)] transition-colors hover:bg-[var(--kg-sc)]"
                     >
                         <X class="h-5 w-5" />
                     </button>
                 </div>
 
-                <!-- Cart Items List -->
-                <div class="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-                    <div
-                        v-if="cart.length > 0"
-                        class="space-y-3"
-                    >
+                <div class="flex-1 overflow-y-auto px-5 py-4">
+                    <div v-if="cart.length > 0" class="space-y-3">
                         <div
                             v-for="item in cart"
                             :key="item.id_produk"
-                            class="flex gap-3 rounded-2xl border border-amber-100/70 bg-white p-2.5 shadow-xs transition-shadow hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+                            class="flex gap-3 rounded-2xl bg-[var(--kg-surface)] p-2.5 ring-1 ring-black/5 dark:ring-white/10"
                         >
                             <img
                                 :src="item.foto_url || '/images/hero.png'"
                                 :alt="item.nama"
                                 class="h-20 w-20 shrink-0 rounded-xl object-cover"
                             />
-                            <div class="flex min-w-0 flex-1 flex-col justify-between gap-2">
-                                <!-- Title + remove -->
+                            <div
+                                class="flex min-w-0 flex-1 flex-col justify-between gap-2"
+                            >
                                 <div class="flex items-start justify-between gap-2">
                                     <div class="min-w-0">
                                         <h4
-                                            class="line-clamp-2 text-sm leading-snug font-bold text-neutral-900 dark:text-white"
+                                            class="line-clamp-2 text-sm leading-snug font-bold"
                                         >
                                             {{ item.nama }}
                                         </h4>
                                         <p
-                                            class="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500"
+                                            class="mt-0.5 text-xs text-[var(--kg-sec)]"
                                         >
-                                            {{ formatPrice(item.harga_jual) }} / pcs
+                                            {{ formatPrice(item.harga_jual) }} /
+                                            pcs
                                         </p>
                                     </div>
                                     <button
                                         @click="removeFromCart(item.id_produk)"
-                                        class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40"
+                                        class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--kg-sec)] transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40"
                                         title="Hapus item"
                                     >
                                         <Trash2 class="h-4 w-4" />
                                     </button>
                                 </div>
-
-                                <!-- Quantity stepper + subtotal -->
                                 <div class="flex items-center justify-between gap-2">
                                     <div
-                                        class="inline-flex items-center gap-1 rounded-full bg-amber-50 p-1 dark:bg-neutral-800"
+                                        class="inline-flex items-center gap-1 rounded-full bg-[var(--kg-sc)] p-1"
                                     >
                                         <button
                                             @click="decreaseQty(item.id_produk)"
-                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors hover:text-orange-600 dark:bg-neutral-700 dark:text-neutral-200"
-                                            :title="item.quantity === 1 ? 'Hapus item' : 'Kurangi'"
+                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-[var(--kg-surface)] text-[var(--kg-on)] transition-colors hover:text-[var(--kg-primary)]"
                                         >
                                             <Minus class="h-3.5 w-3.5" />
                                         </button>
@@ -1826,95 +1609,96 @@ const promoSisaText = (sisaHari: number) => {
                                             inputmode="numeric"
                                             :value="item.quantity"
                                             :aria-label="`Jumlah ${item.nama}`"
-                                            class="w-9 rounded-md bg-transparent text-center text-sm font-extrabold text-neutral-900 outline-none focus:ring-2 focus:ring-orange-400/40 dark:text-white"
-                                            @focus="($event.target as HTMLInputElement).select()"
+                                            class="w-9 bg-transparent text-center text-sm font-extrabold outline-none"
+                                            @focus="
+                                                (
+                                                    $event.target as HTMLInputElement
+                                                ).select()
+                                            "
                                             @input="setCartQuantity(item, $event)"
-                                            @blur="normalizeCartQuantity(item, $event)"
-                                            @keyup.enter="($event.target as HTMLInputElement).blur()"
+                                            @blur="
+                                                normalizeCartQuantity(item, $event)
+                                            "
+                                            @keyup.enter="
+                                                (
+                                                    $event.target as HTMLInputElement
+                                                ).blur()
+                                            "
                                         />
                                         <button
                                             @click="increaseQty(item.id_produk)"
                                             :disabled="item.quantity >= item.stok"
-                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white text-neutral-700 shadow-xs transition-colors hover:text-orange-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200"
-                                            :title="item.quantity >= item.stok ? `Stok cuma ${item.stok}` : 'Tambah'"
+                                            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-[var(--kg-surface)] text-[var(--kg-on)] transition-colors hover:text-[var(--kg-primary)] disabled:opacity-40"
                                         >
                                             <Plus class="h-3.5 w-3.5" />
                                         </button>
                                     </div>
-                                    <div class="flex flex-col items-end">
-                                        <span
-                                            class="text-sm font-extrabold text-orange-600 dark:text-amber-400"
-                                            >{{ formatPrice(item.harga_jual * item.quantity) }}</span
-                                        >
-                                        <span class="text-[10px] font-medium text-neutral-400 dark:text-neutral-500"
-                                            >stok: {{ item.stok }}</span
-                                        >
-                                    </div>
+                                    <span
+                                        class="text-sm font-extrabold text-[var(--kg-primary)]"
+                                        >{{
+                                            formatPrice(
+                                                item.harga_jual * item.quantity,
+                                            )
+                                        }}</span
+                                    >
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Empty Cart -->
                     <div
                         v-else
                         class="flex h-full flex-col items-center justify-center py-20 text-center"
                     >
                         <div
-                            class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 dark:bg-neutral-900"
+                            class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--kg-sc)]"
                         >
-                            <ShoppingCart
-                                class="h-8 w-8 text-amber-300 dark:text-neutral-600"
-                            />
+                            <ShoppingCart class="h-8 w-8 text-[var(--kg-sec)]" />
                         </div>
-                        <p class="font-bold text-neutral-700 dark:text-neutral-300">
-                            Keranjang masih kosong
-                        </p>
-                        <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                        <p class="font-bold">Keranjang masih kosong</p>
+                        <p class="mt-1 text-sm text-[var(--kg-sec)]">
                             Yuk pilih cemilan favoritmu dulu!
                         </p>
                         <button
                             @click="isCartOpen = false"
-                            class="mt-5 cursor-pointer rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-orange-500"
+                            class="mt-5 cursor-pointer rounded-full bg-[var(--kg-signal)] px-5 py-2.5 text-sm font-bold text-white"
                         >
-                            Lihat Produk
+                            Lihat produk
                         </button>
                     </div>
                 </div>
 
-                <!-- Drawer Footer / Checkout -->
                 <div
                     v-if="cart.length > 0"
-                    class="space-y-3 border-t border-amber-100/60 bg-[#FFFDF9] px-4 py-4 sm:px-6 sm:py-5 dark:border-neutral-800 dark:bg-neutral-950"
+                    class="space-y-3 border-t border-black/5 px-5 py-5 dark:border-white/10"
                 >
                     <div
-                        class="flex items-center justify-between rounded-2xl bg-amber-50/70 px-4 py-3 dark:bg-neutral-900"
+                        class="flex items-center justify-between rounded-2xl bg-[var(--kg-sc)] px-4 py-3"
                     >
-                        <span class="text-sm font-semibold text-neutral-600 dark:text-neutral-300"
+                        <span class="text-sm font-semibold text-[var(--kg-sec)]"
                             >Total ({{ cartItemCount }} item)</span
                         >
                         <span
-                            class="font-['Outfit',sans-serif] text-xl font-black text-orange-600 sm:text-2xl dark:text-amber-400"
+                            class="font-display text-xl font-extrabold text-[var(--kg-primary)]"
                             >{{ formatPrice(cartTotal) }}</span
                         >
                     </div>
                     <button
                         @click="checkoutViaWhatsApp"
-                        class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-500 hover:shadow-xl active:scale-[0.98]"
+                        class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3.5 text-base font-bold text-white transition-transform hover:scale-[1.01] active:scale-[0.98]"
                     >
-                        <MessageCircle class="h-5 w-5" />
-                        <span>Checkout via WhatsApp</span>
+                        <MessageCircle class="h-5 w-5" /> Checkout via WhatsApp
                     </button>
                     <div class="flex items-center justify-between gap-3">
                         <button
                             @click="isCartOpen = false"
-                            class="flex-1 cursor-pointer rounded-xl border border-amber-200 px-4 py-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-amber-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                            class="flex-1 cursor-pointer rounded-full bg-[var(--kg-sc)] px-4 py-2.5 text-xs font-semibold transition-colors hover:bg-[var(--kg-sc-high)]"
                         >
-                            Lanjut Belanja
+                            Lanjut belanja
                         </button>
                         <button
                             @click="clearCart"
-                            class="flex-1 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-semibold text-neutral-400 transition-colors hover:text-red-500"
+                            class="flex-1 cursor-pointer rounded-full px-4 py-2.5 text-xs font-semibold text-[var(--kg-sec)] transition-colors hover:text-red-500"
                         >
                             Kosongkan
                         </button>
@@ -1923,18 +1707,16 @@ const promoSisaText = (sisaHari: number) => {
             </aside>
         </transition>
 
-        <!-- Toast Notification (feedback tambah ke keranjang) -->
+        <!-- Toast -->
         <div
             class="pointer-events-none fixed inset-x-0 top-24 z-[80] flex justify-center px-4"
         >
             <transition name="toast">
                 <div
                     v-if="toastMessage"
-                    class="pointer-events-auto flex max-w-sm items-center gap-2.5 rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white shadow-2xl dark:bg-white dark:text-neutral-900"
+                    class="pointer-events-auto flex max-w-sm items-center gap-2.5 rounded-2xl bg-[var(--kg-on)] px-4 py-3 text-sm font-semibold text-[var(--kg-bg)] shadow-2xl"
                 >
-                    <CheckCircle2
-                        class="h-5 w-5 shrink-0 text-emerald-400 dark:text-emerald-500"
-                    />
+                    <CheckCircle2 class="h-5 w-5 shrink-0 text-emerald-400" />
                     <span class="line-clamp-2">{{ toastMessage }}</span>
                 </div>
             </transition>
@@ -1943,17 +1725,71 @@ const promoSisaText = (sisaHari: number) => {
 </template>
 
 <style>
-/* Custom animations & smoothing */
 html {
     scroll-behavior: smooth;
 }
 
-/* Fine-tune outfit font layout */
-.font-outfit {
-    font-family: 'Outfit', sans-serif;
+/* ===== Kinetic Gourmet palette ===== */
+.kg {
+    --kg-bg: #f7f9fb;
+    --kg-surface: #ffffff;
+    --kg-sc: #eceef0;
+    --kg-sc-high: #e6e8ea;
+    --kg-on: #191c1e;
+    --kg-sec: #5d5e62;
+    --kg-primary: #a73a00;
+    --kg-signal: #ff5c00;
+}
+.dark .kg {
+    --kg-bg: #121417;
+    --kg-surface: #1c1f22;
+    --kg-sc: #25282b;
+    --kg-sc-high: #2c3033;
+    --kg-on: #e7e9ea;
+    --kg-sec: #a0a3a8;
+    --kg-primary: #ff8a4d;
+    --kg-signal: #ff5c00;
 }
 
-/* Cart drawer transitions */
+.font-display {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.03em;
+}
+
+.bento-card {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bento-card:hover {
+    transform: translateY(-4px);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* ===== Motion: scroll-reveal (client-only) ===== */
+.reveal {
+    opacity: 1;
+    transform: none;
+}
+.motion-ready .reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+        opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+}
+.motion-ready .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+}
+
+/* Cart drawer & toast transitions */
 .fade-enter-active,
 .fade-leave-active {
     transition: opacity 0.3s ease;
@@ -1962,7 +1798,6 @@ html {
 .fade-leave-to {
     opacity: 0;
 }
-
 .slide-enter-active,
 .slide-leave-active {
     transition: transform 0.3s ease;
@@ -1971,8 +1806,6 @@ html {
 .slide-leave-to {
     transform: translateX(100%);
 }
-
-/* Toast transition */
 .toast-enter-active,
 .toast-leave-active {
     transition:
@@ -1983,5 +1816,13 @@ html {
 .toast-leave-to {
     opacity: 0;
     transform: translateY(-12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .motion-ready .reveal {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
 }
 </style>

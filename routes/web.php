@@ -30,8 +30,9 @@ Route::get('/', function () {
         ->get()
         ->groupBy('id_produk');
 
-    // Bentuk keterangan promo (jenis diskon + sisa hari berlaku) untuk sebuah produk.
-    $promoFor = function (int $idProduk) use ($activePromos, $now): ?array {
+    // Bentuk keterangan promo (jenis diskon + harga akhir + sisa berlaku) untuk sebuah produk.
+    // Harga promo dihitung di server agar konsisten dengan klien (hindari hydration mismatch).
+    $promoFor = function (int $idProduk, $hargaJual = null) use ($activePromos, $now): ?array {
         $promo = $activePromos->get($idProduk)?->first();
 
         if (! $promo) {
@@ -44,13 +45,27 @@ Route::get('/', function () {
             ? 'Diskon '.rtrim(rtrim(number_format($promo->nilai, 2, ',', '.'), '0'), ',').'%'
             : 'Diskon Rp'.number_format($promo->nilai, 0, ',', '.');
 
+        // Harga akhir setelah diskon (untuk tampilan harga coret).
+        $hargaPromo = null;
+
+        if ($hargaJual !== null) {
+            $harga = (float) $hargaJual;
+            $potongan = $promo->tipe === 'persen'
+                ? $harga * ((float) $promo->nilai / 100)
+                : (float) $promo->nilai;
+            $hargaPromo = (int) round(max(0, $harga - $potongan));
+        }
+
         return [
             'nama' => $promo->nama,
             'label' => $label,
             'tipe' => $promo->tipe,
             'nilai' => (float) $promo->nilai,
+            'harga_promo' => $hargaPromo,
             'sisa_hari' => max(0, $sisaHari),
+            // Sertakan jam akhir hari agar hitung mundur di klien presisi sampai detik.
             'tanggal_selesai' => $promo->tanggal_selesai->format('Y-m-d'),
+            'berakhir_pada' => $promo->tanggal_selesai->copy()->endOfDay()->toIso8601String(),
         ];
     };
 
@@ -74,7 +89,7 @@ Route::get('/', function () {
             'stok' => (int) $p->stok,
             'foto_url' => $p->foto ? asset("storage/{$p->foto}") : null,
             'total_terjual' => (int) $p->total_terjual,
-            'promo' => $promoFor($p->id_produk),
+            'promo' => $promoFor($p->id_produk, $p->harga_jual),
         ]);
 
     $allProducts = Produk::with('kategori')
@@ -87,7 +102,7 @@ Route::get('/', function () {
             'harga_jual' => $p->harga_jual,
             'stok' => $p->stok,
             'foto_url' => $p->foto ? asset("storage/{$p->foto}") : null,
-            'promo' => $promoFor($p->id_produk),
+            'promo' => $promoFor($p->id_produk, $p->harga_jual),
         ])
         // Produk yang sedang promo tampil paling atas (urutan nama tetap dalam tiap grup).
         ->sortBy(fn ($p) => $p['promo'] === null ? 1 : 0)
