@@ -23,6 +23,7 @@ import {
     ArrowUpDown,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     MapPin,
     Instagram,
 } from 'lucide-vue-next';
@@ -659,205 +660,229 @@ const promoCountdown = (berakhirPada: string): string | null => {
             </div>
         </transition>
 
-        <main class="pt-24 md:pt-28">
-            <!-- ===== HERO SLIDER ===== -->
+        <main>
+            <!-- ===== HERO SLIDER (full-screen, transisi geser) ===== -->
             <section
                 id="home"
-                class="mx-auto max-w-[1180px] px-5 md:px-8"
+                class="relative h-[100svh] min-h-[600px] w-full overflow-hidden bg-[var(--kg-sc)]"
             >
+                <!-- Track: geser horizontal antar slide -->
                 <div
-                    v-reveal
-                    class="reveal relative aspect-[4/5] w-full overflow-hidden rounded-[2rem] bg-[var(--kg-sc)] shadow-xl sm:aspect-[16/10] lg:aspect-[2/1]"
+                    class="hero-track flex h-full w-full"
+                    :style="{ transform: `translateX(-${heroSlide * 100}%)` }"
                 >
-                    <!-- Slide 1: foto usaha + teks -->
-                    <div
-                        class="absolute inset-0 transition-opacity duration-700"
-                        :class="
-                            heroSlide === 0
-                                ? 'opacity-100'
-                                : 'pointer-events-none opacity-0'
-                        "
-                    >
+                    <!-- Slide 0: foto brand + teks -->
+                    <div class="relative h-full w-full shrink-0">
                         <img
                             src="/images/hero.png"
                             alt="Rumah Cemilan Mba Tutut, Barabai"
-                            class="h-full w-full object-cover"
+                            class="absolute inset-0 h-full w-full object-cover"
                         />
                         <div
-                            class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10 sm:bg-gradient-to-r sm:from-black/80 sm:via-black/45 sm:to-transparent"
+                            class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/30 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/45 sm:to-transparent"
                         ></div>
                         <div
-                            class="absolute inset-0 flex flex-col justify-end p-6 sm:max-w-[60%] sm:justify-center sm:p-12 lg:p-16"
+                            class="relative z-10 mx-auto flex h-full max-w-[1180px] flex-col justify-center px-6 md:px-8"
                         >
-                            <span
-                                class="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur"
+                            <div
+                                class="max-w-xl"
+                                :class="heroSlide === 0 ? 'hero-in' : ''"
                             >
-                                <Sparkles class="h-3.5 w-3.5" /> Homemade · khas
-                                Barabai
-                            </span>
-                            <h1
-                                class="font-display text-3xl leading-[1.05] font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl"
-                            >
-                                Ngemil nagih,<br />harga
-                                <span class="text-[#ff8a4d] italic">10rb-an.</span>
-                            </h1>
-                            <p
-                                class="mt-4 max-w-md text-sm text-white/85 sm:text-base"
-                            >
-                                Keripik, basreng, makaroni & frozen food rumahan.
-                                Dibuat fresh tiap hari di Barabai, diantar atau
-                                ambil di tempat.
-                            </p>
-                            <div class="mt-6 flex flex-wrap gap-3">
-                                <a
-                                    :href="getGeneralWhatsAppLink()"
-                                    target="_blank"
-                                    class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
+                                <span
+                                    class="mb-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white backdrop-blur"
                                 >
-                                    <MessageCircle class="h-4.5 w-4.5" /> Pesan via
-                                    WhatsApp
-                                </a>
-                                <a
-                                    href="#katalog"
-                                    class="inline-flex items-center gap-2 rounded-full bg-white/15 px-6 py-3 text-sm font-bold text-white backdrop-blur transition-colors hover:bg-white/25"
+                                    <Sparkles class="h-3.5 w-3.5" /> Homemade ·
+                                    khas Barabai
+                                </span>
+                                <h1
+                                    class="font-display text-4xl leading-[1.02] font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl"
                                 >
-                                    Lihat katalog
-                                </a>
+                                    Ngemil nagih,<br />harga
+                                    <span class="text-[#ff8a4d] italic"
+                                        >10rb-an.</span
+                                    >
+                                </h1>
+                                <p
+                                    class="mt-5 max-w-md text-sm text-white/85 sm:text-base"
+                                >
+                                    Keripik, basreng, makaroni & frozen food
+                                    rumahan. Dibuat fresh tiap hari di Barabai,
+                                    diantar atau ambil di tempat.
+                                </p>
+                                <div class="mt-7 flex flex-wrap gap-3">
+                                    <a
+                                        :href="getGeneralWhatsAppLink()"
+                                        target="_blank"
+                                        class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3.5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
+                                    >
+                                        <MessageCircle class="h-4.5 w-4.5" />
+                                        Pesan via WhatsApp
+                                    </a>
+                                    <a
+                                        href="#katalog"
+                                        class="inline-flex items-center gap-2 rounded-full bg-white/15 px-6 py-3.5 text-sm font-bold text-white backdrop-blur transition-colors hover:bg-white/25"
+                                    >
+                                        Lihat katalog
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Slide 2: promo hari ini + foto produk -->
-                    <div
-                        class="absolute inset-0 transition-opacity duration-700"
-                        :class="
-                            heroSlide === 1
-                                ? 'opacity-100'
-                                : 'pointer-events-none opacity-0'
-                        "
-                    >
+                    <!-- Slide 1: promo hari ini + foto produk -->
+                    <div class="relative h-full w-full shrink-0">
                         <img
                             :src="promoOfDay?.foto_url || '/images/hero.png'"
                             :alt="promoOfDay?.nama || 'Promo Cemilan Mba Tutut'"
-                            class="h-full w-full object-cover"
+                            class="absolute inset-0 h-full w-full object-cover"
                         />
                         <div
-                            class="absolute inset-0 bg-gradient-to-t from-[#521800]/85 via-[#521800]/45 to-black/10 sm:bg-gradient-to-r sm:from-[#521800]/85 sm:via-[#521800]/45 sm:to-transparent"
+                            class="absolute inset-0 bg-gradient-to-t from-[#521800]/90 via-[#521800]/55 to-black/30 sm:bg-gradient-to-r sm:from-[#521800]/90 sm:via-[#521800]/45 sm:to-transparent"
                         ></div>
                         <div
-                            class="absolute inset-0 flex flex-col justify-end p-6 sm:max-w-[60%] sm:justify-center sm:p-12 lg:p-16"
+                            class="relative z-10 mx-auto flex h-full max-w-[1180px] flex-col justify-center px-6 md:px-8"
                         >
-                            <span
-                                class="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--kg-signal)] px-3 py-1 text-xs font-bold text-white"
+                            <div
+                                class="max-w-xl"
+                                :class="heroSlide === 1 ? 'hero-in' : ''"
                             >
-                                <Tag class="h-3.5 w-3.5" /> Promo hari ini
-                            </span>
-                            <template v-if="promoOfDay && promoOfDay.promo">
-                                <h2
-                                    class="font-display text-3xl leading-[1.05] font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl"
+                                <span
+                                    class="mb-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--kg-signal)] px-3 py-1.5 text-xs font-bold text-white"
                                 >
-                                    {{ promoOfDay.nama }}
-                                </h2>
-                                <div class="mt-4 flex items-center gap-3">
-                                    <span
-                                        class="font-display text-2xl font-extrabold text-white sm:text-4xl"
-                                        >{{
-                                            formatPrice(
-                                                promoOfDay.promo.harga_promo ??
-                                                    promoOfDay.harga_jual,
+                                    <Tag class="h-3.5 w-3.5" /> Promo hari ini
+                                </span>
+                                <template v-if="promoOfDay && promoOfDay.promo">
+                                    <h2
+                                        class="font-display text-4xl leading-[1.02] font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl"
+                                    >
+                                        {{ promoOfDay.nama }}
+                                    </h2>
+                                    <div class="mt-5 flex items-center gap-3">
+                                        <span
+                                            class="font-display text-3xl font-extrabold text-white sm:text-4xl"
+                                            >{{
+                                                formatPrice(
+                                                    promoOfDay.promo.harga_promo ??
+                                                        promoOfDay.harga_jual,
+                                                )
+                                            }}</span
+                                        >
+                                        <span
+                                            v-if="
+                                                promoOfDay.promo.harga_promo !==
+                                                null
+                                            "
+                                            class="text-lg text-white/70 line-through sm:text-xl"
+                                            >{{
+                                                formatPrice(promoOfDay.harga_jual)
+                                            }}</span
+                                        >
+                                        <span
+                                            class="rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-[#a73a00]"
+                                            >{{ promoOfDay.promo.label }}</span
+                                        >
+                                    </div>
+                                    <p
+                                        v-if="
+                                            isMounted &&
+                                            promoCountdown(
+                                                promoOfDay.promo.berakhir_pada,
                                             )
-                                        }}</span
+                                        "
+                                        class="mt-3 inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-white/90 tabular-nums"
                                     >
-                                    <span
-                                        v-if="promoOfDay.promo.harga_promo !== null"
-                                        class="text-base text-white/70 line-through sm:text-xl"
-                                        >{{
-                                            formatPrice(promoOfDay.harga_jual)
-                                        }}</span
+                                        <Clock class="h-4 w-4" /> Berakhir
+                                        {{
+                                            promoCountdown(
+                                                promoOfDay.promo.berakhir_pada,
+                                            )
+                                        }}
+                                    </p>
+                                    <div class="mt-7">
+                                        <a
+                                            :href="getWhatsAppLink(promoOfDay.nama)"
+                                            target="_blank"
+                                            class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3.5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
+                                        >
+                                            <MessageCircle class="h-4.5 w-4.5" />
+                                            Ambil promo via WhatsApp
+                                        </a>
+                                    </div>
+                                </template>
+                                <template v-else>
+                                    <h2
+                                        class="font-display text-4xl leading-[1.02] font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl"
                                     >
-                                    <span
-                                        class="rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-[#a73a00]"
-                                        >{{ promoOfDay.promo.label }}</span
-                                    >
-                                </div>
-                                <p
-                                    v-if="
-                                        isMounted &&
-                                        promoCountdown(promoOfDay.promo.berakhir_pada)
-                                    "
-                                    class="mt-3 inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-white/90 tabular-nums"
-                                >
-                                    <Clock class="h-4 w-4" /> Berakhir
-                                    {{ promoCountdown(promoOfDay.promo.berakhir_pada) }}
-                                </p>
-                                <div class="mt-6">
-                                    <a
-                                        :href="getWhatsAppLink(promoOfDay.nama)"
-                                        target="_blank"
-                                        class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                                    >
-                                        <MessageCircle class="h-4.5 w-4.5" /> Ambil
-                                        promo via WhatsApp
-                                    </a>
-                                </div>
-                            </template>
-                            <template v-else>
-                                <h2
-                                    class="font-display text-3xl leading-[1.05] font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl"
-                                >
-                                    Serba 10 ribuan,<br />bikin nagih.
-                                </h2>
-                                <div class="mt-6">
-                                    <a
-                                        href="#katalog"
-                                        class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                                    >
-                                        Jelajahi katalog
-                                    </a>
-                                </div>
-                            </template>
+                                        Serba 10 ribuan,<br />bikin nagih.
+                                    </h2>
+                                    <div class="mt-7">
+                                        <a
+                                            href="#katalog"
+                                            class="inline-flex items-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3.5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
+                                        >
+                                            Jelajahi katalog
+                                        </a>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
                     </div>
-
-                    <!-- Floating "mulai dari" badge -->
-                    <div
-                        class="absolute top-5 right-5 hidden flex-col items-center rounded-3xl bg-white/95 px-5 py-3 shadow-2xl backdrop-blur sm:flex"
-                    >
-                        <span
-                            class="font-display text-2xl font-extrabold text-[#a73a00]"
-                            >10rb</span
-                        >
-                        <span
-                            class="text-[10px] font-bold tracking-widest text-[#5d5e62] uppercase"
-                            >mulai dari</span
-                        >
-                    </div>
-
-                    <!-- Slide controls -->
-                    <div
-                        class="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 sm:left-12 sm:translate-x-0 lg:left-16"
-                    >
-                        <button
-                            v-for="i in heroSlideCount"
-                            :key="i"
-                            @click="goToSlide(i - 1)"
-                            :aria-label="`Slide ${i}`"
-                            class="h-2 rounded-full transition-all duration-300"
-                            :class="
-                                heroSlide === i - 1
-                                    ? 'w-8 bg-white'
-                                    : 'w-2 bg-white/50 hover:bg-white/80'
-                            "
-                        ></button>
-                    </div>
-                    <button
-                        @click="goToSlide((heroSlide + 1) % heroSlideCount)"
-                        aria-label="Slide berikutnya"
-                        class="absolute right-5 bottom-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur transition-colors hover:bg-white/35 sm:bottom-5"
-                    >
-                        <ChevronRight class="h-5 w-5" />
-                    </button>
                 </div>
+
+                <!-- Floating "mulai dari" badge -->
+                <div
+                    class="absolute top-24 right-6 z-20 hidden flex-col items-center rounded-3xl bg-white/95 px-5 py-3 shadow-2xl backdrop-blur sm:flex"
+                >
+                    <span
+                        class="font-display text-2xl font-extrabold text-[#a73a00]"
+                        >10rb</span
+                    >
+                    <span
+                        class="text-[10px] font-bold tracking-widest text-[#5d5e62] uppercase"
+                        >mulai dari</span
+                    >
+                </div>
+
+                <!-- Dots -->
+                <div
+                    class="absolute bottom-8 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3"
+                >
+                    <button
+                        v-for="i in heroSlideCount"
+                        :key="i"
+                        @click="goToSlide(i - 1)"
+                        :aria-label="`Slide ${i}`"
+                        class="h-2 rounded-full transition-all duration-300"
+                        :class="
+                            heroSlide === i - 1
+                                ? 'w-8 bg-white'
+                                : 'w-2 bg-white/50 hover:bg-white/80'
+                        "
+                    ></button>
+                </div>
+
+                <!-- Next -->
+                <button
+                    @click="goToSlide((heroSlide + 1) % heroSlideCount)"
+                    aria-label="Slide berikutnya"
+                    class="absolute right-6 bottom-7 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur transition-colors hover:bg-white/35"
+                >
+                    <ChevronRight class="h-5 w-5" />
+                </button>
+
+                <!-- Scroll cue -->
+                <a
+                    href="#favorit"
+                    aria-label="Gulir ke bawah"
+                    class="absolute bottom-7 left-6 z-20 hidden items-center gap-2 text-xs font-semibold text-white/80 transition-colors hover:text-white sm:flex"
+                >
+                    <span
+                        class="flex h-9 w-9 items-center justify-center rounded-full border border-white/40"
+                    >
+                        <ChevronDown class="h-4 w-4 animate-bounce" />
+                    </span>
+                    Gulir
+                </a>
             </section>
 
             <!-- ===== BENTO FEATURES ===== -->
@@ -982,73 +1007,76 @@ const promoCountdown = (berakhirPada: string): string | null => {
                     <div
                         v-for="(product, index) in props.bestSellers"
                         :key="product.id_produk"
-                        class="group w-[260px] shrink-0 snap-start sm:w-[300px]"
+                        v-reveal="{ delay: index * 90 }"
+                        class="reveal w-[260px] shrink-0 snap-start sm:w-[300px]"
                     >
-                        <div
-                            class="relative mb-4 aspect-square overflow-hidden rounded-3xl bg-[var(--kg-sc)]"
-                        >
-                            <img
-                                :src="product.foto_url || '/images/hero.png'"
-                                :alt="product.nama"
-                                loading="lazy"
-                                class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                            />
-                            <span
-                                v-if="index === 0"
-                                class="absolute top-4 left-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-extrabold tracking-tight text-[var(--kg-primary)] uppercase backdrop-blur"
-                                >Best seller</span
+                        <div class="fav-card group">
+                            <div
+                                class="relative mb-4 aspect-square overflow-hidden rounded-3xl bg-[var(--kg-sc)] shadow-sm transition-shadow duration-300 group-hover:shadow-2xl group-hover:shadow-black/10"
                             >
-                            <span
-                                v-if="product.promo"
-                                class="absolute top-4 right-4 inline-flex items-center gap-1 rounded-full bg-[var(--kg-signal)] px-2.5 py-1 text-[11px] font-extrabold text-white"
-                                >{{ product.promo.label }}</span
-                            >
-                            <button
-                                @click="addToCart(product)"
-                                :disabled="product.stok <= 0"
-                                class="absolute right-4 bottom-4 flex h-12 w-12 translate-y-2 items-center justify-center rounded-full bg-[var(--kg-signal)] text-white opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100 disabled:bg-neutral-400"
-                                aria-label="Tambah ke keranjang"
-                            >
-                                <ShoppingCart class="h-5 w-5" />
-                            </button>
-                        </div>
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <h4
-                                    class="truncate font-bold text-[var(--kg-on)]"
+                                <img
+                                    :src="product.foto_url || '/images/hero.png'"
+                                    :alt="product.nama"
+                                    loading="lazy"
+                                    class="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                                />
+                                <span
+                                    v-if="index === 0"
+                                    class="absolute top-4 left-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-extrabold tracking-tight text-[var(--kg-primary)] uppercase backdrop-blur transition-transform duration-300 group-hover:-translate-y-0.5"
+                                    >Best seller</span
                                 >
-                                    {{ product.nama }}
-                                </h4>
-                                <p
-                                    class="mt-1 flex items-center gap-1 text-xs text-[var(--kg-sec)]"
+                                <span
+                                    v-if="product.promo"
+                                    class="absolute top-4 right-4 inline-flex items-center gap-1 rounded-full bg-[var(--kg-signal)] px-2.5 py-1 text-[11px] font-extrabold text-white"
+                                    >{{ product.promo.label }}</span
                                 >
-                                    <TrendingUp class="h-3.5 w-3.5" />
-                                    {{
-                                        product.total_terjual.toLocaleString(
-                                            'id-ID',
-                                        )
-                                    }}
-                                    terjual
-                                </p>
+                                <button
+                                    @click="addToCart(product)"
+                                    :disabled="product.stok <= 0"
+                                    class="absolute right-4 bottom-4 flex h-12 w-12 translate-y-3 items-center justify-center rounded-full bg-[var(--kg-signal)] text-white opacity-0 shadow-lg transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 hover:scale-110 disabled:bg-neutral-400"
+                                    aria-label="Tambah ke keranjang"
+                                >
+                                    <ShoppingCart class="h-5 w-5" />
+                                </button>
                             </div>
-                            <div class="text-right">
-                                <span
-                                    class="block font-bold text-[var(--kg-primary)]"
-                                    >{{
-                                        formatPrice(
-                                            product.promo?.harga_promo ??
-                                                product.harga_jual,
-                                        )
-                                    }}</span
-                                >
-                                <span
-                                    v-if="
-                                        product.promo &&
-                                        product.promo.harga_promo !== null
-                                    "
-                                    class="text-[11px] text-[var(--kg-sec)] line-through"
-                                    >{{ formatPrice(product.harga_jual) }}</span
-                                >
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <h4
+                                        class="truncate font-bold text-[var(--kg-on)] transition-colors group-hover:text-[var(--kg-primary)]"
+                                    >
+                                        {{ product.nama }}
+                                    </h4>
+                                    <p
+                                        class="mt-1 flex items-center gap-1 text-xs text-[var(--kg-sec)]"
+                                    >
+                                        <TrendingUp class="h-3.5 w-3.5" />
+                                        {{
+                                            product.total_terjual.toLocaleString(
+                                                'id-ID',
+                                            )
+                                        }}
+                                        terjual
+                                    </p>
+                                </div>
+                                <div class="text-right">
+                                    <span
+                                        class="block font-bold text-[var(--kg-primary)]"
+                                        >{{
+                                            formatPrice(
+                                                product.promo?.harga_promo ??
+                                                    product.harga_jual,
+                                            )
+                                        }}</span
+                                    >
+                                    <span
+                                        v-if="
+                                            product.promo &&
+                                            product.promo.harga_promo !== null
+                                        "
+                                        class="text-[11px] text-[var(--kg-sec)] line-through"
+                                        >{{ formatPrice(product.harga_jual) }}</span
+                                    >
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1763,6 +1791,45 @@ html {
     transform: translateY(-4px);
 }
 
+/* Hero: transisi geser antar slide + konten naik saat slide aktif */
+.hero-track {
+    transition: transform 0.8s cubic-bezier(0.7, 0, 0.2, 1);
+}
+@keyframes heroIn {
+    from {
+        opacity: 0;
+        transform: translateY(22px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+.hero-in > * {
+    animation: heroIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hero-in > *:nth-child(2) {
+    animation-delay: 0.08s;
+}
+.hero-in > *:nth-child(3) {
+    animation-delay: 0.16s;
+}
+.hero-in > *:nth-child(4) {
+    animation-delay: 0.24s;
+}
+.hero-in > *:nth-child(5) {
+    animation-delay: 0.32s;
+}
+
+/* Kartu favorit: spring lift saat hover */
+.fav-card {
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform;
+}
+.fav-card:hover {
+    transform: translateY(-8px);
+}
+
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
@@ -1823,6 +1890,18 @@ html {
         opacity: 1 !important;
         transform: none !important;
         transition: none !important;
+    }
+    .hero-track {
+        transition: none !important;
+    }
+    .hero-in > * {
+        animation: none !important;
+    }
+    .fav-card {
+        transition: none !important;
+    }
+    .animate-bounce {
+        animation: none !important;
     }
 }
 </style>
