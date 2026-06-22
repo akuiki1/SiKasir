@@ -8,6 +8,7 @@ use App\Models\Pengeluaran;
 use App\Models\Produksi;
 use App\Models\Transaksi;
 use App\Services\LaporanFinansialService;
+use App\Services\LaporanPelangganService;
 use App\Services\LaporanStokService;
 use DateInterval;
 use DatePeriod;
@@ -21,6 +22,7 @@ class LaporanController extends Controller
     public function __construct(
         private readonly LaporanFinansialService $finansial,
         private readonly LaporanStokService $stok,
+        private readonly LaporanPelangganService $pelangganService,
     ) {}
 
     /**
@@ -331,8 +333,44 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function pelanggan(): Response
+    /**
+     * Wawasan Pelanggan: pelanggan terloyal, rata-rata keranjang & bundling,
+     * serta retensi (pelanggan baru vs lama yang kembali).
+     */
+    public function pelanggan(Request $request): Response
     {
-        return Inertia::render('admin/laporan/Pelanggan');
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+        ]);
+
+        // Default: 90 hari terakhir — perilaku & loyalitas pelanggan butuh jendela
+        // yang cukup panjang (selaras Laporan Inventaris).
+        $endDate = isset($validated['end_date'])
+            ? Carbon::parse($validated['end_date'])->endOfDay()
+            : Carbon::today()->endOfDay();
+
+        $startDate = isset($validated['start_date'])
+            ? Carbon::parse($validated['start_date'])->startOfDay()
+            : $endDate->copy()->subDays(89)->startOfDay();
+
+        if ($startDate->gt($endDate)) {
+            $startDate = $endDate->copy()->subDays(89)->startOfDay();
+        }
+
+        $insights = $this->pelangganService->insights($startDate, $endDate);
+
+        return Inertia::render('admin/laporan/Pelanggan', [
+            'date_range' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+            ],
+            'period_days' => $insights['period_days'],
+            'summary' => $insights['summary'],
+            'composition' => $insights['composition'],
+            'top_customers' => $insights['top_customers'],
+            'retention' => $insights['retention'],
+            'bundles' => $insights['bundles'],
+        ]);
     }
 }
