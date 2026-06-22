@@ -1883,8 +1883,8 @@ var AppLogo_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ define
 	props: { subtitle: {} },
 	setup(__props) {
 		return (_ctx, _push, _parent, _attrs) => {
-			_push(`<!--[--><div class="flex aspect-square size-9 items-center justify-center">`);
-			_push(ssrRenderComponent(AppLogoIcon_default, { class: "size-9" }, null, _parent));
+			_push(`<!--[--><div class="flex aspect-square size-10 items-center justify-center">`);
+			_push(ssrRenderComponent(AppLogoIcon_default, { class: "size-10" }, null, _parent));
 			_push(`</div><div class="ml-1 grid flex-1 text-left text-sm"><span class="truncate leading-tight font-semibold">Cemilan Mba Tutut</span>`);
 			if (__props.subtitle) _push(`<span class="truncate text-xs leading-tight font-normal text-muted-foreground">${ssrInterpolate(__props.subtitle)}</span>`);
 			else _push(`<!---->`);
@@ -4662,10 +4662,10 @@ var AuthCardLayout_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */
 			}, {
 				default: withCtx((_, _push, _parent, _scopeId) => {
 					if (_push) {
-						_push(`<div class="flex h-9 w-9 items-center justify-center"${_scopeId}>`);
-						_push(ssrRenderComponent(AppLogoIcon_default, { class: "size-9 fill-current text-black dark:text-white" }, null, _parent, _scopeId));
+						_push(`<div class="flex h-20 w-20 items-center justify-center"${_scopeId}>`);
+						_push(ssrRenderComponent(AppLogoIcon_default, { class: "size-20" }, null, _parent, _scopeId));
 						_push(`</div>`);
-					} else return [createVNode("div", { class: "flex h-9 w-9 items-center justify-center" }, [createVNode(AppLogoIcon_default, { class: "size-9 fill-current text-black dark:text-white" })])];
+					} else return [createVNode("div", { class: "flex h-20 w-20 items-center justify-center" }, [createVNode(AppLogoIcon_default, { class: "size-20" })])];
 				}),
 				_: 1
 			}, _parent));
@@ -4855,7 +4855,7 @@ var render = await createInertiaApp({
 	resolve: async (name, page) => {
 		const pages = /* @__PURE__ */ Object.assign({
 			"./pages/Dashboard.vue": () => import("./assets/Dashboard-DA5J6WNz.js"),
-			"./pages/Welcome.vue": () => import("./assets/Welcome-DzBebV7_.js"),
+			"./pages/Welcome.vue": () => import("./assets/Welcome-TpNJHBkf.js"),
 			"./pages/admin/Dashboard.vue": () => import("./assets/Dashboard-CLAg-fcs.js"),
 			"./pages/admin/Kategori.vue": () => import("./assets/Kategori-Cxwx4h96.js"),
 			"./pages/admin/Pelanggan.vue": () => import("./assets/Pelanggan-CFk85YMF.js"),

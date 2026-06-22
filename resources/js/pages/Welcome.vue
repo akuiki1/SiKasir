@@ -477,9 +477,9 @@ const promoSisaText = (sisaHari: number) => {
                     <!-- Brand Logo -->
                     <div class="flex items-center gap-2">
                         <div
-                            class="flex h-11 w-11 transform items-center justify-center transition-all hover:scale-105"
+                            class="flex h-12 w-12 transform items-center justify-center transition-all hover:scale-105"
                         >
-                            <AppLogoIcon class="h-11 w-11" />
+                            <AppLogoIcon class="h-12 w-12" />
                         </div>
                         <span
                             class="bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500 bg-clip-text font-['Outfit',sans-serif] text-xl font-extrabold tracking-tight text-transparent sm:text-2xl"
