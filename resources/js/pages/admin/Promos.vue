@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import {
     Plus,
     Search,
@@ -522,7 +523,7 @@ onMounted(() => {
     </div>
 
     <!-- Modal Tambah / Edit Promo -->
-    <Teleport to="body">
+    <BodyTeleport>
         <div
             v-if="showModal"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -884,5 +885,5 @@ onMounted(() => {
                 </form>
             </div>
         </div>
-    </Teleport>
+    </BodyTeleport>
 </template>

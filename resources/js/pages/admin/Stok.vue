@@ -17,6 +17,7 @@ import {
     PackageSearch,
 } from 'lucide-vue-next';
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
 import { masuk as stokMasuk, keluar as stokKeluar, penyesuaian as stokPenyesuaian } from '@/routes/admin/stok';
@@ -626,7 +627,7 @@ function lihatKartu(produk: ProdukStok): void {
     </div>
 
     <!-- ============================ MODAL AKSI STOK ============================ -->
-    <Teleport to="body">
+    <BodyTeleport>
         <div v-if="modalMode" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-sidebar-border/70 bg-card p-6 shadow-2xl dark:border-sidebar-border">
                 <div class="flex items-start justify-between gap-4">
@@ -840,5 +841,5 @@ function lihatKartu(produk: ProdukStok): void {
                 </div>
             </div>
         </div>
-    </Teleport>
+    </BodyTeleport>
 </template>

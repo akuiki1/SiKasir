@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import {
     Plus,
     Search,
@@ -338,7 +339,7 @@ function formatDate(dateString: string): string {
         </div>
     </div>
 
-    <Teleport to="body">
+    <BodyTeleport>
         <div
             v-if="showModal"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -487,5 +488,5 @@ function formatDate(dateString: string): string {
                 </form>
             </div>
         </div>
-    </Teleport>
+    </BodyTeleport>
 </template>

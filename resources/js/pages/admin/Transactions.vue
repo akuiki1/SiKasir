@@ -27,6 +27,7 @@ import {
     CalendarDays,
 } from 'lucide-vue-next';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
 import { store as transaksiStore, update as transaksiUpdate, destroy as transaksiDestroy } from '@/routes/admin/transactions';
@@ -933,7 +934,7 @@ function hapusTransaksi(trx: Transaksi) {
     </div>
 
     <!-- Modal Detail Transaksi -->
-    <Teleport to="body">
+    <BodyTeleport>
         <div
             v-if="showDetail && selectedTrx"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -1048,10 +1049,10 @@ function hapusTransaksi(trx: Transaksi) {
                 </div>
             </div>
         </div>
-    </Teleport>
+    </BodyTeleport>
 
     <!-- Modal Tambah / Edit Transaksi -->
-    <Teleport to="body">
+    <BodyTeleport>
         <div
             v-if="showFormModal"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -1247,5 +1248,5 @@ function hapusTransaksi(trx: Transaksi) {
                 </form>
             </div>
         </div>
-    </Teleport>
+    </BodyTeleport>
 </template>

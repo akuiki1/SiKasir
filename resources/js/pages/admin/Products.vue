@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import { formatRupiah } from '@/lib/format';
 import JsBarcode from 'jsbarcode';
 import {
@@ -1152,7 +1153,7 @@ const statusClass: Record<string, string> = {
     </div>
 
     <!-- Modal Cetak Barcode -->
-    <Teleport to="body">
+    <BodyTeleport>
         <div
             v-if="showBarcodeModal"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -1267,10 +1268,10 @@ const statusClass: Record<string, string> = {
                 </div>
             </div>
         </div>
-    </Teleport>
+    </BodyTeleport>
 
     <!-- Modal Tambah / Edit Produk -->
-    <Teleport to="body">
+    <BodyTeleport>
         <Transition
             enter-active-class="transition duration-200 ease-out"
             enter-from-class="opacity-0"
@@ -1849,5 +1850,5 @@ const statusClass: Record<string, string> = {
                 </div>
             </div>
         </Transition>
-    </Teleport>
+    </BodyTeleport>
 </template>

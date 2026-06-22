@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import {
     Plus,
     Search,
@@ -374,7 +375,7 @@ function hapusProduksi(item: Produksi): void {
         </div>
     </div>
 
-    <Teleport to="body">
+    <BodyTeleport>
         <div
             v-if="showModal"
             class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
@@ -639,5 +640,5 @@ function hapusProduksi(item: Produksi): void {
                 </div>
             </div>
         </div>
-    </Teleport>
+    </BodyTeleport>
 </template>

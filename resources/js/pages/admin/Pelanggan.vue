@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import { Plus, Search, Contact, BadgePercent, X, Save, Edit, Trash2, AlertCircle, Phone } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import Pagination from '@/components/Pagination.vue';
@@ -269,7 +270,7 @@ const tipeBadge: Record<TipePelanggan, { label: string; class: string }> = {
     </div>
 
     <!-- Modal Tambah / Edit -->
-    <Teleport to="body">
+    <BodyTeleport>
         <div
             v-if="showModal"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
@@ -358,5 +359,5 @@ const tipeBadge: Record<TipePelanggan, { label: string; class: string }> = {
                 </form>
             </div>
         </div>
-    </Teleport>
+    </BodyTeleport>
 </template>
