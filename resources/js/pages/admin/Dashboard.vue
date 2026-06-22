@@ -1,22 +1,19 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { formatRupiah, formatCompact } from '@/lib/format';
+import { Head, Link } from '@inertiajs/vue3';
+import { formatRupiah, formatCompact, formatNumber } from '@/lib/format';
 import {
-    AlertTriangle,
+    Archive,
     ArrowDownRight,
+    ArrowRight,
     ArrowUpRight,
-    BarChart3,
-    CalendarDays,
-    ChevronLeft,
-    ChevronRight,
-    Clock3,
-    Filter,
+    CheckCircle2,
+    CircleDollarSign,
+    Clock,
+    FileText,
+    LineChart,
     Package,
-    Percent,
-    Printer,
-    Receipt,
-    TrendingUp,
-    Trophy,
+    PackageX,
+    ShoppingCart,
     Users,
     Wallet,
 } from 'lucide-vue-next';
@@ -24,1145 +21,378 @@ import { computed, ref } from 'vue';
 
 defineOptions({
     layout: {
-        breadcrumbs: [
-            {
-                title: 'Admin Dashboard',
-                href: '/admin/dashboard',
-            },
-        ],
+        breadcrumbs: [{ title: 'Admin Dashboard', href: '/admin/dashboard' }],
     },
 });
 
-interface ChartPoint {
-    label: string;
-    value: number;
-}
-
-interface ProductItem {
-    nama: string;
-    qty: number;
+interface TrendPoint {
+    day: string;
+    date: string;
     revenue: number;
-}
-
-interface ProfitProductItem {
-    nama: string;
-    qty: number;
-    revenue: number;
-    cogs: number;
-    profit: number;
-}
-
-interface CashierItem {
-    nama: string;
     transactions: number;
-    revenue: number;
 }
 
-interface WorstProductItem {
-    nama: string;
-    qty: number;
-    revenue: number;
-}
-
-interface SlowMover {
-    id_produk: number;
-    nama: string;
-    stok: number;
-    satuan: string;
-    harga_jual: number;
-    terjual: number;
-    sudah_promo: boolean;
-    foto_url: string | null;
-}
-
-interface WaterfallStep {
+interface Alert {
+    key: string;
+    severity: 'danger' | 'warning' | 'caution' | 'info';
+    count: number;
     label: string;
-    type: 'income' | 'deduction' | 'subtotal' | 'result';
-    amount: number;
-    start: number;
-    end: number;
+    cta_label: string;
+    cta_href: string;
 }
 
-interface ComparisonCard {
-    label: string;
-    current: number;
-    previous: number;
-    delta_pct: number | null;
-    higher_is_better: boolean;
-}
-
-interface Insight {
-    tone: 'success' | 'danger';
-    message: string;
+interface Activity {
+    kode: string;
+    total: number;
+    kasir: string;
+    waktu: string;
 }
 
 const props = defineProps<{
-    stats: {
-        total_revenue: number;
-        total_transactions: number;
-        average_order_value: number;
-        total_items_sold: number;
-        total_cogs: number;
+    greeting: string;
+    admin_name: string;
+    today_label: string;
+    active_cashier: string | null;
+    today_stats: {
+        revenue: number;
+        transactions: number;
         gross_profit: number;
-        total_expenses: number;
-        sales_margin: number;
-        net_profit: number;
+        items_sold: number;
+        avg_items: number;
+        revenue_delta: number | null;
+        transactions_delta: number | null;
+        gross_profit_delta: number | null;
     };
-    revenue_chart: ChartPoint[];
-    sales_trend: ChartPoint[];
-    top_sales_dates: ChartPoint[];
-    top_sales_hours: ChartPoint[];
-    best_selling_products: ProductItem[];
-    worst_selling_products: WorstProductItem[];
-    slow_movers: SlowMover[];
-    slow_mover_days: number;
-    best_profit_products: ProfitProductItem[];
-    cashier_achievements: CashierItem[];
-    top_cashiers_by_transactions: CashierItem[];
-    top_cashiers_by_revenue: CashierItem[];
-    waterfall: WaterfallStep[];
-    comparison: ComparisonCard[];
-    insight: Insight;
-    monthly_cost_warning: boolean;
-    period_days: number;
-    date_range: {
-        start_date: string;
-        end_date: string;
-    };
+    trend: TrendPoint[];
+    alerts: Alert[];
+    recent_activity: Activity[];
 }>();
 
-const form = useForm({
-    start_date: props.date_range.start_date,
-    end_date: props.date_range.end_date,
-});
+// --- Kartu KPI hari ini ---
+const kpiCards = computed(() => [
+    {
+        label: 'Omzet Hari Ini',
+        value: formatRupiah(props.today_stats.revenue),
+        delta: props.today_stats.revenue_delta,
+        icon: LineChart,
+        tint: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300',
+    },
+    {
+        label: 'Transaksi Hari Ini',
+        value: formatNumber(props.today_stats.transactions, 0),
+        delta: props.today_stats.transactions_delta,
+        icon: ShoppingCart,
+        tint: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300',
+    },
+    {
+        label: 'Laba Kotor Hari Ini',
+        value: formatRupiah(props.today_stats.gross_profit),
+        delta: props.today_stats.gross_profit_delta,
+        icon: Wallet,
+        tint: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300',
+    },
+    {
+        label: 'Produk Terjual',
+        value: formatNumber(props.today_stats.items_sold, 1),
+        subtitle: `${formatNumber(props.today_stats.avg_items, 1)} / Nota (Rata-rata)`,
+        icon: Package,
+        tint: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300',
+    },
+]);
 
-const showFilter = ref(false);
+// --- Konfigurasi tampilan per jenis alert & shortcut ---
+const SEVERITY: Record<Alert['severity'], { icon: typeof PackageX; chip: string; button: string }> = {
+    danger: {
+        icon: PackageX,
+        chip: 'bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300',
+        button: 'border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10',
+    },
+    warning: {
+        icon: Archive,
+        chip: 'bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300',
+        button: 'border-orange-200 text-orange-600 hover:bg-orange-50 dark:border-orange-500/30 dark:text-orange-300 dark:hover:bg-orange-500/10',
+    },
+    caution: {
+        icon: CircleDollarSign,
+        chip: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300',
+        button: 'border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-300 dark:hover:bg-amber-500/10',
+    },
+    info: {
+        icon: Users,
+        chip: 'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300',
+        button: 'border-sky-200 text-sky-600 hover:bg-sky-50 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/10',
+    },
+};
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+const shortcuts = [
+    { title: 'Keuangan', href: '/admin/laporan/keuangan', icon: CircleDollarSign, tint: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300' },
+    { title: 'Penjualan', href: '/admin/laporan/penjualan', icon: ShoppingCart, tint: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300' },
+    { title: 'Inventaris', href: '/admin/laporan/inventaris', icon: Package, tint: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300' },
+    { title: 'Pelanggan', href: '/admin/laporan/pelanggan', icon: Users, tint: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300' },
+];
 
-function getMonthRange(year: number, month: number) {
-    const start = new Date(year, month, 1);
-    const end = new Date(year, month + 1, 0);
+// --- Grafik tren 7 hari ---
+const metric = ref<'revenue' | 'transactions'>('revenue');
 
-    return {
-        start: start.toISOString().slice(0, 10),
-        end: end.toISOString().slice(0, 10),
-    };
-}
+const W = 720;
+const H = 260;
+const PAD = { left: 46, right: 18, top: 28, bottom: 42 };
+const plotW = W - PAD.left - PAD.right;
+const plotH = H - PAD.top - PAD.bottom;
 
-function getYearRange(year: number) {
-    // String manual agar tidak bergeser akibat konversi UTC pada toISOString().
-    return {
-        start: `${year}-01-01`,
-        end: `${year}-12-31`,
-    };
-}
-
-function detectInitialYear(): number {
-    return props.date_range.start_date ? new Date(props.date_range.start_date + 'T00:00:00').getFullYear() : new Date().getFullYear();
-}
-
-const filterYear = ref(detectInitialYear());
-
-function detectInitialMode(): string {
-    const today = new Date().toISOString().slice(0, 10);
-
-    if (props.date_range.start_date === today && props.date_range.end_date === today) {
-        return 'today';
+function niceCeil(value: number): number {
+    if (value <= 0) {
+        return 1;
     }
-
-    const yearRange = getYearRange(filterYear.value);
-
-    if (props.date_range.start_date === yearRange.start && props.date_range.end_date === yearRange.end) {
-        return 'year';
-    }
-
-    for (let m = 0; m < 12; m++) {
-        const range = getMonthRange(filterYear.value, m);
-
-        if (range.start === props.date_range.start_date && range.end === props.date_range.end_date) {
-            return String(m);
-        }
-    }
-
-    return 'custom';
+    const mag = Math.pow(10, Math.floor(Math.log10(value)));
+    const norm = value / mag;
+    const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+    return nice * mag;
 }
 
-const selectedMode = ref(detectInitialMode());
+const isRevenue = computed(() => metric.value === 'revenue');
 
-const filterBadgeLabel = computed(() => {
-    if (selectedMode.value === 'today') {
-return 'Hari Ini';
+function metricValue(point: TrendPoint): number {
+    return isRevenue.value ? point.revenue : point.transactions;
 }
 
-    if (selectedMode.value === 'year') {
-return `Tahun ${filterYear.value}`;
+function axisLabel(value: number): string {
+    return isRevenue.value ? formatCompact(value) : formatNumber(Math.round(value), 0);
 }
 
-    if (selectedMode.value !== 'custom') {
-return `${MONTHS[Number(selectedMode.value)]} ${filterYear.value}`;
-}
+const chart = computed(() => {
+    const data = props.trend;
+    const max = niceCeil(Math.max(...data.map(metricValue), 0));
+    const stepX = data.length > 1 ? plotW / (data.length - 1) : 0;
+    const baseY = PAD.top + plotH;
 
-    return 'Custom';
-});
+    const points = data.map((point, i) => {
+        const value = metricValue(point);
+        const x = PAD.left + stepX * i;
+        const y = PAD.top + plotH * (1 - value / max);
+        const valueText = isRevenue.value ? formatCompact(value) : formatNumber(value, 0);
+        const isLast = i === data.length - 1;
 
-function selectMonth(monthIndex: number): void {
-    selectedMode.value = String(monthIndex);
-    const range = getMonthRange(filterYear.value, monthIndex);
-    router.get('/admin/dashboard', {
-        start_date: range.start,
-        end_date: range.end,
-    }, { preserveState: true, replace: true });
-}
-
-function selectCustom(): void {
-    selectedMode.value = 'custom';
-}
-
-function selectToday(): void {
-    selectedMode.value = 'today';
-    const today = new Date().toISOString().slice(0, 10);
-    router.get('/admin/dashboard', {
-        start_date: today,
-        end_date: today,
-    }, { preserveState: true, replace: true });
-}
-
-function selectYear(): void {
-    selectedMode.value = 'year';
-    const range = getYearRange(filterYear.value);
-    router.get('/admin/dashboard', {
-        start_date: range.start,
-        end_date: range.end,
-    }, { preserveState: true, replace: true });
-}
-
-function onYearNav(): void {
-    if (selectedMode.value === 'year') {
-        selectYear();
-    } else if (selectedMode.value !== 'custom' && selectedMode.value !== 'today') {
-        selectMonth(Number(selectedMode.value));
-    }
-}
-
-function prevYear(): void {
-    filterYear.value--;
-    onYearNav();
-}
-
-function nextYear(): void {
-    filterYear.value++;
-    onYearNav();
-}
-
-const maxRevenue = computed(() => Math.max(...props.revenue_chart.map((point) => point.value), 1));
-const maxSales = computed(() => Math.max(...props.sales_trend.map((point) => point.value), 1));
-const maxBestSellerQty = computed(() => Math.max(...props.best_selling_products.map((product) => product.qty), 1));
-const maxTopDates = computed(() => Math.max(...props.top_sales_dates.map((point) => point.value), 1));
-const maxTopHours = computed(() => Math.max(...props.top_sales_hours.map((point) => point.value), 1));
-const maxCashierTransactions = computed(() => Math.max(...props.top_cashiers_by_transactions.map((cashier) => cashier.transactions), 1));
-const maxCashierRevenue = computed(() => Math.max(...props.top_cashiers_by_revenue.map((cashier) => cashier.revenue), 1));
-
-const performanceColumns = computed(() => props.revenue_chart.map((point) => {
-    const salesPoint = props.sales_trend.find((item) => item.label === point.label);
-    const salesValue = salesPoint?.value ?? 0;
-
-    return {
-        label: point.label,
-        revenue: point.value,
-        sales: salesValue,
-        revenueHeight: `${Math.max(Math.round((point.value / maxRevenue.value) * 100), point.value > 0 ? 8 : 0)}%`,
-        salesHeight: `${Math.max(Math.round((salesValue / maxSales.value) * 100), salesValue > 0 ? 8 : 0)}%`,
-    };
-}));
-
-const bestSellingGraph = computed(() => props.best_selling_products.map((product) => ({
-    ...product,
-    width: `${Math.round((product.qty / maxBestSellerQty.value) * 100)}%`,
-})));
-
-const topDatesGraph = computed(() => props.top_sales_dates.map((point) => ({
-    label: point.label,
-    value: point.value,
-    width: `${Math.round((point.value / maxTopDates.value) * 100)}%`,
-})));
-
-const topHoursGraph = computed(() => props.top_sales_hours.map((point) => ({
-    label: point.label,
-    value: point.value,
-    width: `${Math.round((point.value / maxTopHours.value) * 100)}%`,
-})));
-
-const topCashierTransactionsGraph = computed(() => props.top_cashiers_by_transactions.map((cashier) => ({
-    ...cashier,
-    width: `${Math.round((cashier.transactions / maxCashierTransactions.value) * 100)}%`,
-})));
-
-const topCashierRevenueGraph = computed(() => props.top_cashiers_by_revenue.map((cashier) => ({
-    ...cashier,
-    width: `${Math.round((cashier.revenue / maxCashierRevenue.value) * 100)}%`,
-})));
-
-const bestProduct = computed(() => props.best_selling_products[0]);
-const bestProfitProduct = computed(() => props.best_profit_products[0]);
-const bestCashierByRevenue = computed(() => props.top_cashiers_by_revenue[0]);
-const bestCashierByTransactions = computed(() => props.top_cashiers_by_transactions[0]);
-const busiestDate = computed(() => props.top_sales_dates[0]);
-const busiestHour = computed(() => props.top_sales_hours[0]);
-
-const waterfallView = computed(() => {
-    const steps = props.waterfall;
-
-    if (!steps || steps.length === 0) {
-        return { bars: [], zeroTop: 100 };
-    }
-
-    const values = steps.flatMap((step) => [step.start, step.end]);
-    values.push(0);
-    const maxV = Math.max(...values);
-    const minV = Math.min(...values);
-    const range = maxV - minV || 1;
-
-    const bars = steps.map((step) => {
-        const hi = Math.max(step.start, step.end);
-        const lo = Math.min(step.start, step.end);
-
-        let colorClass = 'bg-rose-400';
-
-        if (step.type === 'income') {
-colorClass = 'bg-emerald-500';
-} else if (step.type === 'subtotal') {
-colorClass = 'bg-sky-500';
-} else if (step.type === 'result') {
-colorClass = step.end >= 0 ? 'bg-emerald-600' : 'bg-rose-600';
-}
-
-        return {
-            label: step.label,
-            amountText: `${step.amount < 0 ? '−' : ''}Rp${formatCompact(Math.abs(step.amount))}`,
-            colorClass,
-            topPct: `${((maxV - hi) / range) * 100}%`,
-            heightPct: `${Math.max(((hi - lo) / range) * 100, step.amount !== 0 ? 1.5 : 0.5)}%`,
-        };
+        return { key: point.date + i, x, y, day: point.day, date: point.date, valueText, isLast, badgeW: Math.max(34, valueText.length * 7 + 12) };
     });
 
-    return { bars, zeroTop: `${((maxV - 0) / range) * 100}%` };
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const areaPath = points.length
+        ? `M${points[0].x.toFixed(1)},${baseY} ${points.map((p) => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} L${points[points.length - 1].x.toFixed(1)},${baseY} Z`
+        : '';
+
+    const ticks = [0, 1, 2, 3, 4].map((i) => ({
+        y: PAD.top + plotH * (1 - i / 4),
+        label: axisLabel((max * i) / 4),
+    }));
+
+    return { points, linePath, areaPath, ticks, baseY };
 });
 
-const comparisonCards = computed(() =>
-    props.comparison.map((card) => {
-        const signFlip = (card.current < 0) !== (card.previous < 0);
-        let good: boolean | null = null;
-
-        if (card.delta_pct !== null) {
-            const increased = card.delta_pct > 0;
-            good = card.higher_is_better ? increased : !increased;
-        }
-
-        return {
-            label: card.label,
-            valueText: formatRupiah(card.current),
-            isNegative: card.current < 0,
-            showPct: card.delta_pct !== null && !signFlip,
-            up: (card.delta_pct ?? 0) > 0,
-            pctText: card.delta_pct !== null ? `${Math.abs(Math.round(card.delta_pct))}% vs sebelumnya` : 'baru periode ini',
-            prevText: `dari ${formatRupiah(card.previous)}`,
-            good,
-        };
-    }),
-);
-
-// Kuantitas bisa pecahan (produk curah) — tampilkan tanpa nol berlebih.
-function formatQty(value: number): string {
-    return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 }).format(Number(value) || 0);
-}
-
-function applyRange(): void {
-    router.get('/admin/dashboard', {
-        start_date: form.start_date,
-        end_date: form.end_date,
-    }, {
-        preserveState: true,
-        replace: true,
-    });
-}
-
-function buildTableHtml(title: string, columns: string[], rows: string[][]): string {
-    return `
-        <section>
-            <h2>${title}</h2>
-            <table>
-                <thead>
-                    <tr>${columns.map((column) => `<th>${column}</th>`).join('')}</tr>
-                </thead>
-                <tbody>
-                    ${rows.map((row) => `<tr>${row.map((column) => `<td>${column}</td>`).join('')}</tr>`).join('')}
-                </tbody>
-            </table>
-        </section>
-    `;
-}
-
-function openPrintWindow(html: string): void {
-    const printWindow = window.open('', '_blank', 'width=960,height=720');
-
-    if (!printWindow) {
-        window.alert('Tidak dapat membuka jendela cetak. Pastikan pop-up tidak diblokir.');
-
-        return;
+function deltaTone(delta: number | null): string {
+    if (delta === null || delta === 0) {
+        return 'text-slate-400 dark:text-slate-500';
     }
-
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-}
-
-function reportShell(title: string, body: string): string {
-    return `<!doctype html>
-<html lang="id">
-<head>
-<meta charset="utf-8" />
-<title>${title}</title>
-<style>
-    body { color: #0f172a; font-family: Arial, sans-serif; margin: 0; padding: 28px; }
-    h1 { font-size: 24px; margin: 0 0 8px; }
-    h2 { font-size: 16px; margin: 24px 0 10px; }
-    p { color: #475569; margin: 0 0 18px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; }
-    th { background: #f8fafc; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-    .summary { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 20px 0; }
-    .metric { border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
-    .metric span { color: #64748b; display: block; font-size: 12px; margin-bottom: 8px; }
-    .metric strong { font-size: 18px; }
-</style>
-</head>
-<body>
-    <h1>${title}</h1>
-    <p>Periode: ${form.start_date} - ${form.end_date}</p>
-    ${body}
-</body>
-</html>`;
-}
-
-function printReport(): void {
-    if (typeof window === 'undefined') {
-        return;
-    }
-
-    const sections = [
-        {
-            title: 'Produk Paling Laku',
-            columns: ['Produk', 'Qty', 'Omzet'],
-            rows: props.best_selling_products.map((product) => [product.nama, `${product.qty}`, formatRupiah(product.revenue)]),
-        },
-        {
-            title: 'Karyawan Omzet Terbanyak',
-            columns: ['Karyawan', 'Transaksi', 'Omzet'],
-            rows: props.top_cashiers_by_revenue.map((cashier) => [cashier.nama, `${cashier.transactions}`, formatRupiah(cashier.revenue)]),
-        },
-        {
-            title: 'Karyawan Transaksi Terbanyak',
-            columns: ['Karyawan', 'Transaksi', 'Omzet'],
-            rows: props.top_cashiers_by_transactions.map((cashier) => [cashier.nama, `${cashier.transactions}`, formatRupiah(cashier.revenue)]),
-        },
-        {
-            title: 'Tanggal Transaksi Terbanyak',
-            columns: ['Tanggal', 'Transaksi'],
-            rows: props.top_sales_dates.map((item) => [item.label, `${item.value}`]),
-        },
-        {
-            title: 'Jam Transaksi Terbanyak',
-            columns: ['Jam', 'Transaksi'],
-            rows: props.top_sales_hours.map((item) => [item.label, `${item.value}`]),
-        },
-    ];
-
-    const summaryHtml = `
-        <div class="summary">
-            <div class="metric"><span>Omzet</span><strong>${formatRupiah(props.stats.total_revenue)}</strong></div>
-            <div class="metric"><span>Pengeluaran</span><strong>${formatRupiah(props.stats.total_expenses)}</strong></div>
-            <div class="metric"><span>Margin</span><strong>${props.stats.sales_margin.toFixed(2)}%</strong></div>
-            <div class="metric"><span>Total Penjualan</span><strong>${props.stats.total_transactions} transaksi</strong></div>
-        </div>
-        ${sections.map((section) => buildTableHtml(section.title, section.columns, section.rows)).join('')}
-    `;
-
-    openPrintWindow(reportShell('Laporan Dashboard Admin', summaryHtml));
-}
-
-function printSection(section: string): void {
-    if (typeof window === 'undefined') {
-        return;
-    }
-
-    const sectionMap: Record<string, { title: string; columns: string[]; rows: string[][] }> = {
-        best_sellers: {
-            title: 'Produk Paling Laku',
-            columns: ['Produk', 'Qty', 'Omzet'],
-            rows: props.best_selling_products.map((product) => [product.nama, `${product.qty}`, formatRupiah(product.revenue)]),
-        },
-        top_cashier_revenue: {
-            title: 'Karyawan Omzet Terbanyak',
-            columns: ['Karyawan', 'Transaksi', 'Omzet'],
-            rows: props.top_cashiers_by_revenue.map((cashier) => [cashier.nama, `${cashier.transactions}`, formatRupiah(cashier.revenue)]),
-        },
-        top_cashier_transactions: {
-            title: 'Karyawan Transaksi Terbanyak',
-            columns: ['Karyawan', 'Transaksi', 'Omzet'],
-            rows: props.top_cashiers_by_transactions.map((cashier) => [cashier.nama, `${cashier.transactions}`, formatRupiah(cashier.revenue)]),
-        },
-        top_dates: {
-            title: 'Tanggal Transaksi Terbanyak',
-            columns: ['Tanggal', 'Transaksi'],
-            rows: props.top_sales_dates.map((item) => [item.label, `${item.value}`]),
-        },
-        top_hours: {
-            title: 'Jam Transaksi Terbanyak',
-            columns: ['Jam', 'Transaksi'],
-            rows: props.top_sales_hours.map((item) => [item.label, `${item.value}`]),
-        },
-    };
-
-    const selectedSection = sectionMap[section];
-
-    if (!selectedSection) {
-        return;
-    }
-
-    openPrintWindow(reportShell(selectedSection.title, buildTableHtml(selectedSection.title, selectedSection.columns, selectedSection.rows)));
+    return delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
 }
 </script>
 
 <template>
     <Head title="Admin Dashboard" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-slate-50 p-6 text-slate-950 dark:bg-zinc-950 dark:text-slate-100">
+    <div class="flex h-full flex-1 flex-col gap-6 bg-slate-50 p-6 text-slate-950 dark:bg-zinc-950 dark:text-slate-100">
+        <!-- Header -->
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-                <p class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Dashboard Admin</p>
-                <h1 class="mt-2 text-2xl font-bold tracking-tight md:text-3xl">Ringkasan Performa Bisnis</h1>
+                <h1 class="text-2xl font-bold tracking-tight md:text-3xl">Dashboard</h1>
+                <p class="mt-2 text-base font-medium text-slate-600 dark:text-slate-300">{{ props.greeting }}, {{ props.admin_name }} 👋</p>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ props.today_label }}</p>
             </div>
 
-            <div class="flex shrink-0 items-center gap-2">
-                <!-- Filter button + dropdown -->
-                <div class="relative">
-                    <button
-                        type="button"
-                        class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition"
-                        :class="showFilter
-                            ? 'border-sky-500 bg-sky-50 text-sky-600 dark:border-sky-500 dark:bg-sky-500/10 dark:text-sky-400'
-                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-slate-300 dark:hover:bg-zinc-800'"
-                        @click="showFilter = !showFilter"
-                    >
-                        <Filter class="h-4 w-4" />
-                        Filter
-                        <span class="ml-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300">
-                            {{ filterBadgeLabel }}
-                        </span>
-                    </button>
-
-                    <!-- Dropdown panel -->
-                    <Transition
-                        enter-active-class="transition ease-out duration-150"
-                        enter-from-class="opacity-0 translate-y-1"
-                        enter-to-class="opacity-100 translate-y-0"
-                        leave-active-class="transition ease-in duration-100"
-                        leave-from-class="opacity-100 translate-y-0"
-                        leave-to-class="opacity-0 translate-y-1"
-                    >
-                        <div
-                            v-if="showFilter"
-                            class="absolute right-0 top-11 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
-                        >
-                            <!-- Hari Ini preset -->
-                            <button
-                                type="button"
-                                class="mb-3 w-full rounded-lg py-2 text-xs font-semibold transition-all"
-                                :class="selectedMode === 'today'
-                                    ? 'bg-sky-500 text-white'
-                                    : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
-                                @click="selectToday(); showFilter = false"
-                            >
-                                Hari Ini
-                            </button>
-
-                            <!-- Year navigator -->
-                            <div class="flex items-center gap-0.5">
-                                <button
-                                    type="button"
-                                    class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
-                                    @click="prevYear"
-                                >
-                                    <ChevronLeft class="h-4 w-4" />
-                                </button>
-                                <span class="flex-1 text-center text-sm font-bold text-slate-800 dark:text-slate-100">{{ filterYear }}</span>
-                                <button
-                                    type="button"
-                                    class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
-                                    @click="nextYear"
-                                >
-                                    <ChevronRight class="h-4 w-4" />
-                                </button>
-                            </div>
-
-                            <!-- Month grid -->
-                            <div class="mt-3 grid grid-cols-4 gap-1">
-                                <button
-                                    v-for="(month, i) in MONTHS"
-                                    :key="i"
-                                    type="button"
-                                    class="rounded-lg py-2 text-xs font-semibold transition-all"
-                                    :class="selectedMode === String(i)
-                                        ? 'bg-sky-500 text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
-                                    @click="selectMonth(i); showFilter = false"
-                                >
-                                    {{ month }}
-                                </button>
-                                <button
-                                    type="button"
-                                    class="col-span-4 rounded-lg py-2 text-xs font-semibold transition-all"
-                                    :class="selectedMode === 'year'
-                                        ? 'bg-sky-500 text-white'
-                                        : 'text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-500/10'"
-                                    @click="selectYear(); showFilter = false"
-                                >
-                                    Setahun Penuh ({{ filterYear }})
-                                </button>
-                                <button
-                                    type="button"
-                                    class="col-span-4 rounded-lg py-2 text-xs font-semibold transition-all"
-                                    :class="selectedMode === 'custom'
-                                        ? 'bg-sky-500 text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
-                                    @click="selectCustom"
-                                >
-                                    Custom
-                                </button>
-                            </div>
-
-                            <!-- Custom date inputs -->
-                            <div
-                                v-if="selectedMode === 'custom'"
-                                class="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-zinc-800"
-                            >
-                                <div class="grid grid-cols-2 gap-2">
-                                    <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        Mulai
-                                        <input
-                                            v-model="form.start_date"
-                                            type="date"
-                                            class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
-                                        />
-                                    </label>
-                                    <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        Sampai
-                                        <input
-                                            v-model="form.end_date"
-                                            type="date"
-                                            class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-sky-500/20"
-                                        />
-                                    </label>
-                                </div>
-                                <button
-                                    type="button"
-                                    class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-sky-500 text-xs font-semibold text-white transition hover:bg-sky-600"
-                                    @click="applyRange(); showFilter = false"
-                                >
-                                    <Filter class="h-3 w-3" />
-                                    Terapkan
-                                </button>
-                            </div>
-                        </div>
-                    </Transition>
-                </div>
-
-                <!-- Print button -->
-                <button
-                    type="button"
-                    class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-slate-300 dark:hover:bg-zinc-800"
-                    @click="printReport"
-                >
-                    <Printer class="h-4 w-4" />
-                    Cetak
-                </button>
+            <div
+                v-if="props.active_cashier"
+                class="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-slate-300"
+            >
+                <span class="relative flex h-2.5 w-2.5">
+                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                </span>
+                Kasir: {{ props.active_cashier }}
             </div>
         </div>
 
-        <!-- Backdrop to close filter -->
-        <div
-            v-if="showFilter"
-            class="fixed inset-0 z-40"
-            @click="showFilter = false"
-        />
-
+        <!-- Snapshot hari ini -->
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4">
-                    <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Omzet</p>
-                        <p class="mt-2 text-2xl font-bold">{{ formatRupiah(props.stats.total_revenue) }}</p>
+            <div
+                v-for="card in kpiCards"
+                :key="card.label"
+                class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+            >
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ card.label }}</p>
+                        <p class="mt-2 text-2xl font-bold tracking-tight">{{ card.value }}</p>
                     </div>
-                    <div class="flex h-11 w-11 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                        <Wallet class="h-5 w-5" />
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg" :class="card.tint">
+                        <component :is="card.icon" class="h-5 w-5" />
                     </div>
                 </div>
-                <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">HPP {{ formatRupiah(props.stats.total_cogs) }} · Laba kotor {{ formatRupiah(props.stats.gross_profit) }}</p>
-            </div>
 
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4">
-                    <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Biaya Operasional</p>
-                        <p class="mt-2 text-2xl font-bold">{{ formatRupiah(props.stats.total_expenses) }}</p>
-                    </div>
-                    <div class="flex h-11 w-11 items-center justify-center rounded-md bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
-                        <Receipt class="h-5 w-5" />
-                    </div>
+                <div class="mt-4 flex items-center gap-1.5 text-xs font-medium" :class="card.subtitle ? 'text-slate-500 dark:text-slate-400' : deltaTone(card.delta ?? null)">
+                    <template v-if="card.subtitle">{{ card.subtitle }}</template>
+                    <template v-else-if="card.delta === null">
+                        <span class="text-slate-400 dark:text-slate-500">Baru hari ini</span>
+                    </template>
+                    <template v-else>
+                        <ArrowUpRight v-if="card.delta > 0" class="h-3.5 w-3.5" />
+                        <ArrowDownRight v-else-if="card.delta < 0" class="h-3.5 w-3.5" />
+                        <span>{{ Math.abs(card.delta) }}%</span>
+                        <span class="text-slate-400 dark:text-slate-500">vs kemarin</span>
+                    </template>
                 </div>
-                <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">Laba bersih {{ formatRupiah(props.stats.net_profit) }}</p>
-            </div>
-
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4">
-                    <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Margin</p>
-                        <p class="mt-2 text-2xl font-bold">{{ props.stats.sales_margin.toFixed(2) }}%</p>
-                    </div>
-                    <div class="flex h-11 w-11 items-center justify-center rounded-md bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-                        <Percent class="h-5 w-5" />
-                    </div>
-                </div>
-                <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">Laba bersih {{ formatRupiah(props.stats.net_profit) }}</p>
-            </div>
-
-            <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4">
-                    <div>
-                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Penjualan</p>
-                        <p class="mt-2 text-2xl font-bold">{{ props.stats.total_transactions }} trx</p>
-                    </div>
-                    <div class="flex h-11 w-11 items-center justify-center rounded-md bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
-                        <BarChart3 class="h-5 w-5" />
-                    </div>
-                </div>
-                <p class="mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">{{ props.stats.total_items_sold }} produk terjual</p>
             </div>
         </div>
 
-        <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-zinc-800 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold">Analisis Laba &amp; Rugi</h2>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Dari mana laba bocor &amp; perubahan vs periode setara sebelumnya</p>
+        <!-- Perlu perhatian + Tren 7 hari -->
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <!-- Perlu perhatian -->
+            <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                <div class="flex items-center gap-2 border-b border-slate-200 pb-4 dark:border-zinc-800">
+                    <span class="text-lg">⚠️</span>
+                    <h2 class="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Perlu Perhatian</h2>
                 </div>
-                <div class="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-emerald-500"></span>Pemasukan</span>
-                    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-rose-400"></span>Pengurang</span>
-                    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-sky-500"></span>Subtotal</span>
-                </div>
-            </div>
 
-            <div
-                v-if="props.monthly_cost_warning"
-                class="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
-            >
-                <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" />
-                <p>Rentang waktu pendek ({{ props.period_days }} hari) memuat biaya bulanan (gaji/sewa/pajak). Laba bersih bisa terlihat "rugi semu" karena biaya satu bulan jatuh di rentang ini.</p>
-            </div>
-
-            <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div v-for="card in comparisonCards" :key="card.label" class="rounded-md border border-slate-200 p-4 dark:border-zinc-800">
-                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ card.label }}</p>
-                    <p class="mt-2 text-xl font-bold" :class="card.isNegative ? 'text-rose-600 dark:text-rose-400' : ''">{{ card.valueText }}</p>
-                    <p
-                        class="mt-2 inline-flex items-center gap-1 text-xs font-medium"
-                        :class="card.good === null
-                            ? 'text-slate-500 dark:text-slate-400'
-                            : card.good
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-rose-600 dark:text-rose-400'"
+                <div v-if="props.alerts.length" class="mt-4 space-y-3">
+                    <div
+                        v-for="alert in props.alerts"
+                        :key="alert.key"
+                        class="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 p-3 dark:border-zinc-800 dark:bg-zinc-800/40"
                     >
-                        <template v-if="card.showPct">
-                            <ArrowUpRight v-if="card.up" class="h-3.5 w-3.5" />
-                            <ArrowDownRight v-else class="h-3.5 w-3.5" />
-                            {{ card.pctText }}
-                        </template>
-                        <template v-else>{{ card.prevText }}</template>
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" :class="SEVERITY[alert.severity].chip">
+                            <component :is="SEVERITY[alert.severity].icon" class="h-4 w-4" />
+                        </div>
+                        <p class="min-w-0 flex-1 text-sm text-slate-700 dark:text-slate-200">
+                            <span class="font-bold">{{ alert.count }}</span> {{ alert.label }}
+                        </p>
+                        <Link
+                            :href="alert.cta_href"
+                            class="inline-flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition"
+                            :class="SEVERITY[alert.severity].button"
+                        >
+                            {{ alert.cta_label }}
+                        </Link>
+                    </div>
+                </div>
+
+                <div v-else class="mt-4 flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 py-10 text-center dark:border-zinc-700">
+                    <CheckCircle2 class="h-8 w-8 text-emerald-500" />
+                    <p class="text-sm font-medium text-slate-600 dark:text-slate-300">Semua aman</p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">Tidak ada yang perlu ditindak saat ini.</p>
+                </div>
+            </section>
+
+            <!-- Tren 7 hari -->
+            <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                <div class="flex items-center justify-between gap-4 border-b border-slate-200 pb-4 dark:border-zinc-800">
+                    <h2 class="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Tren 7 Hari Terakhir</h2>
+                    <select
+                        v-model="metric"
+                        class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-sky-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-300"
+                    >
+                        <option value="revenue">Omzet</option>
+                        <option value="transactions">Transaksi</option>
+                    </select>
+                </div>
+
+                <div class="mt-3">
+                    <svg :viewBox="`0 0 ${W} ${H}`" class="h-auto w-full" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Grafik tren 7 hari">
+                        <defs>
+                            <linearGradient id="trendArea" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.22" />
+                                <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0" />
+                            </linearGradient>
+                        </defs>
+
+                        <!-- Gridlines + label sumbu Y -->
+                        <g v-for="(tick, i) in chart.ticks" :key="`tick-${i}`">
+                            <line :x1="PAD.left" :y1="tick.y" :x2="W - PAD.right" :y2="tick.y" class="stroke-slate-100 dark:stroke-zinc-800" stroke-width="1" />
+                            <text :x="PAD.left - 8" :y="tick.y + 3" text-anchor="end" class="fill-slate-400 text-[10px] dark:fill-slate-500">{{ tick.label }}</text>
+                        </g>
+
+                        <!-- Area + garis -->
+                        <path :d="chart.areaPath" fill="url(#trendArea)" />
+                        <path :d="chart.linePath" fill="none" class="stroke-sky-500" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+
+                        <!-- Titik + label nilai + label sumbu X -->
+                        <g v-for="point in chart.points" :key="point.key">
+                            <circle :cx="point.x" :cy="point.y" :r="point.isLast ? 4.5 : 3.5" class="fill-white stroke-sky-500" stroke-width="2" />
+
+                            <template v-if="point.isLast">
+                                <rect :x="point.x - point.badgeW / 2" :y="point.y - 27" :width="point.badgeW" height="18" rx="5" class="fill-sky-500" />
+                                <text :x="point.x" :y="point.y - 14" text-anchor="middle" class="fill-white text-[10px] font-bold">{{ point.valueText }}</text>
+                            </template>
+                            <text v-else :x="point.x" :y="point.y - 11" text-anchor="middle" class="fill-slate-400 text-[10px] font-semibold dark:fill-slate-500">{{ point.valueText }}</text>
+
+                            <text :x="point.x" :y="chart.baseY + 18" text-anchor="middle" class="fill-slate-500 text-[11px] font-semibold dark:fill-slate-300">{{ point.day }}</text>
+                            <text :x="point.x" :y="chart.baseY + 31" text-anchor="middle" class="fill-slate-400 text-[9px] dark:fill-slate-500">{{ point.date }}</text>
+                        </g>
+                    </svg>
+                </div>
+            </section>
+        </div>
+
+        <!-- Pintasan laporan + Aktivitas terbaru -->
+        <div class="grid gap-4 xl:grid-cols-2">
+            <!-- Pintasan laporan -->
+            <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Pintasan Laporan</h2>
+                <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <Link
+                        v-for="item in shortcuts"
+                        :key="item.title"
+                        :href="item.href"
+                        class="group flex flex-col items-center gap-2 rounded-xl border border-slate-100 p-4 text-center transition hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-md dark:border-zinc-800 dark:hover:border-zinc-700"
+                    >
+                        <div class="flex h-11 w-11 items-center justify-center rounded-xl" :class="item.tint">
+                            <component :is="item.icon" class="h-5 w-5" />
+                        </div>
+                        <p class="text-sm font-semibold">{{ item.title }}</p>
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-slate-400 transition group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300">
+                            Lihat Laporan <ArrowRight class="h-3 w-3" />
+                        </span>
+                    </Link>
+                </div>
+            </section>
+
+            <!-- Aktivitas terbaru -->
+            <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                <div class="flex items-center justify-between gap-4">
+                    <h2 class="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Aktivitas Terbaru</h2>
+                    <Link href="/admin/transactions" class="text-xs font-semibold text-sky-600 transition hover:text-sky-700 dark:text-sky-400">Lihat Semua</Link>
+                </div>
+
+                <div class="mt-4 divide-y divide-slate-100 dark:divide-zinc-800">
+                    <Link
+                        v-for="item in props.recent_activity"
+                        :key="item.kode"
+                        href="/admin/transactions"
+                        class="flex items-center gap-3 py-2.5 transition hover:bg-slate-50 dark:hover:bg-zinc-800/40"
+                    >
+                        <FileText class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                        <span class="w-36 shrink-0 truncate font-mono text-sm font-medium text-slate-700 dark:text-slate-200">{{ item.kode }}</span>
+                        <span class="flex-1 text-right text-sm font-semibold tabular-nums">{{ formatRupiah(item.total) }}</span>
+                        <span class="hidden w-28 items-center justify-end gap-1 truncate text-sm text-slate-500 dark:text-slate-400 sm:flex">
+                            <Users class="h-3.5 w-3.5 shrink-0" /> {{ item.kasir }}
+                        </span>
+                        <span class="flex w-14 shrink-0 items-center justify-end gap-1 text-xs text-slate-400 dark:text-slate-500">
+                            <Clock class="h-3 w-3" /> {{ item.waktu }}
+                        </span>
+                    </Link>
+
+                    <p v-if="!props.recent_activity.length" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                        Belum ada transaksi.
                     </p>
                 </div>
-            </div>
-
-            <div class="mt-6 overflow-x-auto">
-                <div class="min-w-[640px]">
-                    <div class="relative h-72">
-                        <div class="absolute inset-x-0 border-t border-dashed border-slate-300 dark:border-zinc-600" :style="{ top: waterfallView.zeroTop }"></div>
-                        <div class="flex h-full items-stretch gap-2">
-                            <div v-for="bar in waterfallView.bars" :key="bar.label" class="relative flex-1">
-                                <div
-                                    class="absolute left-1/2 w-6 -translate-x-1/2 rounded-sm transition-all duration-300"
-                                    :class="bar.colorClass"
-                                    :style="{ top: bar.topPct, height: bar.heightPct }"
-                                ></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-2 flex gap-2">
-                        <div v-for="bar in waterfallView.bars" :key="bar.label" class="min-w-0 flex-1 text-center">
-                            <p class="truncate text-[11px] font-semibold text-slate-600 dark:text-slate-300">{{ bar.label }}</p>
-                            <p class="truncate text-[10px] font-medium text-slate-400 dark:text-slate-500">{{ bar.amountText }}</p>
-                        </div>
-                    </div>
-                    <p v-if="waterfallView.bars.length === 0" class="text-sm text-slate-500 dark:text-slate-400">Belum ada data untuk periode ini.</p>
-                </div>
-            </div>
-
-            <div
-                class="mt-6 flex items-start gap-3 rounded-md p-4"
-                :class="props.insight.tone === 'success'
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
-                    : 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'"
-            >
-                <AlertTriangle class="mt-0.5 h-5 w-5 shrink-0" />
-                <p class="text-sm leading-relaxed">{{ props.insight.message }}</p>
-            </div>
-        </section>
-
-        <div class="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)]">
-            <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-zinc-800 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 class="text-lg font-semibold">Grafik Omzet & Transaksi</h2>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ props.date_range.start_date }} - {{ props.date_range.end_date }}</p>
-                    </div>
-                    <div class="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-sky-500"></span>Omzet</span>
-                        <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-emerald-500"></span>Transaksi</span>
-                    </div>
-                </div>
-
-                <div class="mt-5 overflow-x-auto">
-                    <div class="flex h-80 min-w-[760px] items-end gap-3 border-b border-slate-200 px-1 pb-8 dark:border-zinc-800">
-                        <div v-for="item in performanceColumns" :key="item.label" class="group relative flex h-full flex-1 min-w-9 flex-col items-center justify-end gap-2">
-                            <div class="absolute bottom-[calc(100%+0.75rem)] hidden rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg group-hover:block dark:border-zinc-700 dark:bg-zinc-950">
-                                <p class="font-semibold">{{ item.label }}</p>
-                                <p class="mt-1 whitespace-nowrap text-slate-500 dark:text-slate-400">{{ formatRupiah(item.revenue) }}</p>
-                                <p class="whitespace-nowrap text-slate-500 dark:text-slate-400">{{ item.sales }} transaksi</p>
-                            </div>
-                            <div class="flex h-full w-full items-end justify-center gap-1.5">
-                                <div class="w-3 rounded-t-md bg-sky-500 transition-all duration-300" :style="{ height: item.revenueHeight }"></div>
-                                <div class="w-3 rounded-t-md bg-emerald-500 transition-all duration-300" :style="{ height: item.salesHeight }"></div>
-                            </div>
-                            <span class="absolute -bottom-7 whitespace-nowrap text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ item.label }}</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="border-b border-slate-200 pb-4 dark:border-zinc-800">
-                    <h2 class="text-lg font-semibold">Sorotan</h2>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Peringkat teratas pada periode aktif</p>
-                </div>
-                <div class="mt-5 grid gap-3">
-                    <div class="rounded-md border border-slate-200 p-4 dark:border-zinc-800">
-                        <div class="flex items-start gap-3">
-                            <Package class="mt-0.5 h-5 w-5 text-sky-600 dark:text-sky-300" />
-                            <div>
-                                <p class="text-sm font-semibold">Produk paling laku</p>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ bestProduct?.nama ?? 'Belum ada data' }}</p>
-                                <p v-if="bestProduct" class="mt-2 text-lg font-bold">{{ bestProduct.qty }} pcs</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="rounded-md border border-slate-200 p-4 dark:border-zinc-800">
-                        <div class="flex items-start gap-3">
-                            <Wallet class="mt-0.5 h-5 w-5 text-emerald-600 dark:text-emerald-300" />
-                            <div>
-                                <p class="text-sm font-semibold">Produk paling untung</p>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ bestProfitProduct?.nama ?? 'Belum ada data' }}</p>
-                                <p v-if="bestProfitProduct" class="mt-2 text-lg font-bold">{{ formatRupiah(bestProfitProduct.profit) }} laba</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="rounded-md border border-slate-200 p-4 dark:border-zinc-800">
-                        <div class="flex items-start gap-3">
-                            <Trophy class="mt-0.5 h-5 w-5 text-amber-600 dark:text-amber-300" />
-                            <div>
-                                <p class="text-sm font-semibold">Karyawan omzet terbanyak</p>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ bestCashierByRevenue?.nama ?? 'Belum ada data' }}</p>
-                                <p v-if="bestCashierByRevenue" class="mt-2 text-lg font-bold">{{ formatRupiah(bestCashierByRevenue.revenue) }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="rounded-md border border-slate-200 p-4 dark:border-zinc-800">
-                        <div class="flex items-start gap-3">
-                            <Users class="mt-0.5 h-5 w-5 text-emerald-600 dark:text-emerald-300" />
-                            <div>
-                                <p class="text-sm font-semibold">Karyawan transaksi terbanyak</p>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ bestCashierByTransactions?.nama ?? 'Belum ada data' }}</p>
-                                <p v-if="bestCashierByTransactions" class="mt-2 text-lg font-bold">{{ bestCashierByTransactions.transactions }} trx</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </div>
-
-        <div class="grid gap-4 xl:grid-cols-3">
-            <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4 border-b border-slate-200 pb-4 dark:border-zinc-800">
-                    <div>
-                        <h2 class="text-lg font-semibold">Produk Paling Laku</h2>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Berdasarkan jumlah item terjual</p>
-                    </div>
-                    <button
-                        type="button"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-100 dark:border-zinc-700 dark:text-slate-300 dark:hover:bg-zinc-800"
-                        title="Cetak produk paling laku"
-                        @click="printSection('best_sellers')"
-                    >
-                        <Printer class="h-4 w-4" />
-                    </button>
-                </div>
-                <div class="mt-5 space-y-4">
-                    <div v-for="product in bestSellingGraph" :key="product.nama">
-                        <div class="flex items-center justify-between gap-4 text-sm">
-                            <span class="min-w-0 truncate font-semibold">{{ product.nama }}</span>
-                            <span class="shrink-0 text-slate-500 dark:text-slate-400">{{ product.qty }} pcs</span>
-                        </div>
-                        <div class="mt-2 h-2 rounded-full bg-slate-100 dark:bg-zinc-800">
-                            <div class="h-full rounded-full bg-sky-500" :style="{ width: product.width }"></div>
-                        </div>
-                        <p class="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{{ formatRupiah(product.revenue) }}</p>
-                    </div>
-                    <p v-if="bestSellingGraph.length === 0" class="text-sm text-slate-500 dark:text-slate-400">Belum ada data produk.</p>
-                </div>
-            </section>
-
-            <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4 border-b border-slate-200 pb-4 dark:border-zinc-800">
-                    <div>
-                        <h2 class="text-lg font-semibold">Tanggal Transaksi Terbanyak</h2>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ busiestDate?.label ?? 'Belum ada data' }}</p>
-                    </div>
-                    <button
-                        type="button"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-100 dark:border-zinc-700 dark:text-slate-300 dark:hover:bg-zinc-800"
-                        title="Cetak tanggal transaksi terbanyak"
-                        @click="printSection('top_dates')"
-                    >
-                        <Printer class="h-4 w-4" />
-                    </button>
-                </div>
-                <div class="mt-5 space-y-4">
-                    <div v-for="item in topDatesGraph" :key="item.label">
-                        <div class="flex items-center justify-between gap-4 text-sm">
-                            <span class="font-semibold">{{ item.label }}</span>
-                            <span class="text-slate-500 dark:text-slate-400">{{ item.value }} trx</span>
-                        </div>
-                        <div class="mt-2 h-2 rounded-full bg-slate-100 dark:bg-zinc-800">
-                            <div class="h-full rounded-full bg-amber-500" :style="{ width: item.width }"></div>
-                        </div>
-                    </div>
-                    <p v-if="topDatesGraph.length === 0" class="text-sm text-slate-500 dark:text-slate-400">Belum ada data tanggal.</p>
-                </div>
-            </section>
-
-            <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4 border-b border-slate-200 pb-4 dark:border-zinc-800">
-                    <div>
-                        <h2 class="text-lg font-semibold">Jam Transaksi Terbanyak</h2>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ busiestHour?.label ?? 'Belum ada data' }}</p>
-                    </div>
-                    <button
-                        type="button"
-                        class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-100 dark:border-zinc-700 dark:text-slate-300 dark:hover:bg-zinc-800"
-                        title="Cetak jam transaksi terbanyak"
-                        @click="printSection('top_hours')"
-                    >
-                        <Printer class="h-4 w-4" />
-                    </button>
-                </div>
-                <div class="mt-5 space-y-4">
-                    <div v-for="item in topHoursGraph" :key="item.label">
-                        <div class="flex items-center justify-between gap-4 text-sm">
-                            <span class="font-semibold">{{ item.label }}</span>
-                            <span class="text-slate-500 dark:text-slate-400">{{ item.value }} trx</span>
-                        </div>
-                        <div class="mt-2 h-2 rounded-full bg-slate-100 dark:bg-zinc-800">
-                            <div class="h-full rounded-full bg-emerald-500" :style="{ width: item.width }"></div>
-                        </div>
-                    </div>
-                    <p v-if="topHoursGraph.length === 0" class="text-sm text-slate-500 dark:text-slate-400">Belum ada data jam.</p>
-                </div>
-            </section>
-        </div>
-
-        <!-- Produk jarang laku + saran promo -->
-        <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div class="flex items-start justify-between gap-4 border-b border-slate-200 pb-4 dark:border-zinc-800">
-                <div>
-                    <h2 class="text-lg font-semibold">Produk Jarang Laku</h2>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        Stok masih ada tapi paling sedikit terjual dalam {{ slow_mover_days }} hari terakhir — pertimbangkan beri promo.
-                    </p>
-                </div>
-                <AlertTriangle class="h-5 w-5 shrink-0 text-amber-500" />
-            </div>
-
-            <div class="mt-5 overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead>
-                        <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-zinc-800 dark:text-slate-400">
-                            <th class="pb-2 pr-3 font-semibold">Produk</th>
-                            <th class="px-3 pb-2 text-right font-semibold">Terjual</th>
-                            <th class="px-3 pb-2 text-right font-semibold">Stok</th>
-                            <th class="pb-2 pl-3 text-right font-semibold">Saran</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800">
-                        <tr v-for="p in slow_movers" :key="p.id_produk">
-                            <td class="py-3 pr-3">
-                                <div class="flex items-center gap-3">
-                                    <img
-                                        v-if="p.foto_url"
-                                        :src="p.foto_url"
-                                        :alt="p.nama"
-                                        class="h-9 w-9 rounded-md border border-slate-200 object-cover dark:border-zinc-700"
-                                    />
-                                    <div
-                                        v-else
-                                        class="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-slate-400 dark:border-zinc-700 dark:bg-zinc-800"
-                                    >
-                                        <Package class="h-4 w-4" />
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="truncate font-semibold">{{ p.nama }}</p>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ formatRupiah(p.harga_jual) }}</p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-3 text-right">
-                                <span :class="p.terjual === 0 ? 'font-bold text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'">
-                                    {{ formatQty(p.terjual) }}
-                                </span>
-                            </td>
-                            <td class="px-3 text-right text-slate-600 dark:text-slate-300">{{ formatQty(p.stok) }} {{ p.satuan }}</td>
-                            <td class="pl-3 text-right">
-                                <span
-                                    v-if="p.sudah_promo"
-                                    class="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
-                                >
-                                    <Percent class="h-3 w-3" /> Sudah promo
-                                </span>
-                                <Link
-                                    v-else
-                                    :href="`/admin/promos?produk=${p.id_produk}`"
-                                    class="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-indigo-500"
-                                >
-                                    <Percent class="h-3 w-3" /> Buat Promo
-                                </Link>
-                            </td>
-                        </tr>
-                        <tr v-if="slow_movers.length === 0">
-                            <td colspan="4" class="py-6 text-center text-slate-500 dark:text-slate-400">
-                                Tidak ada produk berstok untuk dianalisis.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-zinc-800 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold">Karyawan Dengan Omzet / Transaksi Terbanyak</h2>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Perbandingan performa kasir pada periode aktif</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button
-                        type="button"
-                        class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-zinc-700 dark:text-slate-300 dark:hover:bg-zinc-800"
-                        @click="printSection('top_cashier_revenue')"
-                    >
-                        <Printer class="h-4 w-4" />
-                        Omzet
-                    </button>
-                    <button
-                        type="button"
-                        class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-zinc-700 dark:text-slate-300 dark:hover:bg-zinc-800"
-                        @click="printSection('top_cashier_transactions')"
-                    >
-                        <Printer class="h-4 w-4" />
-                        Transaksi
-                    </button>
-                </div>
-            </div>
-
-            <div class="mt-5 grid gap-6 lg:grid-cols-2">
-                <div>
-                    <div class="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                        <TrendingUp class="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                        Omzet terbanyak
-                    </div>
-                    <div class="space-y-4">
-                        <div v-for="cashier in topCashierRevenueGraph" :key="cashier.nama">
-                            <div class="flex items-center justify-between gap-4 text-sm">
-                                <span class="min-w-0 truncate font-semibold">{{ cashier.nama }}</span>
-                                <span class="shrink-0 text-slate-500 dark:text-slate-400">{{ formatCompact(cashier.revenue) }}</span>
-                            </div>
-                            <div class="mt-2 h-2 rounded-full bg-slate-100 dark:bg-zinc-800">
-                                <div class="h-full rounded-full bg-sky-500" :style="{ width: cashier.width }"></div>
-                            </div>
-                            <p class="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{{ cashier.transactions }} transaksi</p>
-                        </div>
-                        <p v-if="topCashierRevenueGraph.length === 0" class="text-sm text-slate-500 dark:text-slate-400">Belum ada data karyawan.</p>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                        <Users class="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                        Transaksi terbanyak
-                    </div>
-                    <div class="space-y-4">
-                        <div v-for="cashier in topCashierTransactionsGraph" :key="cashier.nama">
-                            <div class="flex items-center justify-between gap-4 text-sm">
-                                <span class="min-w-0 truncate font-semibold">{{ cashier.nama }}</span>
-                                <span class="shrink-0 text-slate-500 dark:text-slate-400">{{ cashier.transactions }} trx</span>
-                            </div>
-                            <div class="mt-2 h-2 rounded-full bg-slate-100 dark:bg-zinc-800">
-                                <div class="h-full rounded-full bg-emerald-500" :style="{ width: cashier.width }"></div>
-                            </div>
-                            <p class="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{{ formatRupiah(cashier.revenue) }}</p>
-                        </div>
-                        <p v-if="topCashierTransactionsGraph.length === 0" class="text-sm text-slate-500 dark:text-slate-400">Belum ada data karyawan.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <div class="grid gap-4 md:grid-cols-2">
-            <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                    <CalendarDays class="h-4 w-4 text-amber-600 dark:text-amber-300" />
-                    Puncak tanggal
-                </div>
-                <div class="text-2xl font-bold">{{ busiestDate?.label ?? '-' }}</div>
-                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ busiestDate?.value ?? 0 }} transaksi</p>
-            </section>
-
-            <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                    <Clock3 class="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                    Puncak jam
-                </div>
-                <div class="text-2xl font-bold">{{ busiestHour?.label ?? '-' }}</div>
-                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ busiestHour?.value ?? 0 }} transaksi</p>
             </section>
         </div>
     </div>
