@@ -48,6 +48,7 @@ class DashboardController extends Controller
             'gross_profit' => $today['gross_profit'],
             'items_sold' => $today['items_sold'],
             'avg_items' => $today['transactions'] > 0 ? round($today['items_sold'] / $today['transactions'], 1) : 0,
+            'margin' => $today['revenue'] > 0 ? round($today['gross_profit'] / $today['revenue'] * 100, 1) : null,
             'revenue_delta' => $this->deltaPct($today['revenue'], $yesterday['revenue']),
             'transactions_delta' => $this->deltaPct($today['transactions'], $yesterday['transactions']),
             'gross_profit_delta' => $this->deltaPct($today['gross_profit'], $yesterday['gross_profit']),
@@ -200,7 +201,7 @@ class DashboardController extends Controller
                 'count' => $lowStock,
                 'label' => 'produk stok menipis / habis',
                 'cta_label' => 'Lihat Stok',
-                'cta_href' => route('admin.stok', absolute: false),
+                'cta_href' => route('admin.stok', ['status' => 'menipis'], false),
             ],
             [
                 'key' => 'dead_stock',
@@ -234,7 +235,7 @@ class DashboardController extends Controller
     /**
      * 5 transaksi terakhir untuk feed aktivitas.
      *
-     * @return list<array{kode: string, total: int, kasir: string, waktu: string}>
+     * @return list<array{kode: string, total: int, kasir: string, tanggal: string, tanggal_iso: string, waktu: string}>
      */
     private function recentActivity(): array
     {
@@ -246,6 +247,9 @@ class DashboardController extends Controller
                 'kode' => 'TRX-'.$trx->id_transaksi,
                 'total' => (int) $trx->total_harga,
                 'kasir' => $trx->user?->name ?? 'User Terhapus',
+                'tanggal' => $trx->created_at->locale('id')->translatedFormat('d M Y'),
+                // Dipakai untuk men-set rentang tanggal saat membuka Data Transaksi (defaultnya "hari ini").
+                'tanggal_iso' => $trx->created_at->toDateString(),
                 'waktu' => $trx->created_at->format('H:i'),
             ])
             ->all();

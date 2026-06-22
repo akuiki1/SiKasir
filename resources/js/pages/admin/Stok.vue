@@ -16,7 +16,7 @@ import {
     PencilLine,
     PackageSearch,
 } from 'lucide-vue-next';
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
 import { masuk as stokMasuk, keluar as stokKeluar, penyesuaian as stokPenyesuaian } from '@/routes/admin/stok';
@@ -102,14 +102,34 @@ const activeTab = ref<'daftar' | 'kartu'>('daftar');
  | Tab 1: Daftar Stok
  ---------------------------------------------------------------------------- */
 const searchQuery = ref('');
-const statusFilter = ref<'all' | ProdukStok['status_stok']>('all');
+const statusFilter = ref<'all' | ProdukStok['status_stok'] | 'menipis'>('all');
+
+// Filter awal dari query URL (mis. dari pintasan "Lihat Stok" di Dashboard) — dibaca
+// setelah mount agar tidak memicu hydration mismatch saat SSR.
+onMounted(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    const search = params.get('search') ?? params.get('q');
+
+    if (status && ['all', 'in-stock', 'low-stock', 'out-of-stock', 'menipis'].includes(status)) {
+        statusFilter.value = status as typeof statusFilter.value;
+    }
+
+    if (search) {
+        searchQuery.value = search;
+    }
+});
 
 const filteredProduks = computed(() => {
     const q = searchQuery.value.toLowerCase();
 
     return props.produks.filter((p) => {
         const cocokNama = !q || p.nama.toLowerCase().includes(q) || (p.kategori ?? '').toLowerCase().includes(q);
-        const cocokStatus = statusFilter.value === 'all' || p.status_stok === statusFilter.value;
+        const cocokStatus =
+            statusFilter.value === 'all' ||
+            (statusFilter.value === 'menipis'
+                ? p.status_stok === 'low-stock' || p.status_stok === 'out-of-stock'
+                : p.status_stok === statusFilter.value);
 
         return cocokNama && cocokStatus;
     });
@@ -426,6 +446,7 @@ function lihatKartu(produk: ProdukStok): void {
                     class="rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                 >
                     <option value="all">Semua status</option>
+                    <option value="menipis">Menipis / habis</option>
                     <option value="in-stock">Tersedia</option>
                     <option value="low-stock">Menipis</option>
                     <option value="out-of-stock">Habis</option>

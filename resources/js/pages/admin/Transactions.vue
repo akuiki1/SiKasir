@@ -157,6 +157,16 @@ function handleClickOutsideFilter(event: MouseEvent) {
 onMounted(() => document.addEventListener('mousedown', handleClickOutsideFilter));
 onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsideFilter));
 
+// Pencarian awal dari query URL (mis. klik baris "Aktivitas Terbaru" di Dashboard) —
+// dibaca setelah mount agar aman dari hydration mismatch saat SSR.
+onMounted(() => {
+    const search = new URLSearchParams(window.location.search).get('search');
+
+    if (search) {
+        searchQuery.value = search;
+    }
+});
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
 function getMonthRange(year: number, month: number) {

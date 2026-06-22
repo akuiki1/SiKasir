@@ -10,8 +10,10 @@ import {
     CircleDollarSign,
     Clock,
     FileText,
+    LayoutDashboard,
     LineChart,
     Package,
+    Percent,
     PackageX,
     ShoppingCart,
     Users,
@@ -45,6 +47,8 @@ interface Activity {
     kode: string;
     total: number;
     kasir: string;
+    tanggal: string;
+    tanggal_iso: string;
     waktu: string;
 }
 
@@ -59,6 +63,7 @@ const props = defineProps<{
         gross_profit: number;
         items_sold: number;
         avg_items: number;
+        margin: number | null;
         revenue_delta: number | null;
         transactions_delta: number | null;
         gross_profit_delta: number | null;
@@ -88,6 +93,7 @@ const kpiCards = computed(() => [
         label: 'Laba Kotor Hari Ini',
         value: formatRupiah(props.today_stats.gross_profit),
         delta: props.today_stats.gross_profit_delta,
+        margin: props.today_stats.margin,
         icon: Wallet,
         tint: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300',
     },
@@ -125,10 +131,46 @@ const SEVERITY: Record<Alert['severity'], { icon: typeof PackageX; chip: string;
 };
 
 const shortcuts = [
-    { title: 'Keuangan', href: '/admin/laporan/keuangan', icon: CircleDollarSign, tint: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300' },
-    { title: 'Penjualan', href: '/admin/laporan/penjualan', icon: ShoppingCart, tint: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300' },
-    { title: 'Inventaris', href: '/admin/laporan/inventaris', icon: Package, tint: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300' },
-    { title: 'Pelanggan', href: '/admin/laporan/pelanggan', icon: Users, tint: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300' },
+    {
+        title: 'Keuangan',
+        desc: 'Laba rugi & arus kas',
+        href: '/admin/laporan/keuangan',
+        icon: CircleDollarSign,
+        iconClass: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/30',
+        glow: 'from-emerald-500/10',
+        hover: 'group-hover:border-emerald-300 dark:group-hover:border-emerald-500/40',
+        arrow: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-400',
+    },
+    {
+        title: 'Penjualan',
+        desc: 'Tren & performa kasir',
+        href: '/admin/laporan/penjualan',
+        icon: ShoppingCart,
+        iconClass: 'bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sky-500/30',
+        glow: 'from-sky-500/10',
+        hover: 'group-hover:border-sky-300 dark:group-hover:border-sky-500/40',
+        arrow: 'group-hover:text-sky-600 dark:group-hover:text-sky-400',
+    },
+    {
+        title: 'Inventaris',
+        desc: 'Perputaran & nilai stok',
+        href: '/admin/laporan/inventaris',
+        icon: Package,
+        iconClass: 'bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-violet-500/30',
+        glow: 'from-violet-500/10',
+        hover: 'group-hover:border-violet-300 dark:group-hover:border-violet-500/40',
+        arrow: 'group-hover:text-violet-600 dark:group-hover:text-violet-400',
+    },
+    {
+        title: 'Pelanggan',
+        desc: 'Loyalitas & retensi',
+        href: '/admin/laporan/pelanggan',
+        icon: Users,
+        iconClass: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-rose-500/30',
+        glow: 'from-rose-500/10',
+        hover: 'group-hover:border-rose-300 dark:group-hover:border-rose-500/40',
+        arrow: 'group-hover:text-rose-600 dark:group-hover:text-rose-400',
+    },
 ];
 
 // --- Grafik tren 7 hari ---
@@ -201,24 +243,33 @@ function deltaTone(delta: number | null): string {
     <Head title="Admin Dashboard" />
 
     <div class="flex h-full flex-1 flex-col gap-6 bg-slate-50 p-6 text-slate-950 dark:bg-zinc-950 dark:text-slate-100">
-        <!-- Header -->
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight md:text-3xl">Dashboard</h1>
-                <p class="mt-2 text-base font-medium text-slate-600 dark:text-slate-300">{{ props.greeting }}, {{ props.admin_name }} 👋</p>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ props.today_label }}</p>
+        <!-- Header banner (senada dashboard kasir, aksen biru terang translucent) -->
+        <div class="relative overflow-hidden rounded-2xl border border-sky-200/70 bg-gradient-to-br from-sky-100/80 via-white to-blue-50/50 p-5 shadow-sm md:p-6 dark:border-sky-500/20 dark:from-sky-500/10 dark:via-zinc-900 dark:to-blue-500/5">
+            <div class="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex flex-col gap-2">
+                    <span class="inline-flex w-fit items-center gap-1.5 rounded-full border border-sky-300/60 bg-sky-100/70 px-2.5 py-0.5 text-xs font-semibold text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300">
+                        <LayoutDashboard class="h-3.5 w-3.5" />
+                        Panel Admin
+                    </span>
+                    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl dark:text-white">{{ props.greeting }}, {{ props.admin_name }} 👋</h1>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ props.today_label }}</p>
+                </div>
+
+                <div
+                    v-if="props.active_cashier"
+                    class="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg border border-sky-200/70 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm backdrop-blur dark:border-sky-500/20 dark:bg-zinc-900/70 dark:text-slate-300"
+                >
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                    </span>
+                    Kasir: {{ props.active_cashier }}
+                </div>
             </div>
 
-            <div
-                v-if="props.active_cashier"
-                class="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-slate-300"
-            >
-                <span class="relative flex h-2.5 w-2.5">
-                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-                </span>
-                Kasir: {{ props.active_cashier }}
-            </div>
+            <!-- Aksen dekoratif blur -->
+            <div class="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-sky-400/20 blur-3xl"></div>
+            <div class="pointer-events-none absolute bottom-0 right-28 h-28 w-28 rounded-full bg-blue-400/10 blur-2xl"></div>
         </div>
 
         <!-- Snapshot hari ini -->
@@ -238,17 +289,28 @@ function deltaTone(delta: number | null): string {
                     </div>
                 </div>
 
-                <div class="mt-4 flex items-center gap-1.5 text-xs font-medium" :class="card.subtitle ? 'text-slate-500 dark:text-slate-400' : deltaTone(card.delta ?? null)">
-                    <template v-if="card.subtitle">{{ card.subtitle }}</template>
-                    <template v-else-if="card.delta === null">
-                        <span class="text-slate-400 dark:text-slate-500">Baru hari ini</span>
-                    </template>
-                    <template v-else>
-                        <ArrowUpRight v-if="card.delta > 0" class="h-3.5 w-3.5" />
-                        <ArrowDownRight v-else-if="card.delta < 0" class="h-3.5 w-3.5" />
-                        <span>{{ Math.abs(card.delta) }}%</span>
-                        <span class="text-slate-400 dark:text-slate-500">vs kemarin</span>
-                    </template>
+                <div class="mt-4 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 text-xs font-medium" :class="card.subtitle ? 'text-slate-500 dark:text-slate-400' : deltaTone(card.delta ?? null)">
+                        <template v-if="card.subtitle">{{ card.subtitle }}</template>
+                        <template v-else-if="card.delta === null">
+                            <span class="text-slate-400 dark:text-slate-500">Baru hari ini</span>
+                        </template>
+                        <template v-else>
+                            <ArrowUpRight v-if="card.delta > 0" class="h-3.5 w-3.5" />
+                            <ArrowDownRight v-else-if="card.delta < 0" class="h-3.5 w-3.5" />
+                            <span>{{ Math.abs(card.delta) }}%</span>
+                            <span class="text-slate-400 dark:text-slate-500">vs kemarin</span>
+                        </template>
+                    </div>
+
+                    <span
+                        v-if="card.margin !== undefined"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                        title="Margin laba kotor hari ini"
+                    >
+                        <Percent class="h-3 w-3" />
+                        {{ card.margin === null ? '—' : `${card.margin}% margin` }}
+                    </span>
                 </div>
             </div>
         </div>
@@ -346,20 +408,27 @@ function deltaTone(delta: number | null): string {
             <!-- Pintasan laporan -->
             <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
                 <h2 class="text-sm font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Pintasan Laporan</h2>
-                <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <Link
                         v-for="item in shortcuts"
                         :key="item.title"
                         :href="item.href"
-                        class="group flex flex-col items-center gap-2 rounded-xl border border-slate-100 p-4 text-center transition hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-md dark:border-zinc-800 dark:hover:border-zinc-700"
+                        class="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+                        :class="item.hover"
                     >
-                        <div class="flex h-11 w-11 items-center justify-center rounded-xl" :class="item.tint">
-                            <component :is="item.icon" class="h-5 w-5" />
+                        <!-- Glow latar saat hover -->
+                        <div class="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" :class="item.glow"></div>
+
+                        <div class="relative z-10 flex items-center gap-3">
+                            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-lg transition-transform duration-200 group-hover:scale-105" :class="item.iconClass">
+                                <component :is="item.icon" class="h-6 w-6" />
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ item.title }}</p>
+                                <p class="truncate text-xs text-slate-400 dark:text-slate-500">{{ item.desc }}</p>
+                            </div>
+                            <ArrowRight class="h-4 w-4 shrink-0 text-slate-300 transition-all duration-200 group-hover:translate-x-1 dark:text-slate-600" :class="item.arrow" />
                         </div>
-                        <p class="text-sm font-semibold">{{ item.title }}</p>
-                        <span class="inline-flex items-center gap-1 text-xs font-medium text-slate-400 transition group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300">
-                            Lihat Laporan <ArrowRight class="h-3 w-3" />
-                        </span>
                     </Link>
                 </div>
             </section>
@@ -375,18 +444,26 @@ function deltaTone(delta: number | null): string {
                     <Link
                         v-for="item in props.recent_activity"
                         :key="item.kode"
-                        href="/admin/transactions"
-                        class="flex items-center gap-3 py-2.5 transition hover:bg-slate-50 dark:hover:bg-zinc-800/40"
+                        :href="`/admin/transactions?search=${item.kode}&start_date=${item.tanggal_iso}&end_date=${item.tanggal_iso}`"
+                        class="group flex items-center gap-3 rounded-lg px-1 py-2.5 transition hover:bg-slate-50 dark:hover:bg-zinc-800/40"
+                        :title="`Lihat ${item.kode} di Data Transaksi`"
                     >
-                        <FileText class="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
-                        <span class="w-36 shrink-0 truncate font-mono text-sm font-medium text-slate-700 dark:text-slate-200">{{ item.kode }}</span>
-                        <span class="flex-1 text-right text-sm font-semibold tabular-nums">{{ formatRupiah(item.total) }}</span>
-                        <span class="hidden w-28 items-center justify-end gap-1 truncate text-sm text-slate-500 dark:text-slate-400 sm:flex">
-                            <Users class="h-3.5 w-3.5 shrink-0" /> {{ item.kasir }}
-                        </span>
-                        <span class="flex w-14 shrink-0 items-center justify-end gap-1 text-xs text-slate-400 dark:text-slate-500">
-                            <Clock class="h-3 w-3" /> {{ item.waktu }}
-                        </span>
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition group-hover:bg-sky-100 group-hover:text-sky-600 dark:bg-zinc-800 dark:text-slate-400 dark:group-hover:bg-sky-500/15 dark:group-hover:text-sky-300">
+                            <FileText class="h-4 w-4" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate font-mono text-sm font-semibold text-slate-700 dark:text-slate-200">{{ item.kode }}</p>
+                            <p class="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+                                <Users class="h-3 w-3 shrink-0" />
+                                <span class="truncate">{{ item.kasir }}</span>
+                            </p>
+                        </div>
+                        <div class="shrink-0 text-right">
+                            <p class="text-sm font-bold tabular-nums">{{ formatRupiah(item.total) }}</p>
+                            <p class="flex items-center justify-end gap-1 text-xs text-slate-400 dark:text-slate-500">
+                                <Clock class="h-3 w-3" /> {{ item.tanggal }} · {{ item.waktu }}
+                            </p>
+                        </div>
                     </Link>
 
                     <p v-if="!props.recent_activity.length" class="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
