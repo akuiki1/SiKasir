@@ -13,8 +13,8 @@ import { request } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Log in to your account',
-        description: 'Enter your email and password below to log in',
+        title: 'Masuk',
+        description: 'Masukkan email dan kata sandi untuk mengelola toko.',
     },
 });
 
@@ -41,9 +41,9 @@ defineProps<{
         v-slot="{ errors, processing }"
         class="space-y-6"
     >
-        <div class="grid gap-6">
+        <div class="grid gap-5">
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email">Email</Label>
                 <Input
                     id="email"
                     type="email"
@@ -52,39 +52,40 @@ defineProps<{
                     autofocus
                     :tabindex="1"
                     autocomplete="email"
-                    placeholder="email@example.com"
+                    placeholder="email@contoh.com"
                 />
                 <InputError :message="errors.email" />
             </div>
 
             <div class="grid gap-2">
-                <div class="flex items-center justify-between gap-4">
-                    <Label for="password">Password</Label>
-                    <TextLink
-                        v-if="canResetPassword"
-                        :href="request()"
-                        class="text-sm"
-                        :tabindex="5"
-                    >
-                        Forgot your password?
-                    </TextLink>
-                </div>
+                <Label for="password">Kata sandi</Label>
                 <PasswordInput
                     id="password"
                     name="password"
                     required
                     :tabindex="2"
                     autocomplete="current-password"
-                    placeholder="Password"
+                    placeholder="Masukkan kata sandi"
                 />
                 <InputError :message="errors.password" />
             </div>
 
-            <div class="flex items-center justify-between">
-                <Label for="remember" class="flex items-center space-x-3">
+            <div class="flex items-center justify-between gap-4">
+                <Label
+                    for="remember"
+                    class="flex items-center gap-2.5 text-sm font-normal text-[var(--kg-sec)]"
+                >
                     <Checkbox id="remember" name="remember" :tabindex="3" />
-                    <span>Remember me</span>
+                    <span>Ingat saya</span>
                 </Label>
+                <TextLink
+                    v-if="canResetPassword"
+                    :href="request()"
+                    class="text-sm font-semibold text-[var(--kg-primary)]"
+                    :tabindex="5"
+                >
+                    Lupa sandi?
+                </TextLink>
             </div>
         </div>
 
@@ -97,7 +98,7 @@ defineProps<{
         >
             <span class="inline-flex items-center justify-center gap-2">
                 <Spinner v-if="processing" />
-                {{ processing ? 'Signing in...' : 'Log in' }}
+                {{ processing ? 'Memproses...' : 'Masuk' }}
             </span>
         </Button>
     </Form>

@@ -8,9 +8,9 @@ import { send } from '@/routes/verification';
 
 defineOptions({
     layout: {
-        title: 'Email verification',
+        title: 'Verifikasi email',
         description:
-            'Please verify your email address by clicking on the link we just emailed to you.',
+            'Silakan verifikasi email Anda dengan mengeklik tautan yang baru kami kirim.',
     },
 });
 
@@ -24,10 +24,9 @@ defineProps<{
 
     <div
         v-if="status === 'verification-link-sent'"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        class="mb-4 text-center text-sm font-medium text-emerald-600"
     >
-        A new verification link has been sent to the email address you provided
-        during registration.
+        Tautan verifikasi baru telah dikirim ke alamat email Anda.
     </div>
 
     <Form
@@ -35,13 +34,17 @@ defineProps<{
         class="space-y-6 text-center"
         v-slot="{ processing }"
     >
-        <Button :disabled="processing" variant="secondary">
+        <Button type="submit" :disabled="processing" variant="secondary">
             <Spinner v-if="processing" />
-            Resend verification email
+            Kirim ulang email verifikasi
         </Button>
 
-        <TextLink :href="logout()" as="button" class="mx-auto block text-sm">
-            Log out
+        <TextLink
+            :href="logout()"
+            as="button"
+            class="mx-auto block text-sm font-semibold text-[var(--kg-primary)]"
+        >
+            Keluar
         </TextLink>
     </Form>
 </template>
