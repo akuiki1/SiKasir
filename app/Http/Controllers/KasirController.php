@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DetailTransaksi;
 use App\Models\Pelanggan;
+use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\Promo;
 use App\Models\TarifJasa;
@@ -174,6 +175,9 @@ class KasirController extends Controller
                 'foto_url' => $row->foto ? asset("storage/{$row->foto}") : null,
             ]);
 
+        // --- Pesanan online menunggu (shop-wide, bukan per kasir) ---
+        $pendingPesananCount = Pesanan::whereIn('status', ['pending', 'disiapkan'])->count();
+
         // --- Target omzet harian ---
         $targetHarian = self::TARGET_HARIAN;
         $targetPersen = $targetHarian > 0
@@ -201,6 +205,7 @@ class KasirController extends Controller
             'low_stock_count' => $lowStockCount,
             'active_promos' => $activePromos,
             'best_sellers' => $bestSellers,
+            'pending_pesanan_count' => $pendingPesananCount,
             'target' => [
                 'harian' => $targetHarian,
                 'tercapai' => $todayRevenue,

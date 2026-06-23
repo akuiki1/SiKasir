@@ -24,6 +24,8 @@ class StokController extends Controller
         'produksi' => 'Produksi',
         'produksi_batal' => 'Batal Produksi',
         'penyesuaian' => 'Penyesuaian',
+        'pesanan' => 'Reserve Pesanan',
+        'pesanan_batal' => 'Batal Pesanan',
     ];
 
     /** Alasan stok keluar manual (di luar penjualan). */

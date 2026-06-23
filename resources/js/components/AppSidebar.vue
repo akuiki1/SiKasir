@@ -16,6 +16,7 @@ import {
     TrendingUp,
     UsersRound,
     Boxes,
+    ClipboardList,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -163,6 +164,11 @@ const mainNavGroups = computed<NavGroup[]>(() => {
                     title: 'Transaksi',
                     href: '/kasir/transaksi',
                     icon: ShoppingCart,
+                },
+                {
+                    title: 'Pesanan Online',
+                    href: '/kasir/pesanan',
+                    icon: ClipboardList,
                 },
                 {
                     title: 'Riwayat Transaksi',

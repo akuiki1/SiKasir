@@ -4,8 +4,10 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\KasirController;
+use App\Http\Controllers\KasirPesananController;
 use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\PelangganController;
+use App\Http\Controllers\PesananPublikController;
 use App\Http\Controllers\PengeluaranController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\ProduksiController;
@@ -78,6 +80,8 @@ Route::get('/', function () {
     )
         ->selectRaw('COALESCE(SUM(detail_transaksis.jumlah), 0) as total_terjual')
         ->leftJoin('detail_transaksis', 'produks.id_produk', '=', 'detail_transaksis.id_produk')
+        // Storefront berbasis qty: hanya produk satuan yang bisa dipesan/dibeli online.
+        ->where('produks.tipe_jual', 'satuan')
         ->groupBy('produks.id_produk', 'produks.nama', 'produks.harga_jual', 'produks.stok', 'produks.foto')
         ->orderByDesc('total_terjual')
         ->take(5)
@@ -93,6 +97,7 @@ Route::get('/', function () {
         ]);
 
     $allProducts = Produk::with('kategori')
+        ->where('tipe_jual', 'satuan')
         ->orderBy('nama')
         ->get()
         ->map(fn (Produk $p) => [
@@ -113,6 +118,11 @@ Route::get('/', function () {
         'allProducts' => $allProducts,
     ]);
 })->name('home');
+
+// Pesanan online dari storefront (publik). Throttle untuk cegah penyalahgunaan.
+Route::post('pesan', [PesananPublikController::class, 'store'])
+    ->middleware('throttle:15,1')
+    ->name('pesan.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
@@ -193,6 +203,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('kasir/transaksi', [KasirController::class, 'store'])->name('kasir.transaksi.store');
         Route::get('kasir/riwayat', [KasirController::class, 'riwayat'])->name('kasir.riwayat');
         Route::get('kasir/riwayat/cetak', [KasirController::class, 'riwayatCetak'])->name('kasir.riwayat.cetak');
+
+        // Pesanan online (pending) — proses pembayaran saat pelanggan ambil barang.
+        Route::get('kasir/pesanan', [KasirPesananController::class, 'index'])->name('kasir.pesanan');
+        Route::post('kasir/pesanan/{pesanan}/siap', [KasirPesananController::class, 'siap'])->name('kasir.pesanan.siap');
+        Route::post('kasir/pesanan/{pesanan}/proses', [KasirPesananController::class, 'proses'])->name('kasir.pesanan.proses');
+        Route::post('kasir/pesanan/{pesanan}/batal', [KasirPesananController::class, 'batal'])->name('kasir.pesanan.batal');
     });
 });
 

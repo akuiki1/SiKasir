@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { History, LayoutGrid, ShoppingCart } from 'lucide-vue-next';
+import { ClipboardList, History, LayoutGrid, ShoppingCart } from 'lucide-vue-next';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
 import type { NavItem } from '@/types';
@@ -8,6 +8,7 @@ import type { NavItem } from '@/types';
 const items: NavItem[] = [
     { title: 'Dashboard', href: '/kasir/dashboard', icon: LayoutGrid },
     { title: 'Transaksi', href: '/kasir/transaksi', icon: ShoppingCart },
+    { title: 'Pesanan', href: '/kasir/pesanan', icon: ClipboardList },
     { title: 'Riwayat', href: '/kasir/riwayat', icon: History },
 ];
 

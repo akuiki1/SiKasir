@@ -26,6 +26,10 @@ import {
     ChevronDown,
     MapPin,
     Instagram,
+    Loader2,
+    ArrowLeft,
+    User,
+    Phone,
 } from 'lucide-vue-next';
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import type { DirectiveBinding } from 'vue';
@@ -330,6 +334,14 @@ watch([searchQuery, activeCategory, sortBy], () => {
     catalogLimit.value = 8;
 });
 
+// Tutup keranjang → kembalikan ke langkah keranjang & bersihkan error form.
+watch(isCartOpen, (open) => {
+    if (!open) {
+        checkoutStep.value = 'cart';
+        orderError.value = null;
+    }
+});
+
 const resetKatalog = () => {
     searchQuery.value = '';
     activeCategory.value = 'Semua';
@@ -405,27 +417,105 @@ const mapsLinkUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURI
     'Cemilan Mba Tutut ' + ALAMAT,
 )}`;
 
-// Checkout via WhatsApp
-const checkoutViaWhatsApp = () => {
+// ===== Checkout → buat pesanan pending (tersimpan di sistem) =====
+// Langkah keranjang → form data pemesan. Saat dikirim, pesanan langsung
+// tersimpan sebagai "pending" + stok di-reserve, lalu WhatsApp ke toko terbuka
+// berisi kode pesanan (pelanggan tinggal kirim, tanpa edit).
+const checkoutStep = ref<'cart' | 'form'>('cart');
+const orderName = ref('');
+const orderPhone = ref('');
+const orderNote = ref('');
+const orderError = ref<string | null>(null);
+const placingOrder = ref(false);
+
+// Token CSRF untuk fetch ke endpoint web (Laravel set cookie XSRF-TOKEN).
+const getCsrfToken = (): string => {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+
+    return match ? decodeURIComponent(match[1]) : '';
+};
+
+const placeOrder = () => {
     if (cart.value.length === 0) {
         return;
     }
 
-    const lines = cart.value.map(
-        (item, index) =>
-            `${index + 1}. ${item.nama}\n   ${item.quantity} x ${formatPrice(item.harga_jual)} = ${formatPrice(item.harga_jual * item.quantity)}`,
-    );
+    const nama = orderName.value.trim();
+    const telp = orderPhone.value.trim();
 
-    const message =
-        `Halo Cemilan Mba Tutut! 👋\nSaya ingin memesan cemilan berikut:\n\n` +
-        `${lines.join('\n')}\n\n` +
-        `*Total Pesanan: ${formatPrice(cartTotal.value)}*\n\n` +
-        `Mohon info ketersediaan dan ongkos kirimnya ya. Terima kasih! 🙏`;
+    if (!nama) {
+        orderError.value = 'Nama wajib diisi ya.';
 
-    window.open(
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
-        '_blank',
-    );
+        return;
+    }
+
+    if (!/^[0-9+\-\s()]{6,}$/.test(telp)) {
+        orderError.value = 'Nomor WhatsApp belum benar.';
+
+        return;
+    }
+
+    orderError.value = null;
+    placingOrder.value = true;
+
+    // Buka tab WhatsApp kosong SECARA SINKRON dulu agar tidak diblokir popup
+    // blocker; lokasinya diisi setelah pesanan tersimpan.
+    const waTab = window.open('', '_blank');
+
+    fetch('/pesan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-XSRF-TOKEN': getCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({
+            nama,
+            telp,
+            catatan: orderNote.value.trim() || null,
+            items: cart.value.map((item) => ({
+                id_produk: item.id_produk,
+                jumlah: item.quantity,
+            })),
+        }),
+    })
+        .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                throw new Error(
+                    data.message || 'Gagal membuat pesanan. Coba lagi ya.',
+                );
+            }
+
+            return data as { kode: string; total: number; wa_url: string };
+        })
+        .then((data) => {
+            if (waTab) {
+                waTab.location.href = data.wa_url;
+            } else {
+                window.open(data.wa_url, '_blank');
+            }
+
+            clearCart();
+            orderName.value = '';
+            orderPhone.value = '';
+            orderNote.value = '';
+            checkoutStep.value = 'cart';
+            isCartOpen.value = false;
+            showToast(
+                `Pesanan ${data.kode} berhasil dibuat! Lanjutkan di WhatsApp ya.`,
+            );
+        })
+        .catch((err: Error) => {
+            waTab?.close();
+            orderError.value = err.message;
+            showToast(err.message);
+        })
+        .finally(() => {
+            placingOrder.value = false;
+        });
 };
 
 const formatPrice = formatRupiah;
@@ -1711,26 +1801,103 @@ const promoCountdown = (berakhirPada: string): string | null => {
                             >{{ formatPrice(cartTotal) }}</span
                         >
                     </div>
-                    <button
-                        @click="checkoutViaWhatsApp"
-                        class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3.5 text-base font-bold text-white transition-transform hover:scale-[1.01] active:scale-[0.98]"
+
+                    <!-- Langkah 1: ringkasan keranjang -->
+                    <template v-if="checkoutStep === 'cart'">
+                        <button
+                            @click="checkoutStep = 'form'"
+                            class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3.5 text-base font-bold text-white transition-transform hover:scale-[1.01] active:scale-[0.98]"
+                        >
+                            <ShoppingCart class="h-5 w-5" /> Lanjut ke Pemesanan
+                        </button>
+                        <div class="flex items-center justify-between gap-3">
+                            <button
+                                @click="isCartOpen = false"
+                                class="flex-1 cursor-pointer rounded-full bg-[var(--kg-sc)] px-4 py-2.5 text-xs font-semibold transition-colors hover:bg-[var(--kg-sc-high)]"
+                            >
+                                Lanjut belanja
+                            </button>
+                            <button
+                                @click="clearCart"
+                                class="flex-1 cursor-pointer rounded-full px-4 py-2.5 text-xs font-semibold text-[var(--kg-sec)] transition-colors hover:text-red-500"
+                            >
+                                Kosongkan
+                            </button>
+                        </div>
+                    </template>
+
+                    <!-- Langkah 2: data pemesan → buat pesanan pending -->
+                    <form
+                        v-else
+                        @submit.prevent="placeOrder"
+                        class="space-y-2.5"
                     >
-                        <MessageCircle class="h-5 w-5" /> Checkout via WhatsApp
-                    </button>
-                    <div class="flex items-center justify-between gap-3">
-                        <button
-                            @click="isCartOpen = false"
-                            class="flex-1 cursor-pointer rounded-full bg-[var(--kg-sc)] px-4 py-2.5 text-xs font-semibold transition-colors hover:bg-[var(--kg-sc-high)]"
+                        <p class="text-xs text-[var(--kg-sec)]">
+                            Lengkapi data agar pesanan tersimpan & kami ingatkan
+                            via WhatsApp saat siap diambil.
+                        </p>
+                        <div class="relative">
+                            <User
+                                class="pointer-events-none absolute top-1/2 left-3.5 h-4.5 w-4.5 -translate-y-1/2 text-[var(--kg-sec)]"
+                            />
+                            <input
+                                v-model="orderName"
+                                type="text"
+                                autocomplete="name"
+                                placeholder="Nama kamu*"
+                                class="w-full rounded-2xl border-none bg-[var(--kg-surface)] py-3 pr-4 pl-11 text-sm shadow-sm outline-none ring-1 ring-black/5 transition focus:ring-2 focus:ring-[var(--kg-signal)] dark:ring-white/10"
+                            />
+                        </div>
+                        <div class="relative">
+                            <Phone
+                                class="pointer-events-none absolute top-1/2 left-3.5 h-4.5 w-4.5 -translate-y-1/2 text-[var(--kg-sec)]"
+                            />
+                            <input
+                                v-model="orderPhone"
+                                type="tel"
+                                inputmode="tel"
+                                autocomplete="tel"
+                                placeholder="Nomor WhatsApp* (08…)"
+                                class="w-full rounded-2xl border-none bg-[var(--kg-surface)] py-3 pr-4 pl-11 text-sm shadow-sm outline-none ring-1 ring-black/5 transition focus:ring-2 focus:ring-[var(--kg-signal)] dark:ring-white/10"
+                            />
+                        </div>
+                        <textarea
+                            v-model="orderNote"
+                            rows="2"
+                            placeholder="Catatan untuk penjual (opsional)"
+                            class="w-full resize-none rounded-2xl border-none bg-[var(--kg-surface)] px-4 py-3 text-sm shadow-sm outline-none ring-1 ring-black/5 transition focus:ring-2 focus:ring-[var(--kg-signal)] dark:ring-white/10"
+                        ></textarea>
+                        <p
+                            v-if="orderError"
+                            class="text-xs font-semibold text-red-500"
                         >
-                            Lanjut belanja
+                            {{ orderError }}
+                        </p>
+                        <button
+                            type="submit"
+                            :disabled="placingOrder"
+                            class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3.5 text-base font-bold text-white transition-transform hover:scale-[1.01] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <Loader2
+                                v-if="placingOrder"
+                                class="h-5 w-5 animate-spin"
+                            />
+                            <MessageCircle v-else class="h-5 w-5" />
+                            {{
+                                placingOrder
+                                    ? 'Menyimpan pesanan…'
+                                    : 'Buat Pesanan & Kirim WA'
+                            }}
                         </button>
                         <button
-                            @click="clearCart"
-                            class="flex-1 cursor-pointer rounded-full px-4 py-2.5 text-xs font-semibold text-[var(--kg-sec)] transition-colors hover:text-red-500"
+                            type="button"
+                            :disabled="placingOrder"
+                            @click="checkoutStep = 'cart'"
+                            class="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-on)] disabled:opacity-60"
                         >
-                            Kosongkan
+                            <ArrowLeft class="h-4 w-4" /> Kembali ke keranjang
                         </button>
-                    </div>
+                    </form>
                 </div>
             </aside>
         </transition>

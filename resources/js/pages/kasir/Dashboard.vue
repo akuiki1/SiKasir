@@ -21,6 +21,7 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    ClipboardList,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { transaksi as transaksiRoute, riwayat as riwayatRoute } from '@/routes/kasir';
@@ -102,6 +103,7 @@ const props = defineProps<{
     low_stock_count: number;
     active_promos: PromoItem[];
     best_sellers: BestSeller[];
+    pending_pesanan_count: number;
     target: {
         harian: number;
         tercapai: number;
@@ -315,6 +317,24 @@ function applyRange(): void {
                 <div class="min-w-0">
                     <h3 class="font-bold">Transaksi Baru</h3>
                     <p class="truncate text-xs text-emerald-50/90">Buka keranjang penjualan</p>
+                </div>
+            </Link>
+            <Link
+                href="/kasir/pesanan"
+                class="relative flex flex-col items-start gap-2 rounded-2xl border border-sidebar-border/70 bg-card p-4 text-left transition-all hover:bg-slate-50 active:scale-[0.98] md:flex-row md:items-center md:gap-4 md:p-5 dark:border-sidebar-border dark:hover:bg-zinc-800/50"
+            >
+                <div class="relative shrink-0 rounded-xl bg-indigo-100 p-2.5 text-indigo-600 md:rounded-full md:p-3 dark:bg-indigo-500/15 dark:text-indigo-400">
+                    <ClipboardList class="h-5 w-5 md:h-6 md:w-6" />
+                    <span
+                        v-if="pending_pesanan_count > 0"
+                        class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-extrabold text-white"
+                    >{{ pending_pesanan_count }}</span>
+                </div>
+                <div class="min-w-0">
+                    <h3 class="text-sm font-bold md:text-base">Pesanan Online</h3>
+                    <p class="hidden text-xs text-muted-foreground sm:block">
+                        {{ pending_pesanan_count > 0 ? `${pending_pesanan_count} pesanan menunggu` : 'Pesanan dari web' }}
+                    </p>
                 </div>
             </Link>
             <Link
