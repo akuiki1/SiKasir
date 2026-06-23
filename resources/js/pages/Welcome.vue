@@ -35,48 +35,12 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import type { DirectiveBinding } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { useAppearance } from '@/composables/useAppearance';
+import { useCart } from '@/composables/useCart';
+import { useCatalog } from '@/composables/useCatalog';
+import { useToast } from '@/composables/useToast';
 import { formatRupiah } from '@/lib/format';
 import { dashboard, login } from '@/routes';
-
-interface Promo {
-    nama: string;
-    label: string;
-    tipe: 'persen' | 'nominal';
-    nilai: number;
-    harga_promo: number | null;
-    sisa_hari: number;
-    tanggal_selesai: string;
-    berakhir_pada: string;
-}
-
-interface BestSeller {
-    id_produk: number;
-    nama: string;
-    harga_jual: number;
-    stok: number;
-    foto_url: string | null;
-    total_terjual: number;
-    promo: Promo | null;
-}
-
-interface Product {
-    id_produk: number;
-    nama: string;
-    kategori: string | null;
-    harga_jual: number;
-    stok: number;
-    foto_url: string | null;
-    promo: Promo | null;
-}
-
-interface CartItem {
-    id_produk: number;
-    nama: string;
-    harga_jual: number;
-    foto_url: string | null;
-    stok: number;
-    quantity: number;
-}
+import type { BestSeller, Product } from '@/types/storefront';
 
 const props = defineProps<{
     bestSellers: BestSeller[];
@@ -110,229 +74,34 @@ const getGeneralWhatsAppLink = () => {
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
 };
 
-// ===== Shopping Cart State & Logic =====
-const cart = ref<CartItem[]>([]);
-const isCartOpen = ref(false);
+// ===== Toast, Keranjang & Katalog — logika dipindah ke composables =====
+const { toastMessage, showToast } = useToast();
 
-const cartItemCount = computed(() =>
-    cart.value.reduce((sum, item) => sum + item.quantity, 0),
-);
+const {
+    cart,
+    isCartOpen,
+    cartItemCount,
+    cartTotal,
+    addToCart,
+    increaseQty,
+    decreaseQty,
+    setCartQuantity,
+    normalizeCartQuantity,
+    removeFromCart,
+    clearCart,
+} = useCart(showToast);
 
-const cartTotal = computed(() =>
-    cart.value.reduce((sum, item) => sum + item.harga_jual * item.quantity, 0),
-);
-
-// Menerima Product (katalog) maupun BestSeller (produk favorit) —
-// keduanya berbagi field minimal yang dibutuhkan keranjang.
-type AddableProduct = Pick<
-    CartItem,
-    'id_produk' | 'nama' | 'harga_jual' | 'foto_url' | 'stok'
->;
-
-const addToCart = (product: AddableProduct) => {
-    if (product.stok <= 0) {
-        showToast(`Stok ${product.nama} habis`);
-
-        return;
-    }
-
-    const existing = cart.value.find(
-        (item) => item.id_produk === product.id_produk,
-    );
-
-    if (existing) {
-        if (existing.quantity >= existing.stok) {
-            showToast(`Stok ${product.nama} cuma ${existing.stok}`);
-
-            return;
-        }
-
-        existing.quantity += 1;
-    } else {
-        cart.value.push({
-            id_produk: product.id_produk,
-            nama: product.nama,
-            harga_jual: product.harga_jual,
-            foto_url: product.foto_url,
-            stok: product.stok,
-            quantity: 1,
-        });
-    }
-
-    showToast(`${product.nama} ditambahkan ke keranjang`);
-};
-
-const increaseQty = (id: number) => {
-    const item = cart.value.find((i) => i.id_produk === id);
-
-    if (item) {
-        if (item.quantity >= item.stok) {
-            showToast(`Stok ${item.nama} cuma ${item.stok}`);
-
-            return;
-        }
-
-        item.quantity += 1;
-    }
-};
-
-const decreaseQty = (id: number) => {
-    const item = cart.value.find((i) => i.id_produk === id);
-
-    if (item) {
-        item.quantity -= 1;
-
-        if (item.quantity <= 0) {
-            removeFromCart(id);
-        }
-    }
-};
-
-const setCartQuantity = (item: CartItem, event: Event) => {
-    const el = event.target as HTMLInputElement;
-    const digits = el.value.replace(/\D/g, '');
-
-    if (digits === '') {
-        el.value = '';
-
-        return;
-    }
-
-    let next = parseInt(digits, 10);
-
-    if (next < 1) {
-        next = 1;
-    }
-
-    if (next > item.stok) {
-        next = item.stok;
-
-        if (item.quantity !== item.stok) {
-            showToast(`Stok ${item.nama} cuma ${item.stok}`);
-        }
-    }
-
-    item.quantity = next;
-    el.value = String(next);
-};
-
-const normalizeCartQuantity = (item: CartItem, event: Event) => {
-    const el = event.target as HTMLInputElement;
-    let next = parseInt(el.value.replace(/\D/g, ''), 10);
-
-    if (!Number.isFinite(next) || next < 1) {
-        next = 1;
-    }
-
-    if (next > item.stok) {
-        next = item.stok;
-    }
-
-    item.quantity = next;
-    el.value = String(next);
-};
-
-const removeFromCart = (id: number) => {
-    cart.value = cart.value.filter((i) => i.id_produk !== id);
-};
-
-const clearCart = () => {
-    cart.value = [];
-};
-
-// ===== Toast Notification =====
-const toastMessage = ref<string | null>(null);
-let toastTimer: ReturnType<typeof setTimeout> | null = null;
-
-const showToast = (message: string) => {
-    toastMessage.value = message;
-
-    if (toastTimer) {
-        clearTimeout(toastTimer);
-    }
-
-    toastTimer = setTimeout(() => {
-        toastMessage.value = null;
-    }, 2200);
-};
-
-// ===== Katalog: pencarian, filter kategori, & sorting =====
-const searchQuery = ref('');
-const activeCategory = ref('Semua');
-const sortBy = ref<'rekomendasi' | 'termurah' | 'termahal' | 'nama'>(
-    'rekomendasi',
-);
-
-const sortOptions = [
-    { value: 'rekomendasi', label: 'Rekomendasi' },
-    { value: 'termurah', label: 'Harga termurah' },
-    { value: 'termahal', label: 'Harga termahal' },
-    { value: 'nama', label: 'Nama A–Z' },
-] as const;
-
-const categories = computed(() => {
-    const unik = Array.from(
-        new Set(
-            props.allProducts
-                .map((p) => p.kategori)
-                .filter((k): k is string => !!k),
-        ),
-    ).sort((a, b) => a.localeCompare(b, 'id-ID'));
-
-    return ['Semua', ...unik];
-});
-
-const effectivePrice = (product: Product | BestSeller): number =>
-    product.promo?.harga_promo ?? product.harga_jual;
-
-const filteredProducts = computed(() => {
-    const query = searchQuery.value.trim().toLowerCase();
-
-    let result = props.allProducts.filter((product) => {
-        const cocokKategori =
-            activeCategory.value === 'Semua' ||
-            product.kategori === activeCategory.value;
-
-        if (!cocokKategori) {
-            return false;
-        }
-
-        if (!query) {
-            return true;
-        }
-
-        const haystack =
-            `${product.nama} ${product.kategori ?? ''}`.toLowerCase();
-
-        return haystack.includes(query);
-    });
-
-    if (sortBy.value === 'termurah') {
-        result = [...result].sort(
-            (a, b) => effectivePrice(a) - effectivePrice(b),
-        );
-    } else if (sortBy.value === 'termahal') {
-        result = [...result].sort(
-            (a, b) => effectivePrice(b) - effectivePrice(a),
-        );
-    } else if (sortBy.value === 'nama') {
-        result = [...result].sort((a, b) =>
-            a.nama.localeCompare(b.nama, 'id-ID'),
-        );
-    }
-
-    return result;
-});
-
-// "Muat lebih banyak" — tampilkan bertahap.
-const catalogLimit = ref(8);
-const visibleProducts = computed(() =>
-    filteredProducts.value.slice(0, catalogLimit.value),
-);
-
-watch([searchQuery, activeCategory, sortBy], () => {
-    catalogLimit.value = 8;
-});
+const {
+    searchQuery,
+    activeCategory,
+    sortBy,
+    sortOptions,
+    categories,
+    filteredProducts,
+    catalogLimit,
+    visibleProducts,
+    resetKatalog,
+} = useCatalog(() => props.allProducts);
 
 // Tutup keranjang → kembalikan ke langkah keranjang & bersihkan error form.
 watch(isCartOpen, (open) => {
@@ -341,12 +110,6 @@ watch(isCartOpen, (open) => {
         orderError.value = null;
     }
 });
-
-const resetKatalog = () => {
-    searchQuery.value = '';
-    activeCategory.value = 'Semua';
-    sortBy.value = 'rekomendasi';
-};
 
 // ===== Status stok =====
 const LOW_STOCK_THRESHOLD = 5;
