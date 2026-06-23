@@ -22,6 +22,8 @@ import {
     Zap,
     Users,
     Loader2,
+    ClipboardList,
+    Phone,
 } from 'lucide-vue-next';
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { toast } from 'vue-sonner';
@@ -144,6 +146,51 @@ const form = useForm({
     id_promo: null as number | null,
     items: [] as Array<{ id_produk: number; jumlah: number; nominal?: number; fee?: number }>,
 });
+
+// Mode keranjang: 'proses' = langsung jadi transaksi (default), 'pesanan' = simpan
+// sebagai pesanan pending (reserve stok) untuk pelanggan walk-in yang belum bayar.
+const cartMode = ref<'proses' | 'pesanan'>('proses');
+const orderNama = ref('');
+const orderTelp = ref('');
+const orderCatatan = ref('');
+
+// Pesanan hanya mendukung produk satuan (curah/jasa tidak bisa di-reserve).
+const allSatuan = computed(
+    () => cartItems.value.length > 0 && cartItems.value.every((item) => item.tipe_jual === 'satuan'),
+);
+const pesananReady = computed(
+    () =>
+        allSatuan.value &&
+        orderNama.value.trim() !== '' &&
+        /^[0-9+\-\s()]{6,}$/.test(orderTelp.value.trim()),
+);
+
+function setPesananMode(): void {
+    if (!allSatuan.value) {
+        toast.warning('Pesanan hanya untuk produk satuan', {
+            description: 'Keluarkan produk curah/jasa dari keranjang untuk menyimpan sebagai pesanan.',
+        });
+
+        return;
+    }
+
+    cartMode.value = 'pesanan';
+}
+
+// Kembali ke mode proses bila keranjang berisi produk non-satuan.
+watch(allSatuan, (ok) => {
+    if (!ok && cartMode.value === 'pesanan') {
+        cartMode.value = 'proses';
+    }
+});
+
+// Estimasi total pesanan = harga dasar (umum) tanpa promo. Backend memfinalkan
+// (mis. harga reseller bila nomor WA cocok) — bisa lebih murah dari estimasi ini.
+const pesananEstimasi = computed(() =>
+    cartItems.value
+        .filter((item) => item.tipe_jual === 'satuan')
+        .reduce((sum, item) => sum + item.harga_base * Math.max(1, Math.round(item.qty)), 0),
+);
 
 // Penanda baris keranjang yang unik (produk dedup by id_produk, jasa selalu baris baru).
 let cartUidSeq = 0;
@@ -844,6 +891,43 @@ function submitTransaction() {
         return;
     }
 
+    // --- Mode simpan sebagai pesanan pending ---
+    if (cartMode.value === 'pesanan') {
+        if (!pesananReady.value) {
+            cartOpen.value = true;
+            toast.warning('Lengkapi data pesanan', {
+                description: 'Isi nama & nomor WhatsApp pemesan terlebih dahulu.',
+            });
+
+            return;
+        }
+
+        const pesananItems = cartItems.value
+            .filter((item) => item.tipe_jual === 'satuan')
+            .map((item) => ({ id_produk: item.id_produk, jumlah: Math.max(1, Math.round(item.qty)) }));
+
+        form.transform(() => ({
+            mode: 'pesanan',
+            nama_pelanggan: orderNama.value.trim(),
+            telp: orderTelp.value.trim(),
+            catatan: orderCatatan.value.trim() || null,
+            items: pesananItems,
+        })).post(kasirTransaksiStore().url, {
+            preserveScroll: true,
+            onSuccess: () => {
+                cartItems.value = [];
+                orderNama.value = '';
+                orderTelp.value = '';
+                orderCatatan.value = '';
+                cartMode.value = 'proses';
+                cartOpen.value = false;
+            },
+        });
+
+        return;
+    }
+
+    // --- Mode proses langsung (transaksi) ---
     if (hasInvalidItems.value) {
         cartOpen.value = true;
 
@@ -867,7 +951,8 @@ function submitTransaction() {
         return { id_produk: item.id_produk, jumlah: item.qty };
     });
 
-    form.post(kasirTransaksiStore().url, {
+    // Reset transform (identitas) agar tidak terbawa payload mode pesanan sebelumnya.
+    form.transform((data) => data).post(kasirTransaksiStore().url, {
         preserveScroll: true,
         onSuccess: () => {
             cartItems.value = [];
@@ -1470,26 +1555,62 @@ function submitTransaction() {
                     </div>
 
                     <div class="space-y-3 p-4">
+                        <!-- Mode keranjang: proses langsung vs simpan pesanan -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                :class="[
+                                    'flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition',
+                                    cartMode === 'proses'
+                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                        : 'border-sidebar-border/70 bg-background text-muted-foreground hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800',
+                                ]"
+                                @click="cartMode = 'proses'"
+                            >
+                                <Banknote class="h-4 w-4" /> Proses Sekarang
+                            </button>
+                            <button
+                                type="button"
+                                :disabled="!allSatuan"
+                                :class="[
+                                    'flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40',
+                                    cartMode === 'pesanan'
+                                        ? 'border-amber-500 bg-amber-500 text-white shadow-sm'
+                                        : 'border-sidebar-border/70 bg-background text-muted-foreground hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800',
+                                ]"
+                                @click="setPesananMode()"
+                            >
+                                <ClipboardList class="h-4 w-4" /> Simpan Pesanan
+                            </button>
+                        </div>
+                        <p v-if="!allSatuan && cartItems.length" class="-mt-1 text-[11px] text-muted-foreground">
+                            Simpan pesanan hanya untuk produk satuan.
+                        </p>
+
                         <!-- Rincian + Total (hero) -->
                         <div class="space-y-1.5">
-                            <div class="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>Subtotal</span>
-                                <span class="tabular-nums">{{ formatRupiah(totalHarga) }}</span>
-                            </div>
-                            <div v-if="totalDiscount > 0" class="flex items-center justify-between text-xs">
-                                <span class="text-muted-foreground">Diskon</span>
-                                <span class="font-medium text-emerald-600 tabular-nums dark:text-emerald-400">-{{ formatRupiah(totalDiscount) }}</span>
-                            </div>
-                            <div v-if="totalNominalJasa > 0" class="flex items-center justify-between text-xs">
-                                <span class="text-muted-foreground">Titipan layanan (bukan omzet)</span>
-                                <span class="tabular-nums">+{{ formatRupiah(totalNominalJasa) }}</span>
-                            </div>
+                            <template v-if="cartMode === 'proses'">
+                                <div class="flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>Subtotal</span>
+                                    <span class="tabular-nums">{{ formatRupiah(totalHarga) }}</span>
+                                </div>
+                                <div v-if="totalDiscount > 0" class="flex items-center justify-between text-xs">
+                                    <span class="text-muted-foreground">Diskon</span>
+                                    <span class="font-medium text-emerald-600 tabular-nums dark:text-emerald-400">-{{ formatRupiah(totalDiscount) }}</span>
+                                </div>
+                                <div v-if="totalNominalJasa > 0" class="flex items-center justify-between text-xs">
+                                    <span class="text-muted-foreground">Titipan layanan (bukan omzet)</span>
+                                    <span class="tabular-nums">+{{ formatRupiah(totalNominalJasa) }}</span>
+                                </div>
+                            </template>
                             <div class="flex items-baseline justify-between border-t border-sidebar-border/70 pt-2 dark:border-sidebar-border">
-                                <span class="text-sm font-bold">{{ totalNominalJasa > 0 ? 'Total Bayar' : 'Total' }}</span>
-                                <span class="text-2xl font-extrabold text-indigo-600 tabular-nums dark:text-indigo-400">{{ formatRupiah(totalTagihan) }}</span>
+                                <span class="text-sm font-bold">{{ cartMode === 'pesanan' ? 'Estimasi total' : totalNominalJasa > 0 ? 'Total Bayar' : 'Total' }}</span>
+                                <span class="text-2xl font-extrabold text-indigo-600 tabular-nums dark:text-indigo-400">{{ formatRupiah(cartMode === 'pesanan' ? pesananEstimasi : totalTagihan) }}</span>
                             </div>
                         </div>
 
+                        <!-- Pembayaran (hanya mode proses langsung) -->
+                        <template v-if="cartMode === 'proses'">
                         <!-- Metode pembayaran -->
                         <div>
                             <label class="mb-1.5 block text-[11px] font-semibold text-muted-foreground">Metode pembayaran</label>
@@ -1564,18 +1685,63 @@ function submitTransaction() {
                         <p v-if="hasInvalidItems" class="text-center text-xs font-medium text-amber-600 dark:text-amber-400">
                             Lengkapi nominal produk curah & nominal/fee layanan, pastikan tidak melebihi stok.
                         </p>
+                        </template>
+
+                        <!-- Data pemesan (mode simpan pesanan) -->
+                        <template v-else>
+                            <div>
+                                <label class="mb-1 block text-[11px] font-semibold text-muted-foreground">Nama pemesan</label>
+                                <div class="relative">
+                                    <Users class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <input
+                                        v-model="orderNama"
+                                        type="text"
+                                        placeholder="Nama pelanggan"
+                                        class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2.5 pl-9 pr-3 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-[11px] font-semibold text-muted-foreground">Nomor WhatsApp</label>
+                                <div class="relative">
+                                    <Phone class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <input
+                                        v-model="orderTelp"
+                                        type="tel"
+                                        inputmode="tel"
+                                        placeholder="08…"
+                                        class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2.5 pl-9 pr-3 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-[11px] font-semibold text-muted-foreground">Catatan (opsional)</label>
+                                <input
+                                    v-model="orderCatatan"
+                                    type="text"
+                                    placeholder="Catatan pesanan"
+                                    class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3 py-2.5 text-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                                />
+                            </div>
+                            <p class="rounded-lg bg-amber-500/5 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400">
+                                Pesanan disimpan sebagai pending & stok di-reserve. Bayar nanti saat pelanggan ambil barang.
+                            </p>
+                        </template>
 
                         <button
                             type="button"
-                            class="flex w-full items-center justify-between gap-2 rounded-2xl bg-indigo-600 px-5 py-3.5 text-white shadow-md transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                            :disabled="cartItems.length === 0 || form.processing || hasInvalidItems"
+                            class="flex w-full items-center justify-between gap-2 rounded-2xl px-5 py-3.5 text-white shadow-md transition disabled:cursor-not-allowed disabled:opacity-50"
+                            :class="cartMode === 'pesanan' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-indigo-600 hover:bg-indigo-500'"
+                            :disabled="cartItems.length === 0 || form.processing || (cartMode === 'proses' ? hasInvalidItems : !pesananReady)"
                             @click="submitTransaction"
                         >
                             <span class="flex items-center gap-2 text-sm font-bold">
-                                <ArrowRight v-if="!form.processing" class="h-4 w-4" />
-                                {{ form.processing ? 'Memproses...' : 'Bayar Sekarang' }}
+                                <Loader2 v-if="form.processing" class="h-4 w-4 animate-spin" />
+                                <ClipboardList v-else-if="cartMode === 'pesanan'" class="h-4 w-4" />
+                                <ArrowRight v-else class="h-4 w-4" />
+                                {{ form.processing ? 'Memproses...' : cartMode === 'pesanan' ? 'Simpan sebagai Pesanan' : 'Bayar Sekarang' }}
                             </span>
-                            <span v-if="!form.processing" class="text-base font-extrabold tabular-nums">{{ formatRupiah(totalTagihan) }}</span>
+                            <span v-if="!form.processing" class="text-base font-extrabold tabular-nums">{{ formatRupiah(cartMode === 'pesanan' ? pesananEstimasi : totalTagihan) }}</span>
                         </button>
                     </div>
                 </template>

@@ -66,6 +66,11 @@ const mainNavGroups = computed<NavGroup[]>(() => {
                         icon: ShoppingCart,
                     },
                     {
+                        title: 'Pesanan Online',
+                        href: '/admin/pesanan',
+                        icon: ClipboardList,
+                    },
+                    {
                         title: 'Pelanggan',
                         href: '/admin/pelanggan',
                         icon: Contact,

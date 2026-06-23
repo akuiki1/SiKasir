@@ -296,9 +296,9 @@ function deltaTone(delta: number | null): string {
                             <span class="text-slate-400 dark:text-slate-500">Baru hari ini</span>
                         </template>
                         <template v-else>
-                            <ArrowUpRight v-if="card.delta > 0" class="h-3.5 w-3.5" />
-                            <ArrowDownRight v-else-if="card.delta < 0" class="h-3.5 w-3.5" />
-                            <span>{{ Math.abs(card.delta) }}%</span>
+                            <ArrowUpRight v-if="(card.delta ?? 0) > 0" class="h-3.5 w-3.5" />
+                            <ArrowDownRight v-else-if="(card.delta ?? 0) < 0" class="h-3.5 w-3.5" />
+                            <span>{{ Math.abs(card.delta ?? 0) }}%</span>
                             <span class="text-slate-400 dark:text-slate-500">vs kemarin</span>
                         </template>
                     </div>

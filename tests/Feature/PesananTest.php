@@ -222,12 +222,145 @@ test('the kasir pesanan page lists active orders', function () {
     buatPesanan();
 
     $this->actingAs($kasir)->get(route('kasir.pesanan'))->assertInertia(
-        fn ($page) => $page->component('kasir/Pesanan')->has('pesanans_aktif', 1)
+        fn ($page) => $page->component('pesanan/Index')->has('pesanans_aktif', 1)->has('produks')
     );
 });
 
 test('a guest cannot access the kasir pesanan page', function () {
     $this->get(route('kasir.pesanan'))->assertRedirect(route('login'));
+});
+
+test('an admin can access the admin pesanan page', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    buatPesanan();
+
+    $this->actingAs($admin)->get(route('admin.pesanan'))->assertInertia(
+        fn ($page) => $page->component('pesanan/Index')
+            ->has('pesanans_aktif', 1)
+            ->where('base_url', '/admin/pesanan')
+    );
+});
+
+test('orders can be searched by customer name', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+
+    $p1 = buatPesanan();
+    $p1->update(['nama_pelanggan' => 'Andi Wijaya']);
+    $p2 = buatPesanan();
+    $p2->update(['nama_pelanggan' => 'Budi Santoso']);
+
+    $this->actingAs($kasir)->get(route('kasir.pesanan', ['search' => 'Andi']))->assertInertia(
+        fn ($page) => $page->component('pesanan/Index')
+            ->has('pesanans_aktif', 1)
+            ->where('pesanans_aktif.0.nama_pelanggan', 'Andi Wijaya')
+    );
+});
+
+test('editing an order reconciles reserved stock per product', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 10, 'tipe_jual' => 'satuan']);
+    $lain = Produk::factory()->create(['harga_jual' => 5000, 'stok' => 8, 'tipe_jual' => 'satuan']);
+
+    // Pesan 2 unit produk → stok 10 → 8.
+    $this->postJson(route('pesan.store'), [
+        'nama' => 'Budi',
+        'telp' => '081298765432',
+        'items' => [['id_produk' => $produk->id_produk, 'jumlah' => 2]],
+    ])->assertOk();
+
+    $pesanan = Pesanan::first();
+    expect((float) $produk->fresh()->stok)->toBe(8.0);
+
+    // Edit: produk jadi 3 unit (delta +1 → stok 7) + tambah produk lain 2 unit (stok 8 → 6).
+    $this->actingAs($kasir)
+        ->from(route('kasir.pesanan'))
+        ->post(route('kasir.pesanan.edit', $pesanan), [
+            'items' => [
+                ['id_produk' => $produk->id_produk, 'jumlah' => 3],
+                ['id_produk' => $lain->id_produk, 'jumlah' => 2],
+            ],
+        ])->assertRedirect(route('kasir.pesanan'));
+
+    expect((float) $produk->fresh()->stok)->toBe(7.0);
+    expect((float) $lain->fresh()->stok)->toBe(6.0);
+
+    $pesanan->refresh();
+    expect($pesanan->total)->toBe(3 * 10000 + 2 * 5000);
+    expect($pesanan->items()->count())->toBe(2);
+});
+
+test('removing all items via edit is rejected', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $pesanan = buatPesanan();
+
+    $this->actingAs($kasir)
+        ->from(route('kasir.pesanan'))
+        ->post(route('kasir.pesanan.edit', $pesanan), ['items' => []])
+        ->assertSessionHasErrors('items');
+});
+
+test('a kasir can save the cart as a pending order instead of processing', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $produk = Produk::factory()->create(['harga_jual' => 12000, 'stok' => 10, 'tipe_jual' => 'satuan']);
+
+    $this->actingAs($kasir)
+        ->from(route('kasir.transaksi'))
+        ->post(route('kasir.transaksi.store'), [
+            'mode' => 'pesanan',
+            'nama_pelanggan' => 'Walk-in Ardi',
+            'telp' => '081211112222',
+            'items' => [['id_produk' => $produk->id_produk, 'jumlah' => 2]],
+        ])->assertRedirect(route('kasir.pesanan'));
+
+    $this->assertDatabaseHas('pesanans', [
+        'nama_pelanggan' => 'Walk-in Ardi',
+        'status' => 'pending',
+        'sumber' => 'kasir',
+        'total' => 24000,
+    ]);
+    // Stok ter-reserve (10 → 8); belum jadi transaksi.
+    expect((float) $produk->fresh()->stok)->toBe(8.0);
+    $this->assertDatabaseCount('transaksis', 0);
+});
+
+test('the public lookup returns orders for a WA number', function () {
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 10, 'tipe_jual' => 'satuan']);
+
+    $this->postJson(route('pesan.store'), [
+        'nama' => 'Citra',
+        'telp' => '081333344455',
+        'items' => [['id_produk' => $produk->id_produk, 'jumlah' => 1]],
+    ])->assertOk();
+
+    $this->postJson(route('pesan.lacak'), ['telp' => '0813-3334-4455'])
+        ->assertOk()
+        ->assertJsonPath('pesanans.0.nama_pelanggan', 'Citra')
+        ->assertJsonPath('pesanans.0.status', 'pending');
+});
+
+test('abandoned orders are auto-expired and stock is returned', function () {
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 10, 'tipe_jual' => 'satuan']);
+
+    $this->postJson(route('pesan.store'), [
+        'nama' => 'Lama',
+        'telp' => '081298765432',
+        'items' => [['id_produk' => $produk->id_produk, 'jumlah' => 3]],
+    ])->assertOk();
+
+    $pesanan = Pesanan::first();
+    expect((float) $produk->fresh()->stok)->toBe(7.0);
+
+    // Majukan umur pesanan melewati 14 hari.
+    $pesanan->forceFill(['created_at' => now()->subDays(15)])->save();
+
+    $this->artisan('pesanan:expire')->assertExitCode(0);
+
+    expect($pesanan->fresh()->status)->toBe('batal');
+    expect((float) $produk->fresh()->stok)->toBe(10.0);
+    $this->assertDatabaseHas('stok_mutasis', [
+        'id_produk' => $produk->id_produk,
+        'tipe' => 'pesanan_batal',
+    ]);
 });
 
 /** Helper: buat satu pesanan pending lengkap dengan item (reserve stok manual). */

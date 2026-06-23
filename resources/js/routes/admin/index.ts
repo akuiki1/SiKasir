@@ -9,6 +9,7 @@ import stok67e4e1 from './stok'
 import produksi22b192 from './produksi'
 import laporan from './laporan'
 import promosFc23d1 from './promos'
+import pesananC38bc3 from './pesanan'
 /**
 * @see \App\Http\Controllers\Admin\DashboardController::dashboard
  * @see app/Http/Controllers/Admin/DashboardController.php:36
@@ -789,6 +790,84 @@ promos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
     
     promos.form = promosForm
+/**
+* @see \App\Http\Controllers\PesananController::pesanan
+ * @see app/Http/Controllers/PesananController.php:29
+ * @route '/admin/pesanan'
+ */
+export const pesanan = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: pesanan.url(options),
+    method: 'get',
+})
+
+pesanan.definition = {
+    methods: ["get","head"],
+    url: '/admin/pesanan',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\PesananController::pesanan
+ * @see app/Http/Controllers/PesananController.php:29
+ * @route '/admin/pesanan'
+ */
+pesanan.url = (options?: RouteQueryOptions) => {
+    return pesanan.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\PesananController::pesanan
+ * @see app/Http/Controllers/PesananController.php:29
+ * @route '/admin/pesanan'
+ */
+pesanan.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: pesanan.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\PesananController::pesanan
+ * @see app/Http/Controllers/PesananController.php:29
+ * @route '/admin/pesanan'
+ */
+pesanan.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: pesanan.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\PesananController::pesanan
+ * @see app/Http/Controllers/PesananController.php:29
+ * @route '/admin/pesanan'
+ */
+    const pesananForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: pesanan.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\PesananController::pesanan
+ * @see app/Http/Controllers/PesananController.php:29
+ * @route '/admin/pesanan'
+ */
+        pesananForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: pesanan.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\PesananController::pesanan
+ * @see app/Http/Controllers/PesananController.php:29
+ * @route '/admin/pesanan'
+ */
+        pesananForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: pesanan.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+    
+    pesanan.form = pesananForm
 const admin = {
     dashboard: Object.assign(dashboard, dashboard),
 users: Object.assign(users, users48860f),
@@ -801,6 +880,7 @@ stok: Object.assign(stok, stok67e4e1),
 produksi: Object.assign(produksi, produksi22b192),
 laporan: Object.assign(laporan, laporan),
 promos: Object.assign(promos, promosFc23d1),
+pesanan: Object.assign(pesanan, pesananC38bc3),
 }
 
 export default admin

@@ -6,6 +6,8 @@ use App\Models\DetailTransaksi;
 use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\Transaksi;
+use App\Services\PesananService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,31 +18,59 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class KasirPesananController extends Controller
+/**
+ * Kelola pesanan online (pending). Dipakai bersama oleh kasir (/kasir/pesanan) &
+ * admin (/admin/pesanan) — komponen Vue sama, hanya base URL aksi yang berbeda.
+ */
+class PesananController extends Controller
 {
-    /** Status yang masih bisa diproses/dibatalkan. */
-    private const STATUS_AKTIF = ['pending', 'disiapkan'];
+    public function __construct(private readonly PesananService $service) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $search = trim((string) $request->query('search', ''));
+        $tanggal = trim((string) $request->query('tanggal', ''));
+        $adaFilter = $search !== '' || $tanggal !== '';
+
         // Pesanan aktif (perlu ditindak), terlama dulu agar antrian adil.
-        $aktif = Pesanan::with(['items', 'pelanggan'])
-            ->whereIn('status', self::STATUS_AKTIF)
+        $aktif = $this->applyFilters(
+            Pesanan::with(['items', 'pelanggan'])->whereIn('status', PesananService::STATUS_AKTIF),
+            $search,
+            $tanggal,
+        )
             ->orderBy('created_at')
             ->get()
             ->map(fn (Pesanan $pesanan) => $this->mapPesanan($pesanan));
 
-        // Riwayat ringkas (selesai/batal terbaru) — untuk kirim ulang struk dll.
-        $riwayat = Pesanan::with(['items', 'transaksi'])
-            ->whereIn('status', ['selesai', 'batal'])
+        // Riwayat ringkas (selesai/batal terbaru). Saat memfilter, perbesar batas.
+        $riwayat = $this->applyFilters(
+            Pesanan::with(['items', 'transaksi'])->whereIn('status', ['selesai', 'batal']),
+            $search,
+            $tanggal,
+        )
             ->latest('updated_at')
-            ->limit(20)
+            ->limit($adaFilter ? 50 : 20)
             ->get()
             ->map(fn (Pesanan $pesanan) => $this->mapPesanan($pesanan));
 
-        return Inertia::render('kasir/Pesanan', [
+        // Katalog produk satuan untuk pemilih "tambah produk" di modal edit.
+        $produks = Produk::where('tipe_jual', 'satuan')
+            ->orderBy('nama')
+            ->get(['id_produk', 'nama', 'harga_jual', 'potongan_reseller', 'stok'])
+            ->map(fn (Produk $p) => [
+                'id_produk' => $p->id_produk,
+                'nama' => $p->nama,
+                'harga_jual' => (int) $p->harga_jual,
+                'potongan_reseller' => (int) $p->potongan_reseller,
+                'stok' => (float) $p->stok,
+            ]);
+
+        return Inertia::render('pesanan/Index', [
             'pesanans_aktif' => $aktif,
             'pesanans_riwayat' => $riwayat,
+            'produks' => $produks,
+            'filters' => ['search' => $search, 'tanggal' => $tanggal],
+            'base_url' => $this->basePath($request),
         ]);
     }
 
@@ -53,12 +83,31 @@ class KasirPesananController extends Controller
             return back();
         }
 
-        $pesanan->update([
-            'status' => 'disiapkan',
-            'disiapkan_at' => now(),
-        ]);
+        $pesanan->update(['status' => 'disiapkan', 'disiapkan_at' => now()]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => "Pesanan {$pesanan->kode} ditandai siap diambil."]);
+
+        return back();
+    }
+
+    /** Ubah isi pesanan (tambah/kurangi/hapus produk) — stok direkonsiliasi otomatis. */
+    public function edit(Request $request, Pesanan $pesanan): RedirectResponse
+    {
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
+            'items.*.jumlah' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $this->service->perbaruiItems($pesanan, $validated['items'], Auth::id());
+        } catch (ValidationException $e) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $e->validator->errors()->first()]);
+
+            return back();
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Pesanan {$pesanan->kode} diperbarui."]);
 
         return back();
     }
@@ -77,18 +126,14 @@ class KasirPesananController extends Controller
         DB::transaction(function () use ($validated, $pesanan): void {
             $pesanan = Pesanan::with('items')->lockForUpdate()->findOrFail($pesanan->id_pesanan);
 
-            if (! in_array($pesanan->status, self::STATUS_AKTIF, true)) {
-                throw ValidationException::withMessages([
-                    'status' => 'Pesanan ini sudah diproses atau dibatalkan.',
-                ]);
+            if (! in_array($pesanan->status, PesananService::STATUS_AKTIF, true)) {
+                throw ValidationException::withMessages(['status' => 'Pesanan ini sudah diproses atau dibatalkan.']);
             }
 
             $total = (int) $pesanan->total;
 
             if ($validated['bayar'] < $total) {
-                throw ValidationException::withMessages([
-                    'bayar' => 'Jumlah bayar kurang dari total pesanan.',
-                ]);
+                throw ValidationException::withMessages(['bayar' => 'Jumlah bayar kurang dari total pesanan.']);
             }
 
             $transaksi = Transaksi::create([
@@ -136,32 +181,11 @@ class KasirPesananController extends Controller
         DB::transaction(function () use ($pesanan): void {
             $pesanan = Pesanan::with('items')->lockForUpdate()->findOrFail($pesanan->id_pesanan);
 
-            if (! in_array($pesanan->status, self::STATUS_AKTIF, true)) {
-                throw ValidationException::withMessages([
-                    'status' => 'Pesanan ini tidak bisa dibatalkan.',
-                ]);
+            if (! in_array($pesanan->status, PesananService::STATUS_AKTIF, true)) {
+                throw ValidationException::withMessages(['status' => 'Pesanan ini tidak bisa dibatalkan.']);
             }
 
-            foreach ($pesanan->items as $item) {
-                $produk = Produk::lockForUpdate()->find($item->id_produk);
-
-                if (! $produk) {
-                    continue;
-                }
-
-                // Kembalikan stok yang di-reserve saat pesanan dibuat.
-                $produk->terapkanMutasiStok(
-                    (float) $item->jumlah,
-                    'pesanan_batal',
-                    [
-                        'keterangan' => 'Batal pesanan '.$pesanan->kode,
-                        'ref_tipe' => 'Pesanan',
-                        'id_referensi' => $pesanan->id_pesanan,
-                        'id_user' => Auth::id(),
-                    ]
-                );
-            }
-
+            $this->service->kembalikanStok($pesanan, Auth::id(), 'Batal pesanan '.$pesanan->kode);
             $pesanan->update(['status' => 'batal']);
         });
 
@@ -170,7 +194,35 @@ class KasirPesananController extends Controller
         return back();
     }
 
-    /** Bentuk payload satu pesanan untuk halaman kasir. */
+    /** Terapkan filter pencarian (nama/telp) & tanggal pembuatan. */
+    private function applyFilters(Builder $query, string $search, string $tanggal): Builder
+    {
+        if ($search !== '') {
+            $digits = preg_replace('/\D/', '', $search);
+
+            $query->where(function (Builder $q) use ($search, $digits) {
+                $q->where('nama_pelanggan', 'like', "%{$search}%");
+
+                // Hanya cocokkan telp bila kata kunci mengandung angka (cegah LIKE '%%').
+                if ($digits !== '') {
+                    $q->orWhere('telp', 'like', "%{$digits}%");
+                }
+            });
+        }
+
+        if ($tanggal !== '') {
+            $query->whereDate('created_at', $tanggal);
+        }
+
+        return $query;
+    }
+
+    private function basePath(Request $request): string
+    {
+        return $request->is('admin/*') ? '/admin/pesanan' : '/kasir/pesanan';
+    }
+
+    /** Bentuk payload satu pesanan untuk halaman kelola pesanan. */
     private function mapPesanan(Pesanan $pesanan): array
     {
         return [
@@ -185,6 +237,7 @@ class KasirPesananController extends Controller
             'sumber' => $pesanan->sumber,
             'waktu' => Carbon::parse($pesanan->created_at)->translatedFormat('d M Y · H:i'),
             'items' => $pesanan->items->map(fn ($item) => [
+                'id_produk' => (int) $item->id_produk,
                 'nama_produk' => $item->nama_produk,
                 'jumlah' => (int) $item->jumlah,
                 'harga' => (int) $item->harga,

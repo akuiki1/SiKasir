@@ -520,6 +520,85 @@ const placeOrder = () => {
 
 const formatPrice = formatRupiah;
 
+// ===== Lacak pesanan (publik, berdasarkan nomor WhatsApp) =====
+interface TrackedItem {
+    nama_produk: string;
+    jumlah: number;
+    subtotal: number;
+}
+interface TrackedOrder {
+    kode: string;
+    status: string;
+    status_label: string;
+    total: number;
+    nama_pelanggan: string;
+    tanggal: string;
+    items: TrackedItem[];
+}
+
+const trackPhone = ref('');
+const trackResults = ref<TrackedOrder[]>([]);
+const trackLoading = ref(false);
+const trackError = ref<string | null>(null);
+const trackSearched = ref(false);
+
+const trackStatusClass = (status: string): string => {
+    switch (status) {
+        case 'selesai':
+            return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300';
+        case 'disiapkan':
+            return 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300';
+        case 'batal':
+            return 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300';
+        default:
+            return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300';
+    }
+};
+
+const lacakPesanan = () => {
+    const telp = trackPhone.value.trim();
+
+    if (!/^[0-9+\-\s()]{6,}$/.test(telp)) {
+        trackError.value = 'Masukkan nomor WhatsApp yang benar.';
+
+        return;
+    }
+
+    trackError.value = null;
+    trackLoading.value = true;
+    trackSearched.value = true;
+
+    fetch('/lacak-pesanan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-XSRF-TOKEN': getCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ telp }),
+    })
+        .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                throw new Error(data.message || 'Gagal melacak pesanan.');
+            }
+
+            return data as { pesanans: TrackedOrder[] };
+        })
+        .then((data) => {
+            trackResults.value = data.pesanans ?? [];
+        })
+        .catch((err: Error) => {
+            trackError.value = err.message;
+            trackResults.value = [];
+        })
+        .finally(() => {
+            trackLoading.value = false;
+        });
+};
+
 const promoSisaText = (sisaHari: number) => {
     if (sisaHari <= 0) {
         return 'Berakhir hari ini';
@@ -681,6 +760,11 @@ const promoCountdown = (berakhirPada: string): string | null => {
                     class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
                     >Lokasi</a
                 >
+                <a
+                    href="#lacak"
+                    class="text-[var(--kg-sec)] transition-colors hover:text-[var(--kg-primary)]"
+                    >Lacak Pesanan</a
+                >
             </nav>
 
             <div class="flex items-center gap-2">
@@ -740,6 +824,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                         { href: '#favorit', label: 'Favorit' },
                         { href: '#katalog', label: 'Katalog' },
                         { href: '#lokasi', label: 'Lokasi' },
+                        { href: '#lacak', label: 'Lacak Pesanan' },
                     ]"
                     :key="link.href"
                     :href="link.href"
@@ -1463,6 +1548,115 @@ const promoCountdown = (berakhirPada: string): string | null => {
                             allowfullscreen
                         ></iframe>
                     </div>
+                </div>
+            </section>
+
+            <!-- ===== LACAK PESANAN ===== -->
+            <section
+                id="lacak"
+                class="mx-auto max-w-[1180px] px-5 pb-16 md:px-8 md:pb-24"
+            >
+                <div
+                    v-reveal
+                    class="reveal rounded-[2rem] bg-[var(--kg-surface)] p-8 shadow-sm ring-1 ring-black/5 md:p-12 dark:ring-white/10"
+                >
+                    <div class="mx-auto max-w-xl text-center">
+                        <span
+                            class="text-xs font-bold tracking-widest text-[var(--kg-primary)] uppercase"
+                            >Lacak Pesanan</span
+                        >
+                        <h2
+                            class="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
+                        >
+                            Cek status pesananmu
+                        </h2>
+                        <p class="mt-2 text-[var(--kg-sec)]">
+                            Masukkan nomor WhatsApp yang kamu pakai saat memesan.
+                        </p>
+                        <form
+                            @submit.prevent="lacakPesanan"
+                            class="mx-auto mt-6 flex max-w-md flex-col gap-3 sm:flex-row"
+                        >
+                            <input
+                                v-model="trackPhone"
+                                type="tel"
+                                inputmode="tel"
+                                autocomplete="tel"
+                                placeholder="Nomor WhatsApp (08…)"
+                                class="w-full rounded-full border-none bg-[var(--kg-bg)] px-5 py-3.5 text-sm shadow-sm outline-none ring-1 ring-black/5 transition focus:ring-2 focus:ring-[var(--kg-signal)] dark:ring-white/10"
+                            />
+                            <button
+                                type="submit"
+                                :disabled="trackLoading"
+                                class="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--kg-signal)] px-6 py-3.5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                            >
+                                <Loader2
+                                    v-if="trackLoading"
+                                    class="h-4.5 w-4.5 animate-spin"
+                                />
+                                <Search v-else class="h-4.5 w-4.5" />
+                                Lacak
+                            </button>
+                        </form>
+                        <p
+                            v-if="trackError"
+                            class="mt-2 text-sm font-semibold text-red-500"
+                        >
+                            {{ trackError }}
+                        </p>
+                    </div>
+
+                    <div
+                        v-if="trackResults.length"
+                        class="mx-auto mt-8 max-w-xl space-y-3"
+                    >
+                        <div
+                            v-for="order in trackResults"
+                            :key="order.kode"
+                            class="rounded-2xl border border-black/5 bg-[var(--kg-bg)] p-4 dark:border-white/10"
+                        >
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-display font-extrabold">{{
+                                    order.kode
+                                }}</span>
+                                <span
+                                    class="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                                    :class="trackStatusClass(order.status)"
+                                    >{{ order.status_label }}</span
+                                >
+                            </div>
+                            <p class="mt-1 text-xs text-[var(--kg-sec)]">
+                                {{ order.tanggal }} · {{ order.nama_pelanggan }}
+                            </p>
+                            <ul class="mt-2 space-y-1 text-sm">
+                                <li
+                                    v-for="(item, i) in order.items"
+                                    :key="i"
+                                    class="flex justify-between gap-2"
+                                >
+                                    <span class="text-[var(--kg-sec)]"
+                                        >{{ item.nama_produk }} ×
+                                        {{ item.jumlah }}</span
+                                    >
+                                    <span>{{ formatPrice(item.subtotal) }}</span>
+                                </li>
+                            </ul>
+                            <div
+                                class="mt-2 flex justify-between border-t border-black/5 pt-2 font-bold dark:border-white/10"
+                            >
+                                <span>Total</span>
+                                <span class="text-[var(--kg-primary)]">{{
+                                    formatPrice(order.total)
+                                }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p
+                        v-else-if="trackSearched && !trackLoading"
+                        class="mt-6 text-center text-sm text-[var(--kg-sec)]"
+                    >
+                        Tidak ada pesanan untuk nomor itu.
+                    </p>
                 </div>
             </section>
         </main>

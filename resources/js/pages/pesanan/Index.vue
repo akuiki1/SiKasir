@@ -17,23 +17,24 @@ import {
     Wallet,
     Tag,
     StickyNote,
+    Search,
+    Pencil,
+    Plus,
+    Minus,
+    Trash2,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import { formatRupiah } from '@/lib/format';
 
 defineOptions({
     layout: {
-        breadcrumbs: [
-            {
-                title: 'Pesanan Online',
-                href: '/kasir/pesanan',
-            },
-        ],
+        breadcrumbs: [{ title: 'Pesanan Online', href: '/kasir/pesanan' }],
     },
 });
 
 interface PesananItem {
+    id_produk: number;
     nama_produk: string;
     jumlah: number;
     harga: number;
@@ -62,53 +63,68 @@ interface Pesanan {
     transaksi: TransaksiRingkas | null;
 }
 
+interface ProdukOpsi {
+    id_produk: number;
+    nama: string;
+    harga_jual: number;
+    potongan_reseller: number;
+    stok: number;
+}
+
 const props = defineProps<{
     pesanans_aktif: Pesanan[];
     pesanans_riwayat: Pesanan[];
+    produks: ProdukOpsi[];
+    filters: { search: string; tanggal: string };
+    base_url: string;
 }>();
 
 const formatPrice = formatRupiah;
+const actionUrl = (id: number, action: string) => `${props.base_url}/${id}/${action}`;
 
-const STATUS_META: Record<
-    Pesanan['status'],
-    { label: string; badge: string }
-> = {
-    pending: {
-        label: 'Menunggu',
-        badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20',
-    },
-    disiapkan: {
-        label: 'Siap diambil',
-        badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 ring-indigo-500/20',
-    },
-    selesai: {
-        label: 'Selesai',
-        badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20',
-    },
-    batal: {
-        label: 'Dibatalkan',
-        badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/20',
-    },
+const STATUS_META: Record<Pesanan['status'], { label: string; badge: string }> = {
+    pending: { label: 'Menunggu', badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20' },
+    disiapkan: { label: 'Siap diambil', badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 ring-indigo-500/20' },
+    selesai: { label: 'Selesai', badge: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20' },
+    batal: { label: 'Dibatalkan', badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/20' },
 };
 
-const metodeLabel: Record<string, string> = {
-    cash: 'Tunai',
-    qris: 'QRIS',
-    transfer: 'Transfer',
-};
+const metodeLabel: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer' };
+
+// ===== Pencarian (server-side, debounce) =====
+const searchQuery = ref(props.filters.search ?? '');
+const tanggal = ref(props.filters.tanggal ?? '');
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+watch([searchQuery, tanggal], () => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
+    }
+
+    searchTimer = setTimeout(() => {
+        router.get(
+            props.base_url,
+            { search: searchQuery.value || undefined, tanggal: tanggal.value || undefined },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    }, 350);
+});
+
+function resetFilter(): void {
+    searchQuery.value = '';
+    tanggal.value = '';
+}
+
+const adaFilter = computed(() => !!(props.filters.search || props.filters.tanggal));
 
 // ===== Pesan WhatsApp (wa.me satu-ketuk ke nomor pelanggan) =====
-// Builder dipisah agar mudah diganti gateway otomatis di kemudian hari.
 function waUrl(telp: string, text: string): string {
     return `https://wa.me/${telp}?text=${encodeURIComponent(text)}`;
 }
 
 function itemLines(pesanan: Pesanan): string {
     return pesanan.items
-        .map(
-            (item, i) =>
-                `${i + 1}. ${item.nama_produk} (${item.jumlah}x) = ${formatPrice(item.subtotal)}`,
-        )
+        .map((item, i) => `${i + 1}. ${item.nama_produk} (${item.jumlah}x) = ${formatPrice(item.subtotal)}`)
         .join('\n');
 }
 
@@ -154,16 +170,12 @@ const busyId = ref<number | null>(null);
 
 function tandaiSiap(pesanan: Pesanan): void {
     busyId.value = pesanan.id_pesanan;
-    router.post(
-        `/kasir/pesanan/${pesanan.id_pesanan}/siap`,
-        {},
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                busyId.value = null;
-            },
+    router.post(actionUrl(pesanan.id_pesanan, 'siap'), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            busyId.value = null;
         },
-    );
+    });
 }
 
 const batalTarget = ref<Pesanan | null>(null);
@@ -175,19 +187,15 @@ function konfirmBatal(): void {
 
     const id = batalTarget.value.id_pesanan;
     busyId.value = id;
-    router.post(
-        `/kasir/pesanan/${id}/batal`,
-        {},
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                batalTarget.value = null;
-            },
-            onFinish: () => {
-                busyId.value = null;
-            },
+    router.post(actionUrl(id, 'batal'), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            batalTarget.value = null;
         },
-    );
+        onFinish: () => {
+            busyId.value = null;
+        },
+    });
 }
 
 // ===== Modal proses pembayaran =====
@@ -216,7 +224,6 @@ function closePay(): void {
 function setMetode(metode: 'cash' | 'qris' | 'transfer'): void {
     payForm.metode_pembayaran = metode;
 
-    // QRIS/Transfer biasanya pas dengan total; tunai diketik manual.
     if (metode !== 'cash') {
         payForm.bayar = payTotal.value;
     }
@@ -243,7 +250,7 @@ function submitPay(): void {
             metode_pembayaran: data.metode_pembayaran,
             bayar: Math.floor(Number(data.bayar) || 0),
         }))
-        .post(`/kasir/pesanan/${payTarget.value.id_pesanan}/proses`, {
+        .post(actionUrl(payTarget.value.id_pesanan, 'proses'), {
             preserveScroll: true,
             onSuccess: () => {
                 closePay();
@@ -251,19 +258,126 @@ function submitPay(): void {
         });
 }
 
+// ===== Modal edit pesanan =====
+interface EditRow {
+    id_produk: number;
+    nama_produk: string;
+    jumlah: number;
+    harga: number;
+    stok: number; // sisa stok katalog (untuk batas tambah)
+}
+
+const editTarget = ref<Pesanan | null>(null);
+const editRows = ref<EditRow[]>([]);
+const editSaving = ref(false);
+const tambahQuery = ref('');
+
+function hargaEfektif(p: ProdukOpsi, reseller: boolean): number {
+    return reseller ? Math.max(0, p.harga_jual - p.potongan_reseller) : p.harga_jual;
+}
+
+function openEdit(pesanan: Pesanan): void {
+    editTarget.value = pesanan;
+    tambahQuery.value = '';
+    const reseller = pesanan.tipe_pelanggan === 'reseller';
+
+    editRows.value = pesanan.items.map((item) => {
+        const opsi = props.produks.find((p) => p.id_produk === item.id_produk);
+        // stok katalog + qty yang sudah ter-reserve untuk pesanan ini = batas atas.
+        const stokTersedia = (opsi?.stok ?? 0) + item.jumlah;
+
+        return {
+            id_produk: item.id_produk,
+            nama_produk: item.nama_produk,
+            jumlah: item.jumlah,
+            harga: opsi ? hargaEfektif(opsi, reseller) : item.harga,
+            stok: stokTersedia,
+        };
+    });
+}
+
+function closeEdit(): void {
+    editTarget.value = null;
+    editRows.value = [];
+}
+
+const editReseller = computed(() => editTarget.value?.tipe_pelanggan === 'reseller');
+
+const tambahHasil = computed(() => {
+    const q = tambahQuery.value.trim().toLowerCase();
+
+    if (!q) {
+        return [];
+    }
+
+    const sudah = new Set(editRows.value.map((r) => r.id_produk));
+
+    return props.produks
+        .filter((p) => !sudah.has(p.id_produk) && p.stok > 0 && p.nama.toLowerCase().includes(q))
+        .slice(0, 6);
+});
+
+function tambahProduk(p: ProdukOpsi): void {
+    editRows.value.push({
+        id_produk: p.id_produk,
+        nama_produk: p.nama,
+        jumlah: 1,
+        harga: hargaEfektif(p, editReseller.value),
+        stok: p.stok,
+    });
+    tambahQuery.value = '';
+}
+
+function incEdit(row: EditRow): void {
+    if (row.jumlah < row.stok) {
+        row.jumlah += 1;
+    }
+}
+
+function decEdit(row: EditRow): void {
+    if (row.jumlah > 1) {
+        row.jumlah -= 1;
+    }
+}
+
+function hapusEdit(index: number): void {
+    editRows.value.splice(index, 1);
+}
+
+const editTotal = computed(() => editRows.value.reduce((s, r) => s + r.harga * r.jumlah, 0));
+
+function simpanEdit(): void {
+    if (!editTarget.value || editRows.value.length === 0) {
+        return;
+    }
+
+    editSaving.value = true;
+    router.post(
+        actionUrl(editTarget.value.id_pesanan, 'edit'),
+        { items: editRows.value.map((r) => ({ id_produk: r.id_produk, jumlah: r.jumlah })) },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeEdit();
+            },
+            onFinish: () => {
+                editSaving.value = false;
+            },
+        },
+    );
+}
+
 const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
 </script>
 
 <template>
-    <Head title="Pesanan Online - Kasir" />
+    <Head title="Pesanan Online" />
 
     <div class="space-y-5 p-4 md:space-y-6 md:p-6">
         <!-- Header -->
         <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-                <h1 class="text-xl font-extrabold tracking-tight md:text-2xl">
-                    Pesanan Online
-                </h1>
+                <h1 class="text-xl font-extrabold tracking-tight md:text-2xl">Pesanan Online</h1>
                 <p class="mt-0.5 text-xs text-muted-foreground md:text-sm">
                     Pesanan dari web — proses pembayaran saat pelanggan ambil barang.
                 </p>
@@ -276,20 +390,45 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
             </span>
         </div>
 
+        <!-- Pencarian -->
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div class="relative flex-1">
+                <Search class="pointer-events-none absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="Cari nama pemesan atau nomor WA…"
+                    class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2.5 pl-11 pr-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+                />
+            </div>
+            <input
+                v-model="tanggal"
+                type="date"
+                aria-label="Tanggal pesanan"
+                class="rounded-xl border border-sidebar-border/70 bg-background py-2.5 px-3 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
+            />
+            <button
+                v-if="adaFilter"
+                type="button"
+                class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sidebar-border/70 px-3 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted"
+                @click="resetFilter"
+            >
+                <X class="h-4 w-4" /> Reset
+            </button>
+        </div>
+
         <!-- Daftar pesanan aktif -->
         <section class="space-y-4">
-            <h2 class="text-sm font-bold text-muted-foreground uppercase tracking-wide">
-                Perlu diproses
-            </h2>
+            <h2 class="text-sm font-bold text-muted-foreground uppercase tracking-wide">Perlu diproses</h2>
 
             <div
                 v-if="!adaPesananAktif"
                 class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sidebar-border/70 bg-card py-14 text-center"
             >
                 <Inbox class="mb-3 h-10 w-10 text-muted-foreground/50" />
-                <p class="font-semibold">Belum ada pesanan menunggu</p>
+                <p class="font-semibold">{{ adaFilter ? 'Tak ada pesanan cocok' : 'Belum ada pesanan menunggu' }}</p>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Pesanan baru dari web akan muncul di sini.
+                    {{ adaFilter ? 'Coba kata kunci atau tanggal lain.' : 'Pesanan baru dari web akan muncul di sini.' }}
                 </p>
             </div>
 
@@ -299,7 +438,6 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                     :key="pesanan.id_pesanan"
                     class="flex flex-col rounded-2xl border border-sidebar-border/70 bg-card p-4 shadow-sm md:p-5"
                 >
-                    <!-- Header kartu -->
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
@@ -316,9 +454,15 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                                 <Clock class="h-3.5 w-3.5" /> {{ pesanan.waktu }}
                             </p>
                         </div>
+                        <button
+                            type="button"
+                            class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sidebar-border/70 px-2 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            @click="openEdit(pesanan)"
+                        >
+                            <Pencil class="h-3.5 w-3.5" /> Edit
+                        </button>
                     </div>
 
-                    <!-- Pelanggan -->
                     <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                         <span class="font-semibold">{{ pesanan.nama_pelanggan }}</span>
                         <span
@@ -336,13 +480,8 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                         </a>
                     </div>
 
-                    <!-- Item -->
                     <ul class="mt-3 space-y-1.5 rounded-xl bg-muted/40 p-3 text-sm">
-                        <li
-                            v-for="(item, idx) in pesanan.items"
-                            :key="idx"
-                            class="flex items-start justify-between gap-2"
-                        >
+                        <li v-for="(item, idx) in pesanan.items" :key="idx" class="flex items-start justify-between gap-2">
                             <span class="min-w-0">
                                 <span class="font-medium">{{ item.nama_produk }}</span>
                                 <span class="text-muted-foreground"> × {{ item.jumlah }}</span>
@@ -351,7 +490,6 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                         </li>
                     </ul>
 
-                    <!-- Catatan -->
                     <p
                         v-if="pesanan.catatan"
                         class="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400"
@@ -360,7 +498,6 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                         <span>{{ pesanan.catatan }}</span>
                     </p>
 
-                    <!-- Total -->
                     <div class="mt-3 flex items-center justify-between border-t border-dashed border-sidebar-border/70 pt-3">
                         <span class="text-sm font-semibold text-muted-foreground">Total</span>
                         <span class="text-lg font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums">
@@ -368,7 +505,6 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                         </span>
                     </div>
 
-                    <!-- Aksi -->
                     <div class="mt-4 flex flex-wrap gap-2">
                         <button
                             v-if="pesanan.status === 'pending'"
@@ -414,9 +550,7 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
 
         <!-- Riwayat pesanan -->
         <section v-if="pesanans_riwayat.length > 0" class="space-y-4">
-            <h2 class="text-sm font-bold text-muted-foreground uppercase tracking-wide">
-                Riwayat pesanan
-            </h2>
+            <h2 class="text-sm font-bold text-muted-foreground uppercase tracking-wide">Riwayat pesanan</h2>
             <div class="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-card">
                 <div
                     v-for="pesanan in pesanans_riwayat"
@@ -463,32 +597,20 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
             class="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center"
             @click.self="closePay"
         >
-            <div
-                class="flex w-full max-w-md flex-col rounded-t-3xl bg-card p-5 shadow-2xl sm:rounded-3xl"
-            >
+            <div class="flex w-full max-w-md flex-col rounded-t-3xl bg-card p-5 shadow-2xl sm:rounded-3xl">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-extrabold">Proses Pembayaran</h3>
-                    <button
-                        type="button"
-                        class="rounded-lg p-1 text-muted-foreground transition hover:bg-muted"
-                        @click="closePay"
-                    >
+                    <button type="button" class="rounded-lg p-1 text-muted-foreground transition hover:bg-muted" @click="closePay">
                         <X class="h-5 w-5" />
                     </button>
                 </div>
-                <p class="mt-0.5 text-sm text-muted-foreground">
-                    {{ payTarget.kode }} · {{ payTarget.nama_pelanggan }}
-                </p>
+                <p class="mt-0.5 text-sm text-muted-foreground">{{ payTarget.kode }} · {{ payTarget.nama_pelanggan }}</p>
 
-                <!-- Total -->
                 <div class="mt-4 flex items-center justify-between rounded-2xl bg-muted/50 px-4 py-3">
                     <span class="text-sm font-semibold text-muted-foreground">Total tagihan</span>
-                    <span class="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums">
-                        {{ formatPrice(payTotal) }}
-                    </span>
+                    <span class="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums">{{ formatPrice(payTotal) }}</span>
                 </div>
 
-                <!-- Metode -->
                 <label class="mt-4 block text-xs font-bold text-muted-foreground uppercase">Metode bayar</label>
                 <div class="mt-2 grid grid-cols-3 gap-2">
                     <button
@@ -512,14 +634,9 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                     </button>
                 </div>
 
-                <!-- Uang diterima -->
                 <div class="mt-4 flex items-center justify-between">
                     <label class="text-xs font-bold text-muted-foreground uppercase">Uang diterima</label>
-                    <button
-                        type="button"
-                        class="text-xs font-semibold text-indigo-600 transition hover:underline dark:text-indigo-400"
-                        @click="uangPas"
-                    >
+                    <button type="button" class="text-xs font-semibold text-indigo-600 transition hover:underline dark:text-indigo-400" @click="uangPas">
                         Uang pas
                     </button>
                 </div>
@@ -534,23 +651,14 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                         @input="onBayarInput"
                     />
                 </div>
-                <p v-if="payForm.errors.bayar" class="mt-1 text-xs font-semibold text-rose-500">
-                    {{ payForm.errors.bayar }}
-                </p>
+                <p v-if="payForm.errors.bayar" class="mt-1 text-xs font-semibold text-rose-500">{{ payForm.errors.bayar }}</p>
 
-                <!-- Kembalian -->
                 <div
                     class="mt-3 flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-bold"
-                    :class="
-                        isPaid
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                    "
+                    :class="isPaid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
                 >
                     <span>{{ isPaid ? 'Kembalian' : 'Kurang' }}</span>
-                    <span class="tabular-nums">
-                        {{ formatPrice(isPaid ? kembalian : payTotal - bayarNumber) }}
-                    </span>
+                    <span class="tabular-nums">{{ formatPrice(isPaid ? kembalian : payTotal - bayarNumber) }}</span>
                 </div>
 
                 <button
@@ -563,6 +671,101 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                     <BadgeCheck v-else class="h-5 w-5" />
                     Selesaikan Pembayaran
                 </button>
+            </div>
+        </div>
+    </BodyTeleport>
+
+    <!-- ===== Modal edit pesanan ===== -->
+    <BodyTeleport>
+        <div
+            v-if="editTarget"
+            class="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center"
+            @click.self="closeEdit"
+        >
+            <div class="flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-3xl bg-card shadow-2xl sm:rounded-3xl">
+                <div class="flex items-center justify-between border-b border-sidebar-border/60 p-5">
+                    <div>
+                        <h3 class="text-lg font-extrabold">Edit Pesanan</h3>
+                        <p class="text-sm text-muted-foreground">{{ editTarget.kode }} · {{ editTarget.nama_pelanggan }}</p>
+                    </div>
+                    <button type="button" class="rounded-lg p-1 text-muted-foreground transition hover:bg-muted" @click="closeEdit">
+                        <X class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-5">
+                    <!-- Tambah produk -->
+                    <div class="relative mb-4">
+                        <Search class="pointer-events-none absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            v-model="tambahQuery"
+                            type="text"
+                            placeholder="Cari produk untuk ditambahkan…"
+                            class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2.5 pl-11 pr-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
+                        />
+                        <div
+                            v-if="tambahHasil.length"
+                            class="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-sidebar-border/70 bg-card py-1 shadow-xl"
+                        >
+                            <button
+                                v-for="p in tambahHasil"
+                                :key="p.id_produk"
+                                type="button"
+                                class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition hover:bg-muted"
+                                @click="tambahProduk(p)"
+                            >
+                                <span class="min-w-0 truncate">{{ p.nama }}</span>
+                                <span class="shrink-0 text-xs text-muted-foreground">stok {{ p.stok }} · {{ formatPrice(hargaEfektif(p, editReseller)) }}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Baris item -->
+                    <div v-if="editRows.length" class="space-y-2">
+                        <div
+                            v-for="(row, index) in editRows"
+                            :key="row.id_produk"
+                            class="flex items-center gap-2 rounded-xl border border-sidebar-border/70 p-2.5"
+                        >
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-semibold">{{ row.nama_produk }}</p>
+                                <p class="text-xs text-muted-foreground">{{ formatPrice(row.harga) }} · {{ formatPrice(row.harga * row.jumlah) }}</p>
+                            </div>
+                            <div class="inline-flex items-center gap-1 rounded-lg bg-muted p-0.5">
+                                <button type="button" class="flex h-7 w-7 items-center justify-center rounded-md bg-card transition hover:text-indigo-600 disabled:opacity-40" :disabled="row.jumlah <= 1" @click="decEdit(row)">
+                                    <Minus class="h-3.5 w-3.5" />
+                                </button>
+                                <span class="w-7 text-center text-sm font-bold tabular-nums">{{ row.jumlah }}</span>
+                                <button type="button" class="flex h-7 w-7 items-center justify-center rounded-md bg-card transition hover:text-indigo-600 disabled:opacity-40" :disabled="row.jumlah >= row.stok" @click="incEdit(row)">
+                                    <Plus class="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                            <button type="button" aria-label="Hapus produk" class="rounded-lg p-1.5 text-muted-foreground transition hover:bg-rose-500/10 hover:text-rose-600" @click="hapusEdit(index)">
+                                <Trash2 class="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                    <p v-else class="rounded-xl bg-amber-500/5 p-3 text-center text-sm text-amber-700 dark:text-amber-400">
+                        Pesanan harus berisi minimal 1 produk.
+                    </p>
+                </div>
+
+                <div class="border-t border-sidebar-border/60 p-5">
+                    <div class="mb-3 flex items-center justify-between">
+                        <span class="text-sm font-semibold text-muted-foreground">Total baru</span>
+                        <span class="text-lg font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums">{{ formatPrice(editTotal) }}</span>
+                    </div>
+                    <button
+                        type="button"
+                        :disabled="editRows.length === 0 || editSaving"
+                        class="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-base font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        @click="simpanEdit"
+                    >
+                        <Loader2 v-if="editSaving" class="h-5 w-5 animate-spin" />
+                        <BadgeCheck v-else class="h-5 w-5" />
+                        Simpan Perubahan
+                    </button>
+                </div>
             </div>
         </div>
     </BodyTeleport>
@@ -583,11 +786,7 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                     Stok yang sempat dipesan akan dikembalikan. Tindakan ini tidak bisa dibatalkan.
                 </p>
                 <div class="mt-5 flex gap-3">
-                    <button
-                        type="button"
-                        class="flex-1 rounded-xl border border-sidebar-border/70 px-4 py-2.5 text-sm font-semibold transition hover:bg-muted"
-                        @click="batalTarget = null"
-                    >
+                    <button type="button" class="flex-1 rounded-xl border border-sidebar-border/70 px-4 py-2.5 text-sm font-semibold transition hover:bg-muted" @click="batalTarget = null">
                         Kembali
                     </button>
                     <button

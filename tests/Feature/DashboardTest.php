@@ -155,191 +155,92 @@ test('kasir dashboard can filter sales by explicit date range', function () {
     );
 });
 
-test('admin dashboard shows analytics and filters by date range', function () {
+/*
+ * Dashboard admin telah didesain ulang menjadi ringkasan "buka-pagi" (today_stats,
+ * tren 7 hari, alert, aktivitas terakhir). Analisis mendalam (ranking produk, slow
+ * mover, performa kasir) dipindah ke menu Laporan & diuji di Laporan*Test. Tes di
+ * bawah memverifikasi KONTRAK dashboard yang sekarang.
+ */
+
+test('admin dashboard shows today stats and meta', function () {
     $admin = User::factory()->create(['role' => 'admin']);
-    $kasirA = User::factory()->create(['role' => 'kasir', 'name' => 'Kasir A']);
-    $kasirB = User::factory()->create(['role' => 'kasir', 'name' => 'Kasir B']);
+    $produk = Produk::factory()->create(['harga_modal' => 4000]);
 
-    $produkA = Produk::factory()->create(['nama' => 'Kopi Hitam', 'harga_jual' => 20000]);
-    $produkB = Produk::factory()->create(['nama' => 'Teh Manis', 'harga_jual' => 15000]);
-
-    $startDate = Carbon::today()->subDays(2)->toDateString();
-    $endDate = Carbon::today()->toDateString();
-
-    $trx1 = Transaksi::factory()->create([
-        'id_user' => $kasirA->id,
-        'total_harga' => 40000,
+    $today = Transaksi::factory()->create([
+        'id_user' => $admin->id,
+        'total_harga' => 50000,
         'bayar' => 50000,
-        'kembalian' => 10000,
-        'created_at' => Carbon::today()->subDays(2)->setTime(10, 0),
-    ]);
-    DetailTransaksi::factory()->create([
-        'id_transaksi' => $trx1->id_transaksi,
-        'id_produk' => $produkA->id_produk,
-        'jumlah' => 2,
-        'harga' => 20000,
-        'subtotal' => 40000,
-    ]);
-
-    $trx2 = Transaksi::factory()->create([
-        'id_user' => $kasirB->id,
-        'total_harga' => 15000,
-        'bayar' => 20000,
-        'kembalian' => 5000,
-        'created_at' => Carbon::today()->subDay()->setTime(11, 30),
-    ]);
-    DetailTransaksi::factory()->create([
-        'id_transaksi' => $trx2->id_transaksi,
-        'id_produk' => $produkB->id_produk,
-        'jumlah' => 1,
-        'harga' => 15000,
-        'subtotal' => 15000,
-    ]);
-
-    $this->actingAs($admin);
-
-    $response = $this->get(route('admin.dashboard', [
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-    ]));
-
-    $response->assertOk();
-    $response->assertInertia(fn (AssertableInertia $page) => $page
-        ->component('admin/Dashboard')
-        ->where('stats.total_revenue', 55000)
-        ->where('stats.total_transactions', 2)
-        ->where('date_range.start_date', $startDate)
-        ->where('date_range.end_date', $endDate)
-        ->has('best_selling_products', 2)
-        ->has('worst_selling_products')
-        ->has('top_sales_dates', 2)
-        ->has('top_sales_hours', 2)
-        ->has('cashier_achievements')
-        ->has('best_profit_products')
-        ->has('top_cashiers_by_transactions', 2)
-    );
-});
-
-test('admin dashboard lists slow-moving in-stock products and excludes jasa', function () {
-    $admin = User::factory()->create(['role' => 'admin']);
-
-    $laku = Produk::factory()->create(['nama' => 'Produk Laku', 'stok' => 50]);
-    Produk::factory()->create(['nama' => 'Produk Sepi', 'stok' => 30]); // 0 terjual, masih berstok
-    Produk::factory()->create(['nama' => 'Transfer Bank', 'tipe_jual' => 'jasa', 'stok' => 0]); // dikecualikan
-
-    $trx = Transaksi::factory()->create([
-        'id_user' => $admin->id,
-        'total_harga' => 20000,
-        'bayar' => 20000,
-        'kembalian' => 0,
-    ]);
-    DetailTransaksi::factory()->create([
-        'id_transaksi' => $trx->id_transaksi,
-        'id_produk' => $laku->id_produk,
-        'jumlah' => 5,
-        'harga' => 4000,
-        'subtotal' => 20000,
-    ]);
-
-    $this->actingAs($admin);
-
-    $response = $this->get(route('admin.dashboard'));
-
-    $response->assertOk();
-    $response->assertInertia(fn (AssertableInertia $page) => $page
-        ->component('admin/Dashboard')
-        ->where('slow_mover_days', 30)
-        ->has('slow_movers', 2) // jasa dikecualikan; 2 produk berstok
-        // Diurut paling sedikit terjual dulu → "Produk Sepi" (0) sebelum "Produk Laku" (5)
-        ->where('slow_movers.0.nama', 'Produk Sepi')
-        ->where('slow_movers.0.terjual', fn ($v) => (float) $v === 0.0)
-        ->where('slow_movers.1.nama', 'Produk Laku')
-        ->where('slow_movers.1.terjual', fn ($v) => (float) $v === 5.0)
-    );
-});
-
-test('product ranking excludes jasa and worst-selling includes zero-sales products', function () {
-    $admin = User::factory()->create(['role' => 'admin']);
-
-    $laku = Produk::factory()->create(['nama' => 'Kopi', 'harga_modal' => 4000, 'stok' => 50]);
-    Produk::factory()->create(['nama' => 'Donat', 'harga_modal' => 2000, 'stok' => 20]); // 0 terjual
-    $jasa = Produk::factory()->create(['nama' => 'Transfer Bank', 'tipe_jual' => 'jasa', 'harga_modal' => 0, 'stok' => 0]);
-
-    // Transaksi campuran: barang (Kopi) + fee jasa. Hanya Kopi yang boleh masuk ranking barang.
-    $trx = Transaksi::factory()->create([
-        'id_user' => $admin->id,
-        'total_harga' => 35000,
-        'bayar' => 35000,
         'kembalian' => 0,
         'created_at' => Carbon::today()->setTime(10, 0),
     ]);
     DetailTransaksi::factory()->create([
-        'id_transaksi' => $trx->id_transaksi,
-        'id_produk' => $laku->id_produk,
-        'jumlah' => 3,
-        'harga' => 10000,
+        'id_transaksi' => $today->id_transaksi,
+        'id_produk' => $produk->id_produk,
+        'jumlah' => 2,
+        'harga' => 25000,
         'modal' => 4000,
-        'subtotal' => 30000,
-    ]);
-    DetailTransaksi::factory()->create([
-        'id_transaksi' => $trx->id_transaksi,
-        'id_produk' => $jasa->id_produk,
-        'jumlah' => 1,
-        'harga' => 5000,
-        'modal' => 0,
-        'subtotal' => 5000,
-        'nominal' => 100000,
+        'subtotal' => 50000,
     ]);
 
-    $response = $this->actingAs($admin)->get(route('admin.dashboard', [
-        'start_date' => Carbon::today()->toDateString(),
-        'end_date' => Carbon::today()->toDateString(),
-    ]));
+    $this->actingAs($admin);
 
-    $response->assertOk();
-    $response->assertInertia(fn (AssertableInertia $page) => $page
-        // Hanya barang (Kopi) yang masuk ranking; produk jasa dikecualikan.
-        ->has('best_selling_products', 1)
-        ->where('best_selling_products.0.nama', 'Kopi')
-        ->where('best_selling_products.0.qty', fn ($v) => (float) $v === 3.0)
-        ->where('best_selling_products.0.revenue', 30000)
-        // Produk paling sepi memuat barang 0 penjualan (Donat), bukan jasa.
-        ->where('worst_selling_products.0.nama', 'Donat')
-        ->where('worst_selling_products.0.qty', fn ($v) => (float) $v === 0.0)
+    $this->get(route('admin.dashboard'))->assertOk()->assertInertia(
+        fn (AssertableInertia $page) => $page
+            ->component('admin/Dashboard')
+            ->where('today_stats.revenue', 50000)
+            ->where('today_stats.transactions', 1)
+            ->has('today_stats.gross_profit')
+            ->has('today_stats.revenue_delta')
+            ->has('greeting')
+            ->has('admin_name')
     );
 });
 
-test('per-product revenue is net of global discount', function () {
+test('admin dashboard returns a 7-day trend including today', function () {
     $admin = User::factory()->create(['role' => 'admin']);
-    $produk = Produk::factory()->create(['nama' => 'Teh', 'harga_modal' => 3000, 'stok' => 50]);
 
-    // Subtotal baris 20.000, tapi diskon global 2.000 → omzet 18.000.
+    $this->actingAs($admin);
+
+    $this->get(route('admin.dashboard'))->assertOk()->assertInertia(
+        fn (AssertableInertia $page) => $page
+            ->component('admin/Dashboard')
+            ->has('trend', 7)
+            ->has('trend.0.revenue')
+            ->has('trend.0.transactions')
+            ->has('trend.6.day')
+    );
+});
+
+test('admin dashboard surfaces a low stock alert', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    Produk::factory()->create(['nama' => 'Hampir Habis', 'tipe_jual' => 'satuan', 'stok' => 2]);
+
+    $this->actingAs($admin);
+
+    $this->get(route('admin.dashboard'))->assertOk()->assertInertia(
+        fn (AssertableInertia $page) => $page
+            ->component('admin/Dashboard')
+            ->where('alerts', fn ($alerts) => collect($alerts)
+                ->contains(fn ($a) => $a['key'] === 'low_stock' && $a['count'] >= 1))
+    );
+});
+
+test('admin dashboard recent activity lists latest transactions', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
     $trx = Transaksi::factory()->create([
         'id_user' => $admin->id,
-        'total_harga' => 18000,
-        'diskon' => 2000,
-        'bayar' => 18000,
+        'total_harga' => 30000,
+        'bayar' => 30000,
         'kembalian' => 0,
-        'created_at' => Carbon::today()->setTime(9, 0),
-    ]);
-    DetailTransaksi::factory()->create([
-        'id_transaksi' => $trx->id_transaksi,
-        'id_produk' => $produk->id_produk,
-        'jumlah' => 2,
-        'harga' => 10000,
-        'modal' => 3000,
-        'subtotal' => 20000,
     ]);
 
-    $response = $this->actingAs($admin)->get(route('admin.dashboard', [
-        'start_date' => Carbon::today()->toDateString(),
-        'end_date' => Carbon::today()->toDateString(),
-    ]));
+    $this->actingAs($admin);
 
-    $response->assertOk();
-    $response->assertInertia(fn (AssertableInertia $page) => $page
-        // Revenue produk = 20.000 − 2.000 diskon global = 18.000, rekonsiliasi dengan omzet.
-        ->where('best_selling_products.0.revenue', 18000)
-        ->where('stats.total_revenue', 18000)
+    $this->get(route('admin.dashboard'))->assertOk()->assertInertia(
+        fn (AssertableInertia $page) => $page
+            ->component('admin/Dashboard')
+            ->has('recent_activity', 1)
+            ->where('recent_activity.0.kode', 'TRX-'.$trx->id_transaksi)
+            ->where('recent_activity.0.total', 30000)
     );
 });

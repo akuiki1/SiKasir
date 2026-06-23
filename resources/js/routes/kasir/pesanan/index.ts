@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
-* @see \App\Http\Controllers\KasirPesananController::siap
- * @see app/Http/Controllers/KasirPesananController.php:48
+* @see \App\Http\Controllers\PesananController::siap
+ * @see app/Http/Controllers/PesananController.php:78
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
 export const siap = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -15,8 +15,8 @@ siap.definition = {
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\KasirPesananController::siap
- * @see app/Http/Controllers/KasirPesananController.php:48
+* @see \App\Http\Controllers\PesananController::siap
+ * @see app/Http/Controllers/PesananController.php:78
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
 siap.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -48,8 +48,8 @@ siap.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numbe
 }
 
 /**
-* @see \App\Http\Controllers\KasirPesananController::siap
- * @see app/Http/Controllers/KasirPesananController.php:48
+* @see \App\Http\Controllers\PesananController::siap
+ * @see app/Http/Controllers/PesananController.php:78
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
 siap.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -58,8 +58,8 @@ siap.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
 })
 
     /**
-* @see \App\Http\Controllers\KasirPesananController::siap
- * @see app/Http/Controllers/KasirPesananController.php:48
+* @see \App\Http\Controllers\PesananController::siap
+ * @see app/Http/Controllers/PesananController.php:78
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
     const siapForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -68,8 +68,8 @@ siap.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
     })
 
             /**
-* @see \App\Http\Controllers\KasirPesananController::siap
- * @see app/Http/Controllers/KasirPesananController.php:48
+* @see \App\Http\Controllers\PesananController::siap
+ * @see app/Http/Controllers/PesananController.php:78
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
         siapForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -79,8 +79,87 @@ siap.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
     
     siap.form = siapForm
 /**
-* @see \App\Http\Controllers\KasirPesananController::proses
- * @see app/Http/Controllers/KasirPesananController.php:70
+* @see \App\Http\Controllers\PesananController::edit
+ * @see app/Http/Controllers/PesananController.php:94
+ * @route '/kasir/pesanan/{pesanan}/edit'
+ */
+export const edit = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: edit.url(args, options),
+    method: 'post',
+})
+
+edit.definition = {
+    methods: ["post"],
+    url: '/kasir/pesanan/{pesanan}/edit',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\PesananController::edit
+ * @see app/Http/Controllers/PesananController.php:94
+ * @route '/kasir/pesanan/{pesanan}/edit'
+ */
+edit.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { pesanan: args }
+    }
+
+            if (typeof args === 'object' && !Array.isArray(args) && 'id_pesanan' in args) {
+            args = { pesanan: args.id_pesanan }
+        }
+    
+    if (Array.isArray(args)) {
+        args = {
+                    pesanan: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        pesanan: typeof args.pesanan === 'object'
+                ? args.pesanan.id_pesanan
+                : args.pesanan,
+                }
+
+    return edit.definition.url
+            .replace('{pesanan}', parsedArgs.pesanan.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\PesananController::edit
+ * @see app/Http/Controllers/PesananController.php:94
+ * @route '/kasir/pesanan/{pesanan}/edit'
+ */
+edit.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: edit.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\PesananController::edit
+ * @see app/Http/Controllers/PesananController.php:94
+ * @route '/kasir/pesanan/{pesanan}/edit'
+ */
+    const editForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: edit.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\PesananController::edit
+ * @see app/Http/Controllers/PesananController.php:94
+ * @route '/kasir/pesanan/{pesanan}/edit'
+ */
+        editForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: edit.url(args, options),
+            method: 'post',
+        })
+    
+    edit.form = editForm
+/**
+* @see \App\Http\Controllers\PesananController::proses
+ * @see app/Http/Controllers/PesananController.php:119
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
 export const proses = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,8 +173,8 @@ proses.definition = {
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\KasirPesananController::proses
- * @see app/Http/Controllers/KasirPesananController.php:70
+* @see \App\Http\Controllers\PesananController::proses
+ * @see app/Http/Controllers/PesananController.php:119
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
 proses.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -127,8 +206,8 @@ proses.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: num
 }
 
 /**
-* @see \App\Http\Controllers\KasirPesananController::proses
- * @see app/Http/Controllers/KasirPesananController.php:70
+* @see \App\Http\Controllers\PesananController::proses
+ * @see app/Http/Controllers/PesananController.php:119
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
 proses.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -137,8 +216,8 @@ proses.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: nu
 })
 
     /**
-* @see \App\Http\Controllers\KasirPesananController::proses
- * @see app/Http/Controllers/KasirPesananController.php:70
+* @see \App\Http\Controllers\PesananController::proses
+ * @see app/Http/Controllers/PesananController.php:119
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
     const prosesForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -147,8 +226,8 @@ proses.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: nu
     })
 
             /**
-* @see \App\Http\Controllers\KasirPesananController::proses
- * @see app/Http/Controllers/KasirPesananController.php:70
+* @see \App\Http\Controllers\PesananController::proses
+ * @see app/Http/Controllers/PesananController.php:119
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
         prosesForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -158,8 +237,8 @@ proses.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: nu
     
     proses.form = prosesForm
 /**
-* @see \App\Http\Controllers\KasirPesananController::batal
- * @see app/Http/Controllers/KasirPesananController.php:134
+* @see \App\Http\Controllers\PesananController::batal
+ * @see app/Http/Controllers/PesananController.php:179
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
 export const batal = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -173,8 +252,8 @@ batal.definition = {
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\KasirPesananController::batal
- * @see app/Http/Controllers/KasirPesananController.php:134
+* @see \App\Http\Controllers\PesananController::batal
+ * @see app/Http/Controllers/PesananController.php:179
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
 batal.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -206,8 +285,8 @@ batal.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
 }
 
 /**
-* @see \App\Http\Controllers\KasirPesananController::batal
- * @see app/Http/Controllers/KasirPesananController.php:134
+* @see \App\Http\Controllers\PesananController::batal
+ * @see app/Http/Controllers/PesananController.php:179
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
 batal.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -216,8 +295,8 @@ batal.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: num
 })
 
     /**
-* @see \App\Http\Controllers\KasirPesananController::batal
- * @see app/Http/Controllers/KasirPesananController.php:134
+* @see \App\Http\Controllers\PesananController::batal
+ * @see app/Http/Controllers/PesananController.php:179
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
     const batalForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -226,8 +305,8 @@ batal.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: num
     })
 
             /**
-* @see \App\Http\Controllers\KasirPesananController::batal
- * @see app/Http/Controllers/KasirPesananController.php:134
+* @see \App\Http\Controllers\PesananController::batal
+ * @see app/Http/Controllers/PesananController.php:179
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
         batalForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -238,6 +317,7 @@ batal.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: num
     batal.form = batalForm
 const pesanan = {
     siap: Object.assign(siap, siap),
+edit: Object.assign(edit, edit),
 proses: Object.assign(proses, proses),
 batal: Object.assign(batal, batal),
 }

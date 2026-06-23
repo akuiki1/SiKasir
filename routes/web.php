@@ -4,11 +4,11 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\KasirController;
-use App\Http\Controllers\KasirPesananController;
 use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\PelangganController;
-use App\Http\Controllers\PesananPublikController;
 use App\Http\Controllers\PengeluaranController;
+use App\Http\Controllers\PesananController;
+use App\Http\Controllers\PesananPublikController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\ProduksiController;
 use App\Http\Controllers\PromoController;
@@ -124,6 +124,11 @@ Route::post('pesan', [PesananPublikController::class, 'store'])
     ->middleware('throttle:15,1')
     ->name('pesan.store');
 
+// Lacak pesanan publik berdasarkan nomor WhatsApp (pelanggan cek status sendiri).
+Route::post('lacak-pesanan', [PesananPublikController::class, 'lacak'])
+    ->middleware('throttle:30,1')
+    ->name('pesan.lacak');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         if (Auth::user()?->role === 'admin') {
@@ -194,6 +199,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('admin/promos', [PromoController::class, 'store'])->name('admin.promos.store');
         Route::put('admin/promos/{promo}', [PromoController::class, 'update'])->name('admin.promos.update');
         Route::delete('admin/promos/{promo}', [PromoController::class, 'destroy'])->name('admin.promos.destroy');
+
+        // Pesanan online (kelola dari sisi admin — komponen sama dengan kasir)
+        Route::get('admin/pesanan', [PesananController::class, 'index'])->name('admin.pesanan');
+        Route::post('admin/pesanan/{pesanan}/siap', [PesananController::class, 'siap'])->name('admin.pesanan.siap');
+        Route::post('admin/pesanan/{pesanan}/edit', [PesananController::class, 'edit'])->name('admin.pesanan.edit');
+        Route::post('admin/pesanan/{pesanan}/proses', [PesananController::class, 'proses'])->name('admin.pesanan.proses');
+        Route::post('admin/pesanan/{pesanan}/batal', [PesananController::class, 'batal'])->name('admin.pesanan.batal');
     });
 
     Route::middleware(['role:kasir'])->group(function () {
@@ -205,10 +217,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('kasir/riwayat/cetak', [KasirController::class, 'riwayatCetak'])->name('kasir.riwayat.cetak');
 
         // Pesanan online (pending) — proses pembayaran saat pelanggan ambil barang.
-        Route::get('kasir/pesanan', [KasirPesananController::class, 'index'])->name('kasir.pesanan');
-        Route::post('kasir/pesanan/{pesanan}/siap', [KasirPesananController::class, 'siap'])->name('kasir.pesanan.siap');
-        Route::post('kasir/pesanan/{pesanan}/proses', [KasirPesananController::class, 'proses'])->name('kasir.pesanan.proses');
-        Route::post('kasir/pesanan/{pesanan}/batal', [KasirPesananController::class, 'batal'])->name('kasir.pesanan.batal');
+        Route::get('kasir/pesanan', [PesananController::class, 'index'])->name('kasir.pesanan');
+        Route::post('kasir/pesanan/{pesanan}/siap', [PesananController::class, 'siap'])->name('kasir.pesanan.siap');
+        Route::post('kasir/pesanan/{pesanan}/edit', [PesananController::class, 'edit'])->name('kasir.pesanan.edit');
+        Route::post('kasir/pesanan/{pesanan}/proses', [PesananController::class, 'proses'])->name('kasir.pesanan.proses');
+        Route::post('kasir/pesanan/{pesanan}/batal', [PesananController::class, 'batal'])->name('kasir.pesanan.batal');
     });
 });
 

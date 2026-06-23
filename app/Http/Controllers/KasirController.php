@@ -9,6 +9,7 @@ use App\Models\Produk;
 use App\Models\Promo;
 use App\Models\TarifJasa;
 use App\Models\Transaksi;
+use App\Services\PesananService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -335,8 +336,14 @@ class KasirController extends Controller
             ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, PesananService $pesananService): RedirectResponse
     {
+        // Kasir bisa memilih menyimpan keranjang sebagai PESANAN (pending) alih-alih
+        // langsung diproses — mis. pelanggan walk-in yang belum bayar. Default 'proses'.
+        if ($request->input('mode') === 'pesanan') {
+            return $this->simpanSebagaiPesanan($request, $pesananService);
+        }
+
         $validated = $request->validate([
             'metode_pembayaran' => ['required', Rule::in(['cash', 'qris', 'transfer'])],
             'bayar' => ['required', 'integer', 'min:0'],
@@ -559,6 +566,43 @@ class KasirController extends Controller
         });
 
         return redirect()->route('kasir.riwayat')->with('success', 'Transaksi berhasil disimpan.');
+    }
+
+    /**
+     * Simpan keranjang kasir sebagai PESANAN pending (reserve stok) — untuk
+     * pelanggan walk-in yang belum bayar. Hanya produk satuan yang didukung.
+     */
+    private function simpanSebagaiPesanan(Request $request, PesananService $service): RedirectResponse
+    {
+        $validated = $request->validate([
+            'nama_pelanggan' => ['required', 'string', 'max:100'],
+            'telp' => ['required', 'string', 'max:30', 'regex:/^[0-9+\-\s()]{6,}$/'],
+            'catatan' => ['nullable', 'string', 'max:500'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
+            'items.*.jumlah' => ['required', 'integer', 'min:1'],
+        ], [
+            'telp.regex' => 'Nomor WhatsApp tidak valid.',
+            'nama_pelanggan.required' => 'Nama pemesan wajib diisi untuk pesanan.',
+        ]);
+
+        try {
+            $pesanan = $service->buat([
+                'nama' => $validated['nama_pelanggan'],
+                'telp' => $validated['telp'],
+                'catatan' => $validated['catatan'] ?? null,
+                'sumber' => 'kasir',
+                'items' => $validated['items'],
+            ], Auth::id());
+        } catch (ValidationException $e) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $e->validator->errors()->first()]);
+
+            return back();
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Pesanan {$pesanan->kode} tersimpan & stok di-reserve."]);
+
+        return redirect()->route('kasir.pesanan');
     }
 
     /** Opsi jumlah baris per halaman pada riwayat transaksi kasir. */
