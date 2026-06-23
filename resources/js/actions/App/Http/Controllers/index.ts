@@ -1,3 +1,4 @@
+import PesananPublikController from './PesananPublikController'
 import Admin from './Admin'
 import KategoriController from './KategoriController'
 import PelangganController from './PelangganController'
@@ -8,9 +9,11 @@ import StokController from './StokController'
 import ProduksiController from './ProduksiController'
 import PromoController from './PromoController'
 import KasirController from './KasirController'
+import KasirPesananController from './KasirPesananController'
 import Settings from './Settings'
 const Controllers = {
-    Admin: Object.assign(Admin, Admin),
+    PesananPublikController: Object.assign(PesananPublikController, PesananPublikController),
+Admin: Object.assign(Admin, Admin),
 KategoriController: Object.assign(KategoriController, KategoriController),
 PelangganController: Object.assign(PelangganController, PelangganController),
 ProdukController: Object.assign(ProdukController, ProdukController),
@@ -20,6 +23,7 @@ StokController: Object.assign(StokController, StokController),
 ProduksiController: Object.assign(ProduksiController, ProduksiController),
 PromoController: Object.assign(PromoController, PromoController),
 KasirController: Object.assign(KasirController, KasirController),
+KasirPesananController: Object.assign(KasirPesananController, KasirPesananController),
 Settings: Object.assign(Settings, Settings),
 }
 

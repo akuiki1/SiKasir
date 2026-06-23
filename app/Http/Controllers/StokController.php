@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -200,7 +201,7 @@ class StokController extends Controller
     }
 
     /** Aturan: produk harus ada & bukan jasa (jasa tidak berstok). */
-    private function produkBerstokRule(): \Illuminate\Validation\Rules\Exists
+    private function produkBerstokRule(): Exists
     {
         return Rule::exists('produks', 'id_produk')
             ->where(fn ($query) => $query->where('tipe_jual', '!=', 'jasa'));

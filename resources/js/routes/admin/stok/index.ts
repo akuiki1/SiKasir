@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\StokController::masuk
- * @see app/Http/Controllers/StokController.php:94
+ * @see app/Http/Controllers/StokController.php:97
  * @route '/admin/stok/masuk'
  */
 export const masuk = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ masuk.definition = {
 
 /**
 * @see \App\Http\Controllers\StokController::masuk
- * @see app/Http/Controllers/StokController.php:94
+ * @see app/Http/Controllers/StokController.php:97
  * @route '/admin/stok/masuk'
  */
 masuk.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ masuk.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\StokController::masuk
- * @see app/Http/Controllers/StokController.php:94
+ * @see app/Http/Controllers/StokController.php:97
  * @route '/admin/stok/masuk'
  */
 masuk.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ masuk.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\StokController::masuk
- * @see app/Http/Controllers/StokController.php:94
+ * @see app/Http/Controllers/StokController.php:97
  * @route '/admin/stok/masuk'
  */
     const masukForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ masuk.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\StokController::masuk
- * @see app/Http/Controllers/StokController.php:94
+ * @see app/Http/Controllers/StokController.php:97
  * @route '/admin/stok/masuk'
  */
         masukForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ masuk.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     masuk.form = masukForm
 /**
 * @see \App\Http\Controllers\StokController::keluar
- * @see app/Http/Controllers/StokController.php:127
+ * @see app/Http/Controllers/StokController.php:130
  * @route '/admin/stok/keluar'
  */
 export const keluar = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -71,7 +71,7 @@ keluar.definition = {
 
 /**
 * @see \App\Http\Controllers\StokController::keluar
- * @see app/Http/Controllers/StokController.php:127
+ * @see app/Http/Controllers/StokController.php:130
  * @route '/admin/stok/keluar'
  */
 keluar.url = (options?: RouteQueryOptions) => {
@@ -80,7 +80,7 @@ keluar.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\StokController::keluar
- * @see app/Http/Controllers/StokController.php:127
+ * @see app/Http/Controllers/StokController.php:130
  * @route '/admin/stok/keluar'
  */
 keluar.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -90,7 +90,7 @@ keluar.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\StokController::keluar
- * @see app/Http/Controllers/StokController.php:127
+ * @see app/Http/Controllers/StokController.php:130
  * @route '/admin/stok/keluar'
  */
     const keluarForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -100,7 +100,7 @@ keluar.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\StokController::keluar
- * @see app/Http/Controllers/StokController.php:127
+ * @see app/Http/Controllers/StokController.php:130
  * @route '/admin/stok/keluar'
  */
         keluarForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -111,7 +111,7 @@ keluar.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     keluar.form = keluarForm
 /**
 * @see \App\Http\Controllers\StokController::penyesuaian
- * @see app/Http/Controllers/StokController.php:167
+ * @see app/Http/Controllers/StokController.php:170
  * @route '/admin/stok/penyesuaian'
  */
 export const penyesuaian = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -126,7 +126,7 @@ penyesuaian.definition = {
 
 /**
 * @see \App\Http\Controllers\StokController::penyesuaian
- * @see app/Http/Controllers/StokController.php:167
+ * @see app/Http/Controllers/StokController.php:170
  * @route '/admin/stok/penyesuaian'
  */
 penyesuaian.url = (options?: RouteQueryOptions) => {
@@ -135,7 +135,7 @@ penyesuaian.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\StokController::penyesuaian
- * @see app/Http/Controllers/StokController.php:167
+ * @see app/Http/Controllers/StokController.php:170
  * @route '/admin/stok/penyesuaian'
  */
 penyesuaian.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -145,7 +145,7 @@ penyesuaian.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\StokController::penyesuaian
- * @see app/Http/Controllers/StokController.php:167
+ * @see app/Http/Controllers/StokController.php:170
  * @route '/admin/stok/penyesuaian'
  */
     const penyesuaianForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -155,7 +155,7 @@ penyesuaian.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\StokController::penyesuaian
- * @see app/Http/Controllers/StokController.php:167
+ * @see app/Http/Controllers/StokController.php:170
  * @route '/admin/stok/penyesuaian'
  */
         penyesuaianForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

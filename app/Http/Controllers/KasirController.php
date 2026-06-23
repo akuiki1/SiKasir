@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -298,7 +299,7 @@ class KasirController extends Controller
      * Daftar pelanggan untuk pemilih kasir. Tanpa kata kunci → 8 teratas (alfabet)
      * sebagai saran awal; dengan kata kunci → maksimal 20 yang cocok pada nama.
      */
-    private function pelangganSuggestions(string $query = ''): \Illuminate\Support\Collection
+    private function pelangganSuggestions(string $query = ''): Collection
     {
         return Pelanggan::query()
             ->when($query !== '', fn (Builder $builder) => $builder->where('nama', 'like', "%{$query}%"))
@@ -313,7 +314,7 @@ class KasirController extends Controller
     }
 
     /** Daftar produk jasa + tarif fee bertingkat untuk pemilih layanan di kasir. */
-    private function jasaLayanan(): \Illuminate\Support\Collection
+    private function jasaLayanan(): Collection
     {
         return Produk::query()
             ->where('tipe_jual', 'jasa')

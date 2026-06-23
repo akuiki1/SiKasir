@@ -557,7 +557,7 @@ pengeluarans.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     pengeluarans.form = pengeluaransForm
 /**
 * @see \App\Http\Controllers\StokController::stok
- * @see app/Http/Controllers/StokController.php:41
+ * @see app/Http/Controllers/StokController.php:44
  * @route '/admin/stok'
  */
 export const stok = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -572,7 +572,7 @@ stok.definition = {
 
 /**
 * @see \App\Http\Controllers\StokController::stok
- * @see app/Http/Controllers/StokController.php:41
+ * @see app/Http/Controllers/StokController.php:44
  * @route '/admin/stok'
  */
 stok.url = (options?: RouteQueryOptions) => {
@@ -581,7 +581,7 @@ stok.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\StokController::stok
- * @see app/Http/Controllers/StokController.php:41
+ * @see app/Http/Controllers/StokController.php:44
  * @route '/admin/stok'
  */
 stok.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -590,7 +590,7 @@ stok.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\StokController::stok
- * @see app/Http/Controllers/StokController.php:41
+ * @see app/Http/Controllers/StokController.php:44
  * @route '/admin/stok'
  */
 stok.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -600,7 +600,7 @@ stok.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\StokController::stok
- * @see app/Http/Controllers/StokController.php:41
+ * @see app/Http/Controllers/StokController.php:44
  * @route '/admin/stok'
  */
     const stokForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -610,7 +610,7 @@ stok.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\StokController::stok
- * @see app/Http/Controllers/StokController.php:41
+ * @see app/Http/Controllers/StokController.php:44
  * @route '/admin/stok'
  */
         stokForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -619,7 +619,7 @@ stok.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\StokController::stok
- * @see app/Http/Controllers/StokController.php:41
+ * @see app/Http/Controllers/StokController.php:44
  * @route '/admin/stok'
  */
         stokForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
