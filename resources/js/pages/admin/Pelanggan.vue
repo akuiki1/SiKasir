@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import BodyTeleport from '@/components/BodyTeleport.vue';
 import { Plus, Search, Contact, BadgePercent, X, Save, Edit, Trash2, AlertCircle, Phone } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
 import { store as pelangganStore, update as pelangganUpdate, destroy as pelangganDestroy } from '@/routes/admin/pelanggan';

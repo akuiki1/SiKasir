@@ -42,5 +42,6 @@ export function formatCompact(value: number): string {
             return `${sign}${formatNumber(abs / factor, 1)} ${suffix}`;
         }
     }
+
     return sign + formatNumber(abs, 0);
 }

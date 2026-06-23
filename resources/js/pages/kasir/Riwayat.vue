@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { formatRupiah } from '@/lib/format';
 import {
     Search,
     Filter,
@@ -11,6 +10,7 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
 import Pagination from '@/components/Pagination.vue';
+import { formatRupiah } from '@/lib/format';
 
 defineOptions({
     layout: {

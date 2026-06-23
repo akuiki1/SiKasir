@@ -35,7 +35,10 @@ const goTo = (i: number) => {
 };
 
 const start = () => {
-    if (timer) clearInterval(timer);
+    if (timer) {
+clearInterval(timer);
+}
+
     timer = setInterval(() => {
         active.value = (active.value + 1) % slides.length;
     }, 5500);
@@ -43,7 +46,9 @@ const start = () => {
 
 onMounted(start);
 onBeforeUnmount(() => {
-    if (timer) clearInterval(timer);
+    if (timer) {
+clearInterval(timer);
+}
 });
 </script>
 

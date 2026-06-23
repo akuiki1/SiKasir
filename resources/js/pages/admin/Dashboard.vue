@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { formatRupiah, formatCompact, formatNumber } from '@/lib/format';
 import {
     Archive,
     ArrowDownRight,
@@ -20,6 +19,7 @@ import {
     Wallet,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { formatRupiah, formatCompact, formatNumber } from '@/lib/format';
 
 defineOptions({
     layout: {
@@ -186,9 +186,11 @@ function niceCeil(value: number): number {
     if (value <= 0) {
         return 1;
     }
+
     const mag = Math.pow(10, Math.floor(Math.log10(value)));
     const norm = value / mag;
     const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+
     return nice * mag;
 }
 
@@ -235,6 +237,7 @@ function deltaTone(delta: number | null): string {
     if (delta === null || delta === 0) {
         return 'text-slate-400 dark:text-slate-500';
     }
+
     return delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
 }
 </script>

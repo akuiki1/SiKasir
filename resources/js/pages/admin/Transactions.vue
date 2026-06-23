@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { formatRupiah } from '@/lib/format';
 import {
     Plus,
     Search,
@@ -30,6 +29,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
+import { formatRupiah } from '@/lib/format';
 import { store as transaksiStore, update as transaksiUpdate, destroy as transaksiDestroy } from '@/routes/admin/transactions';
 
 defineOptions({

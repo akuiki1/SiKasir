@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import BodyTeleport from '@/components/BodyTeleport.vue';
 import {
     Plus,
     Search,
@@ -13,6 +12,7 @@ import {
     AlertCircle,
 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
 import { store as kategoriStore, update as kategoriUpdate, destroy as kategoriDestroy } from '@/routes/admin/kategori';

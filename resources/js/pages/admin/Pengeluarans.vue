@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import BodyTeleport from '@/components/BodyTeleport.vue';
 import {
     Plus,
     Search,
@@ -15,6 +14,7 @@ import {
     ChevronRight,
 } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
 import {

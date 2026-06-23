@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { formatRupiah } from '@/lib/format';
 import {
     Search,
     Barcode,
@@ -29,6 +28,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { toast } from 'vue-sonner';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
+import { formatRupiah } from '@/lib/format';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 
 defineOptions({

@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import BodyTeleport from '@/components/BodyTeleport.vue';
-import { formatRupiah } from '@/lib/format';
 import JsBarcode from 'jsbarcode';
 import {
     Plus,
@@ -38,8 +36,10 @@ import {
     Upload,
 } from 'lucide-vue-next';
 import { ref, computed, nextTick, onBeforeUnmount, watch, onMounted } from 'vue';
+import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
+import { formatRupiah } from '@/lib/format';
 import { store as productStore, update as productUpdate, destroy as productDestroy, generateAll as productGenerateAll } from '@/routes/admin/products';
 
 defineOptions({

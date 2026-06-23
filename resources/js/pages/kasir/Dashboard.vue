@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
-import { formatRupiah } from '@/lib/format';
 import {
     PlusCircle,
     Search,
@@ -24,6 +23,7 @@ import {
     ClipboardList,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { formatRupiah } from '@/lib/format';
 import { transaksi as transaksiRoute, riwayat as riwayatRoute } from '@/routes/kasir';
 
 defineOptions({

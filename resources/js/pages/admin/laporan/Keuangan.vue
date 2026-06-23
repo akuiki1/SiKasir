@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { formatRupiah, formatCompact } from '@/lib/format';
 import {
     AlertTriangle,
     ArrowDownRight,
@@ -18,6 +17,7 @@ import {
     Wallet,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { formatRupiah, formatCompact } from '@/lib/format';
 
 defineOptions({
     layout: {
