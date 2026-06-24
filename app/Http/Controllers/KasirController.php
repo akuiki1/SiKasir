@@ -54,7 +54,9 @@ class KasirController extends Controller
         }
 
         // --- Penjualan hari ini (kartu + ringkasan sesi) ---
-        $todayBase = Transaksi::where('id_user', $userId)->whereDate('created_at', $today->toDateString());
+        // Rentang datetime mentah (bukan whereDate) agar index (id_user, created_at) terpakai.
+        $todayBase = Transaksi::where('id_user', $userId)
+            ->whereBetween('created_at', [$today->copy()->startOfDay(), $today->copy()->endOfDay()]);
         $todayRevenue = (int) (clone $todayBase)->sum('total_harga');
         $todayCount = (clone $todayBase)->count();
         $todayItems = (int) DetailTransaksi::whereIn(

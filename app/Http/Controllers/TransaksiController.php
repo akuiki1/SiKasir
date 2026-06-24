@@ -33,8 +33,9 @@ class TransaksiController extends Controller
         $sort = (string) $request->query('sort', '');
 
         $query = Transaksi::with(['user', 'detailTransaksis.produk', 'promo'])
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
+            // Bandingkan datetime mentah (bukan whereDate) agar index created_at terpakai.
+            ->where('created_at', '>=', Carbon::parse($startDate)->startOfDay())
+            ->where('created_at', '<=', Carbon::parse($endDate)->endOfDay())
             // Pencarian "kode" = "TRX-{id}" (string bentukan, bukan kolom) atau nama kasir.
             ->when($search !== '', fn ($q) => $q->where(fn ($sub) => $sub
                 ->whereRaw("CONCAT('TRX-', id_transaksi) LIKE ?", ['%'.$search.'%'])
@@ -60,7 +61,8 @@ class TransaksiController extends Controller
             ->through(fn (Transaksi $transaksi) => $this->formatTransaksi($transaksi));
 
         // Stats agregat atas rentang tanggal (tidak terpengaruh search/kasir) — sesuai perilaku lama.
-        $statBase = Transaksi::whereDate('created_at', '>=', $startDate)->whereDate('created_at', '<=', $endDate);
+        $statBase = Transaksi::where('created_at', '>=', Carbon::parse($startDate)->startOfDay())
+            ->where('created_at', '<=', Carbon::parse($endDate)->endOfDay());
         $totalPenjualan = (int) (clone $statBase)->sum('total_harga');
         $totalTransaksi = (clone $statBase)->count();
         $rataRata = $totalTransaksi > 0 ? (int) ($totalPenjualan / $totalTransaksi) : 0;

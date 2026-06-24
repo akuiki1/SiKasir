@@ -213,12 +213,13 @@ class PesananController extends Controller
             });
         }
 
+        // Bandingkan datetime mentah (bukan whereDate) agar index created_at terpakai.
         if ($startDate !== null && $startDate !== '') {
-            $query->whereDate('created_at', '>=', $startDate);
+            $query->where('created_at', '>=', Carbon::parse($startDate)->startOfDay());
         }
 
         if ($endDate !== null && $endDate !== '') {
-            $query->whereDate('created_at', '<=', $endDate);
+            $query->where('created_at', '<=', Carbon::parse($endDate)->endOfDay());
         }
 
         return $query;

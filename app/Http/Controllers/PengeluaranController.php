@@ -23,8 +23,9 @@ class PengeluaranController extends Controller
         $endDate = $request->input('end_date') ?: Carbon::today()->toDateString();
         $search = trim((string) $request->query('search', ''));
 
-        $pengeluarans = Pengeluaran::whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
+        // Bandingkan datetime mentah (bukan whereDate) agar index created_at terpakai.
+        $pengeluarans = Pengeluaran::where('created_at', '>=', Carbon::parse($startDate)->startOfDay())
+            ->where('created_at', '<=', Carbon::parse($endDate)->endOfDay())
             ->when($search !== '', fn ($q) => $q->where(fn ($sub) => $sub
                 ->where('judul', 'like', '%'.$search.'%')
                 ->orWhere('tipe', 'like', '%'.$search.'%')))
@@ -41,7 +42,8 @@ class PengeluaranController extends Controller
             ]);
 
         // Stats agregat atas rentang tanggal (tidak terpengaruh search) — sesuai perilaku lama.
-        $statBase = Pengeluaran::whereDate('created_at', '>=', $startDate)->whereDate('created_at', '<=', $endDate);
+        $statBase = Pengeluaran::where('created_at', '>=', Carbon::parse($startDate)->startOfDay())
+            ->where('created_at', '<=', Carbon::parse($endDate)->endOfDay());
 
         return Inertia::render('admin/Pengeluarans', [
             'pengeluarans' => $pengeluarans,
