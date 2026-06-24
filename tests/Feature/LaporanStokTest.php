@@ -78,15 +78,14 @@ test('products are classified into fast, slow, and dead stock by turnover', func
     );
 });
 
-test('inventory report defaults to the last 90 days', function () {
+test('inventory report defaults to the current calendar year', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
     $response = $this->actingAs($admin)->get(route('admin.laporan.inventaris'));
 
     $response->assertInertia(fn (AssertableInertia $page) => $page
-        ->where('period_days', 90)
-        ->where('date_range.start_date', Carbon::today()->subDays(89)->toDateString())
-        ->where('date_range.end_date', Carbon::today()->toDateString())
+        ->where('date_range.start_date', Carbon::today()->startOfYear()->toDateString())
+        ->where('date_range.end_date', Carbon::today()->endOfYear()->toDateString())
     );
 });
 
@@ -95,8 +94,8 @@ test('a product unsold within the window but in stock counts as dead stock', fun
 
     $produk = Produk::factory()->create(['harga_jual' => 10000, 'harga_modal' => 6000, 'stok' => 3]);
 
-    // Penjualan lama (200 hari lalu) di luar jendela default 90 hari.
-    jualProduk($produk, 5, $admin, Carbon::today()->subDays(200)->setTime(10, 0));
+    // Penjualan lama (tahun lalu) di luar jendela default tahun berjalan.
+    jualProduk($produk, 5, $admin, Carbon::today()->subYear()->setTime(10, 0));
 
     $response = $this->actingAs($admin)->get(route('admin.laporan.inventaris'));
 

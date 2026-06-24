@@ -62,16 +62,15 @@ test('admin can view the customer insights report and other roles cannot', funct
     $this->actingAs($admin)->get(route('admin.laporan.pelanggan'))->assertOk();
 });
 
-test('customer insights report defaults to the last 90 days', function () {
+test('customer insights report defaults to the current calendar year', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
     $response = $this->actingAs($admin)->get(route('admin.laporan.pelanggan'));
 
     $response->assertInertia(fn (AssertableInertia $page) => $page
         ->component('admin/laporan/Pelanggan')
-        ->where('period_days', 90)
-        ->where('date_range.start_date', Carbon::today()->subDays(89)->toDateString())
-        ->where('date_range.end_date', Carbon::today()->toDateString())
+        ->where('date_range.start_date', Carbon::today()->startOfYear()->toDateString())
+        ->where('date_range.end_date', Carbon::today()->endOfYear()->toDateString())
     );
 });
 
@@ -82,8 +81,8 @@ test('registered customers are ranked by spend and marked returning vs new', fun
     $reseller = Pelanggan::create(['nama' => 'Toko Budi', 'tipe' => 'reseller']);
     $baru = Pelanggan::create(['nama' => 'Ibu Ani', 'tipe' => 'umum']);
 
-    // Reseller: pernah belanja sebelum jendela 90 hari (returning) + 2 transaksi dalam periode.
-    transaksiPelanggan($reseller, [[$produk, 5]], $admin, Carbon::today()->subDays(120)->setTime(9, 0));
+    // Reseller: pernah belanja sebelum jendela (tahun lalu = returning) + 2 transaksi dalam periode.
+    transaksiPelanggan($reseller, [[$produk, 5]], $admin, Carbon::today()->subYear()->setTime(9, 0));
     transaksiPelanggan($reseller, [[$produk, 10]], $admin); // 100.000
     transaksiPelanggan($reseller, [[$produk, 10]], $admin); // 100.000 → 200.000, 2 kunjungan
 

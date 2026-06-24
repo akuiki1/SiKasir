@@ -9,13 +9,12 @@ import {
     FileText,
     X,
     Save,
-    CalendarDays,
-    ChevronLeft,
-    ChevronRight,
 } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
+import PeriodFilter from '@/components/PeriodFilter.vue';
+import { formatPeriodLabel } from '@/lib/period';
 import {
     store as pengeluaransStore,
     update as pengeluaransUpdate,
@@ -93,87 +92,10 @@ const tipeGroups = [
 
 const isModalBarangTipe = computed(() => COGS_TIPES.includes(form.tipe));
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+const periodLabel = computed(() => formatPeriodLabel(props.date_range.start_date, props.date_range.end_date));
 
-function getMonthRange(year: number, month: number) {
-    const start = new Date(year, month, 1);
-    const end = new Date(year, month + 1, 0);
-
-    return {
-        start: start.toISOString().slice(0, 10),
-        end: end.toISOString().slice(0, 10),
-    };
-}
-
-const showDateFilter = ref(false);
-const filterYear = ref(props.date_range.start_date ? new Date(props.date_range.start_date + 'T00:00:00').getFullYear() : new Date().getFullYear());
-const dateStartDate = ref(props.date_range.start_date);
-const dateEndDate = ref(props.date_range.end_date);
-
-function detectDateMode(): string {
-    const today = new Date().toISOString().slice(0, 10);
-
-    if (props.date_range.start_date === today && props.date_range.end_date === today) {
-        return 'today';
-    }
-
-    for (let m = 0; m < 12; m++) {
-        const range = getMonthRange(filterYear.value, m);
-
-        if (range.start === props.date_range.start_date && range.end === props.date_range.end_date) {
-            return String(m);
-        }
-    }
-
-    return 'custom';
-}
-
-const selectedDateMode = ref(detectDateMode());
-
-const periodLabel = computed(() => {
-    if (selectedDateMode.value === 'today') {
-return 'Hari Ini';
-}
-
-    if (selectedDateMode.value !== 'custom') {
-        return `${MONTHS[Number(selectedDateMode.value)]} ${filterYear.value}`;
-    }
-
-    return props.date_range.start_date === props.date_range.end_date
-        ? props.date_range.start_date
-        : `${props.date_range.start_date} – ${props.date_range.end_date}`;
-});
-
-function selectMonth(monthIndex: number): void {
-    selectedDateMode.value = String(monthIndex);
-    const range = getMonthRange(filterYear.value, monthIndex);
-    reload({ start_date: range.start, end_date: range.end, page: 1 });
-}
-
-function selectToday(): void {
-    selectedDateMode.value = 'today';
-    const today = new Date().toISOString().slice(0, 10);
-    reload({ start_date: today, end_date: today, page: 1 });
-}
-
-function prevFilterYear(): void {
-    filterYear.value--;
-
-    if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
-        selectMonth(Number(selectedDateMode.value));
-    }
-}
-
-function nextFilterYear(): void {
-    filterYear.value++;
-
-    if (selectedDateMode.value !== 'custom' && selectedDateMode.value !== 'today') {
-        selectMonth(Number(selectedDateMode.value));
-    }
-}
-
-function applyDateRange(): void {
-    reload({ start_date: dateStartDate.value, end_date: dateEndDate.value, page: 1 });
+function onPeriod(range: { start_date: string; end_date: string }): void {
+    reload({ start_date: range.start_date, end_date: range.end_date, page: 1 });
 }
 
 // Pencarian dikirim ke server (debounce) — hanya satu halaman data yang dimuat.
@@ -358,126 +280,11 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
 
             <div class="flex shrink-0 items-center gap-2">
                 <!-- Date range filter -->
-                <div class="relative">
-                    <button
-                        type="button"
-                        class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition"
-                        :class="showDateFilter
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-400'
-                            : 'border-sidebar-border/70 bg-background text-slate-600 hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-300 dark:hover:bg-zinc-800'"
-                        @click="showDateFilter = !showDateFilter"
-                    >
-                        <CalendarDays class="h-4 w-4" />
-                        Periode
-                        <span class="ml-0.5 rounded-md bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                            {{ periodLabel }}
-                        </span>
-                    </button>
-
-                    <Transition
-                        enter-active-class="transition ease-out duration-150"
-                        enter-from-class="opacity-0 translate-y-1"
-                        enter-to-class="opacity-100 translate-y-0"
-                        leave-active-class="transition ease-in duration-100"
-                        leave-from-class="opacity-100 translate-y-0"
-                        leave-to-class="opacity-0 translate-y-1"
-                    >
-                        <div
-                            v-if="showDateFilter"
-                            class="absolute right-0 top-11 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
-                        >
-                            <!-- Hari Ini preset -->
-                            <button
-                                type="button"
-                                class="mb-3 w-full rounded-lg py-2 text-xs font-semibold transition-all"
-                                :class="selectedDateMode === 'today'
-                                    ? 'bg-indigo-500 text-white'
-                                    : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
-                                @click="selectToday(); showDateFilter = false"
-                            >
-                                Hari Ini
-                            </button>
-
-                            <!-- Year navigator -->
-                            <div class="flex items-center gap-0.5">
-                                <button
-                                    type="button"
-                                    class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
-                                    @click="prevFilterYear"
-                                >
-                                    <ChevronLeft class="h-4 w-4" />
-                                </button>
-                                <span class="flex-1 text-center text-sm font-bold text-slate-800 dark:text-slate-100">{{ filterYear }}</span>
-                                <button
-                                    type="button"
-                                    class="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-300"
-                                    @click="nextFilterYear"
-                                >
-                                    <ChevronRight class="h-4 w-4" />
-                                </button>
-                            </div>
-
-                            <!-- Month grid -->
-                            <div class="mt-3 grid grid-cols-4 gap-1">
-                                <button
-                                    v-for="(month, i) in MONTHS"
-                                    :key="i"
-                                    type="button"
-                                    class="rounded-lg py-2 text-xs font-semibold transition-all"
-                                    :class="selectedDateMode === String(i)
-                                        ? 'bg-indigo-500 text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
-                                    @click="selectMonth(i); showDateFilter = false"
-                                >
-                                    {{ month }}
-                                </button>
-                                <button
-                                    type="button"
-                                    class="col-span-4 rounded-lg py-2 text-xs font-semibold transition-all"
-                                    :class="selectedDateMode === 'custom'
-                                        ? 'bg-indigo-500 text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'"
-                                    @click="selectedDateMode = 'custom'"
-                                >
-                                    Custom
-                                </button>
-                            </div>
-
-                            <!-- Custom date inputs -->
-                            <div
-                                v-if="selectedDateMode === 'custom'"
-                                class="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-zinc-800"
-                            >
-                                <div class="grid grid-cols-2 gap-2">
-                                    <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        Mulai
-                                        <input
-                                            v-model="dateStartDate"
-                                            type="date"
-                                            class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-indigo-500/20"
-                                        />
-                                    </label>
-                                    <label class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        Sampai
-                                        <input
-                                            v-model="dateEndDate"
-                                            type="date"
-                                            class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100 dark:focus:ring-indigo-500/20"
-                                        />
-                                    </label>
-                                </div>
-                                <button
-                                    type="button"
-                                    class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-500 text-xs font-semibold text-white transition hover:bg-indigo-600"
-                                    @click="applyDateRange(); showDateFilter = false"
-                                >
-                                    <CalendarDays class="h-3 w-3" />
-                                    Terapkan
-                                </button>
-                            </div>
-                        </div>
-                    </Transition>
-                </div>
+                <PeriodFilter
+                    :start-date="props.date_range.start_date"
+                    :end-date="props.date_range.end_date"
+                    @change="onPeriod"
+                />
 
                 <button
                     id="btn-tambah-pengeluaran"
@@ -490,12 +297,6 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
             </div>
         </div>
 
-        <!-- Backdrop to close date filter -->
-        <div
-            v-if="showDateFilter"
-            class="fixed inset-0 z-40"
-            @click="showDateFilter = false"
-        />
 
         <div class="grid gap-4 md:grid-cols-2">
             <div class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-6 shadow-sm dark:border-sidebar-border">

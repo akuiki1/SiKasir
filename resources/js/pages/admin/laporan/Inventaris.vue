@@ -3,7 +3,6 @@ import { Head, router } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     Boxes,
-    Calendar,
     Flame,
     Mail,
     PackageX,
@@ -13,6 +12,7 @@ import {
     Warehouse,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import PeriodFilter from '@/components/PeriodFilter.vue';
 import { formatRupiah, formatNumber } from '@/lib/format';
 
 defineOptions({
@@ -103,54 +103,12 @@ const classMeta: Record<
 // Filter periode — jendela bergulir (cocok untuk analisis perputaran)
 // ---------------------------------------------------------------
 const REPORT_URL = '/admin/laporan/inventaris';
-const showFilter = ref(false);
-const customStart = ref(props.date_range.start_date);
-const customEnd = ref(props.date_range.end_date);
-
-const PRESETS = [
-    { days: 30, label: '30 Hari' },
-    { days: 90, label: '90 Hari' },
-    { days: 180, label: '6 Bulan' },
-    { days: 365, label: '1 Tahun' },
-];
-
-function toLocalISO(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-
-    return `${y}-${m}-${d}`;
-}
-
-const todayISO = toLocalISO(new Date());
-const endsToday = computed(() => props.date_range.end_date === todayISO);
-const activePreset = computed(() =>
-    endsToday.value
-        ? (PRESETS.find((p) => p.days === props.period_days) ?? null)
-        : null,
-);
-
-const filterBadgeLabel = computed(
-    () => activePreset.value?.label ?? `${props.period_days} Hari`,
-);
-
-function go(start: string, end: string): void {
-    router.get(
-        REPORT_URL,
-        { start_date: start, end_date: end },
-        { preserveState: true, replace: true },
-    );
-}
-
-function selectPreset(days: number): void {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - (days - 1));
-    go(toLocalISO(start), toLocalISO(end));
-}
-
-function applyCustom(): void {
-    go(customStart.value, customEnd.value);
+function onPeriod(range: { start_date: string; end_date: string }): void {
+    router.get(REPORT_URL, { start_date: range.start_date, end_date: range.end_date }, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
 }
 
 // ---------------------------------------------------------------
@@ -459,106 +417,11 @@ function printReport(): void {
 
             <div class="flex flex-wrap items-center gap-2">
                 <!-- Filter periode -->
-                <div class="relative">
-                    <button
-                        type="button"
-                        class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition"
-                        :class="
-                            showFilter
-                                ? 'border-sky-500 bg-sky-50 text-sky-600 dark:border-sky-500 dark:bg-sky-500/10 dark:text-sky-400'
-                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-slate-300 dark:hover:bg-zinc-800'
-                        "
-                        @click="showFilter = !showFilter"
-                    >
-                        <Calendar class="h-4 w-4" />
-                        <span class="hidden sm:inline">Periode</span>
-                        <span
-                            class="rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-bold text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
-                            >{{ filterBadgeLabel }}</span
-                        >
-                    </button>
-
-                    <Transition
-                        enter-active-class="transition ease-out duration-150"
-                        enter-from-class="opacity-0 translate-y-1"
-                        enter-to-class="opacity-100 translate-y-0"
-                        leave-active-class="transition ease-in duration-100"
-                        leave-from-class="opacity-100 translate-y-0"
-                        leave-to-class="opacity-0 translate-y-1"
-                    >
-                        <div
-                            v-if="showFilter"
-                            class="absolute top-11 right-0 z-50 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
-                        >
-                            <p
-                                class="px-1 pb-2 text-xs font-semibold text-slate-400"
-                            >
-                                Hitung perputaran dari
-                            </p>
-                            <div class="grid grid-cols-2 gap-1.5">
-                                <button
-                                    v-for="preset in PRESETS"
-                                    :key="preset.days"
-                                    type="button"
-                                    class="rounded-lg py-2 text-xs font-semibold transition-all"
-                                    :class="
-                                        activePreset?.days === preset.days
-                                            ? 'bg-sky-500 text-white'
-                                            : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'
-                                    "
-                                    @click="
-                                        selectPreset(preset.days);
-                                        showFilter = false;
-                                    "
-                                >
-                                    {{ preset.label }}
-                                </button>
-                            </div>
-
-                            <div
-                                class="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-zinc-800"
-                            >
-                                <p
-                                    class="px-1 text-xs font-semibold text-slate-400"
-                                >
-                                    Rentang khusus
-                                </p>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <label
-                                        class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400"
-                                    >
-                                        Mulai
-                                        <input
-                                            v-model="customStart"
-                                            type="date"
-                                            class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 transition outline-none focus:border-sky-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100"
-                                        />
-                                    </label>
-                                    <label
-                                        class="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400"
-                                    >
-                                        Sampai
-                                        <input
-                                            v-model="customEnd"
-                                            type="date"
-                                            class="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-900 transition outline-none focus:border-sky-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-slate-100"
-                                        />
-                                    </label>
-                                </div>
-                                <button
-                                    type="button"
-                                    class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-sky-500 text-xs font-semibold text-white transition hover:bg-sky-600"
-                                    @click="
-                                        applyCustom();
-                                        showFilter = false;
-                                    "
-                                >
-                                    <Calendar class="h-3 w-3" /> Terapkan
-                                </button>
-                            </div>
-                        </div>
-                    </Transition>
-                </div>
+                <PeriodFilter
+                    :start-date="props.date_range.start_date"
+                    :end-date="props.date_range.end_date"
+                    @change="onPeriod"
+                />
 
                 <!-- Ekspor -->
                 <button
@@ -607,12 +470,6 @@ function printReport(): void {
             </div>
         </div>
 
-        <!-- Backdrop filter -->
-        <div
-            v-if="showFilter"
-            class="fixed inset-0 z-40"
-            @click="showFilter = false"
-        />
 
         <!-- Ringkasan visual -->
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

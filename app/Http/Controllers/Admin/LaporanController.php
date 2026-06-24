@@ -306,17 +306,17 @@ class LaporanController extends Controller
             'end_date' => ['nullable', 'date'],
         ]);
 
-        // Default: 90 hari terakhir — jendela cukup panjang untuk menilai perputaran.
-        $endDate = isset($validated['end_date'])
-            ? Carbon::parse($validated['end_date'])->endOfDay()
-            : Carbon::today()->endOfDay();
-
+        // Default: tahun berjalan (kalender) — selaras filter periode seragam.
         $startDate = isset($validated['start_date'])
             ? Carbon::parse($validated['start_date'])->startOfDay()
-            : $endDate->copy()->subDays(89)->startOfDay();
+            : Carbon::today()->startOfYear();
+
+        $endDate = isset($validated['end_date'])
+            ? Carbon::parse($validated['end_date'])->endOfDay()
+            : Carbon::today()->endOfYear();
 
         if ($startDate->gt($endDate)) {
-            $startDate = $endDate->copy()->subDays(89)->startOfDay();
+            $startDate = $endDate->copy()->startOfYear();
         }
 
         $analysis = $this->stok->abcAnalysis($startDate, $endDate);
@@ -344,18 +344,17 @@ class LaporanController extends Controller
             'end_date' => ['nullable', 'date'],
         ]);
 
-        // Default: 90 hari terakhir — perilaku & loyalitas pelanggan butuh jendela
-        // yang cukup panjang (selaras Laporan Inventaris).
-        $endDate = isset($validated['end_date'])
-            ? Carbon::parse($validated['end_date'])->endOfDay()
-            : Carbon::today()->endOfDay();
-
+        // Default: tahun berjalan (kalender) — selaras filter periode seragam.
         $startDate = isset($validated['start_date'])
             ? Carbon::parse($validated['start_date'])->startOfDay()
-            : $endDate->copy()->subDays(89)->startOfDay();
+            : Carbon::today()->startOfYear();
+
+        $endDate = isset($validated['end_date'])
+            ? Carbon::parse($validated['end_date'])->endOfDay()
+            : Carbon::today()->endOfYear();
 
         if ($startDate->gt($endDate)) {
-            $startDate = $endDate->copy()->subDays(89)->startOfDay();
+            $startDate = $endDate->copy()->startOfYear();
         }
 
         $insights = $this->pelangganService->insights($startDate, $endDate);
