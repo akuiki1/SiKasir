@@ -718,7 +718,7 @@ class KasirController extends Controller
             'bayar' => $transaksi->bayar,
             'kembalian' => $transaksi->kembalian,
             'created_at' => $transaksi->created_at,
-            'waktu' => Carbon::parse($transaksi->created_at)->translatedFormat('H:i \W\I\B'),
+            'waktu' => Carbon::parse($transaksi->created_at)->translatedFormat('H:i \W\I\T\A'),
             'tanggal' => Carbon::parse($transaksi->created_at)->translatedFormat('d M Y'),
             'details' => $transaksi->detailTransaksis->map(fn ($detail) => [
                 'nama_produk' => $detail->produk?->nama ?? '- ',

@@ -1261,7 +1261,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                                 <div>
                                     <p class="font-bold">Jam buka</p>
                                     <p class="text-sm text-[var(--kg-sec)]">
-                                        Senin–Sabtu, 08.00–18.00 WIB. Minggu &
+                                        Senin–Sabtu, 08.00–18.00 WITA. Minggu &
                                         libur nasional tutup.
                                     </p>
                                 </div>
@@ -1538,7 +1538,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                                 <Clock
                                     class="h-4 w-4 shrink-0 text-[var(--kg-primary)]"
                                 />
-                                <span>Senin–Sabtu, 08.00–18.00 WIB</span>
+                                <span>Senin–Sabtu, 08.00–18.00 WITA</span>
                             </li>
                         </ul>
                     </div>
