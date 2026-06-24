@@ -82,6 +82,7 @@ class KasirController extends Controller
 
         // --- Transaksi terakhir saya ---
         $recentTransactions = Transaksi::where('id_user', $userId)
+            ->with('detailTransaksis:id_transaksi,jumlah')
             ->latest('created_at')
             ->limit(5)
             ->get()
@@ -219,6 +220,7 @@ class KasirController extends Controller
     public function transaksi(): Response
     {
         $produks = Produk::query()
+            ->with('kategori:id_kategori,nama_kategori')
             // Produk jasa (transfer/tarik tunai) punya alur sendiri (Fase 2), bukan grid biasa.
             ->where('tipe_jual', '!=', 'jasa')
             ->orderBy('nama')
