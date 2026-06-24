@@ -112,60 +112,6 @@ class LaporanFinansialService
     }
 
     /**
-     * Performa penjualan per produk dari sekumpulan transaksi (beserta detail & produk).
-     *
-     * - Produk jasa (transfer/tarik tunai) dikecualikan: bukan penjualan barang.
-     * - Omzet per produk sudah dikurangi diskon global, dialokasikan proporsional
-     *   terhadap subtotal tiap baris, sehingga total omzet produk rekonsiliasi
-     *   dengan total_harga transaksi.
-     *
-     * @param  Collection<int, Transaksi>  $transactions
-     * @return Collection<int, array{id_produk: int, nama: string, qty: float, revenue: int, cogs: int, profit: int, transactions: int}>
-     */
-    public function productPerformance(Collection $transactions): Collection
-    {
-        $rows = collect();
-
-        foreach ($transactions as $trx) {
-            $details = $trx->detailTransaksis;
-            $sumSubtotal = (int) $details->sum('subtotal');
-            // Diskon global = selisih subtotal baris (sudah bersih promo item) dengan omzet transaksi.
-            $globalDiskon = max(0, $sumSubtotal - (int) $trx->total_harga);
-
-            foreach ($details as $detail) {
-                if ($detail->produk?->tipe_jual === 'jasa') {
-                    continue;
-                }
-
-                $share = $sumSubtotal > 0 ? $detail->subtotal / $sumSubtotal : 0;
-                $netRevenue = (int) round($detail->subtotal - ($globalDiskon * $share));
-
-                $rows->push([
-                    'id_produk' => (int) $detail->id_produk,
-                    'nama' => $detail->produk?->nama ?? 'Produk Terhapus',
-                    'qty' => (float) $detail->jumlah,
-                    'revenue' => max(0, $netRevenue),
-                    'cogs' => (int) ($detail->modal * $detail->jumlah),
-                    'id_transaksi' => $detail->id_transaksi,
-                ]);
-            }
-        }
-
-        return $rows
-            ->groupBy('id_produk')
-            ->map(fn (Collection $group) => [
-                'id_produk' => $group->first()['id_produk'],
-                'nama' => $group->first()['nama'],
-                'qty' => $group->sum('qty'),
-                'revenue' => (int) $group->sum('revenue'),
-                'cogs' => (int) $group->sum('cogs'),
-                'profit' => (int) ($group->sum('revenue') - $group->sum('cogs')),
-                'transactions' => $group->pluck('id_transaksi')->unique()->count(),
-            ])
-            ->values();
-    }
-
-    /**
      * Distribusi transaksi & omzet per jam (0–23) — untuk analisis waktu sibuk.
      * Diagregasi di PHP (bukan SQL HOUR()) agar portabel lintas database & konsisten
      * dengan zona waktu aplikasi pada cast created_at.
