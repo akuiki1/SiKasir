@@ -25,10 +25,9 @@ import {
     PackageMinus,
     CalendarDays,
 } from 'lucide-vue-next';
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import { formatRupiah } from '@/lib/format';
 import { store as transaksiStore, update as transaksiUpdate, destroy as transaksiDestroy } from '@/routes/admin/transactions';
 
@@ -93,8 +92,25 @@ interface FormItem {
     jumlah: string;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    search: string;
+    kasir: string;
+    sort: string;
+    per_page: number;
+}
+
 const props = defineProps<{
-    transaksis: Transaksi[];
+    transaksis: Paginator<Transaksi>;
     kasirs: Kasir[];
     produks: ProdukItem[];
     stats: Stats;
@@ -102,6 +118,7 @@ const props = defineProps<{
         start_date: string;
         end_date: string;
     };
+    filters: Filters;
 }>();
 
 
@@ -115,10 +132,23 @@ function formatMetode(metode: string): string {
     return labels[metode] ?? metode;
 }
 
-const searchQuery = ref('');
-const filterKasir = ref('');
-const sortBy = ref('');
+const searchQuery = ref(props.filters.search ?? '');
+const filterKasir = ref(props.filters.kasir ?? '');
+const sortBy = ref(props.filters.sort ?? '');
 const showFilterPanel = ref(false);
+
+// Pencarian & filter dikirim ke server (search di-debounce).
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
+    }
+
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
+});
+
+watch(filterKasir, (value) => reload({ kasir: value, page: 1 }));
+watch(sortBy, (value) => reload({ sort: value, page: 1 }));
 const filterPanelRef = ref<HTMLDivElement | null>(null);
 
 const sortOptions = [
@@ -157,16 +187,6 @@ function handleClickOutsideFilter(event: MouseEvent) {
 
 onMounted(() => document.addEventListener('mousedown', handleClickOutsideFilter));
 onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsideFilter));
-
-// Pencarian awal dari query URL (mis. klik baris "Aktivitas Terbaru" di Dashboard) —
-// dibaca setelah mount agar aman dari hydration mismatch saat SSR.
-onMounted(() => {
-    const search = new URLSearchParams(window.location.search).get('search');
-
-    if (search) {
-        searchQuery.value = search;
-    }
-});
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -240,28 +260,19 @@ return `Tahun ${filterYear.value}`;
 function selectMonth(monthIndex: number): void {
     selectedDateMode.value = String(monthIndex);
     const range = getMonthRange(filterYear.value, monthIndex);
-    router.get('/admin/transactions', {
-        start_date: range.start,
-        end_date: range.end,
-    }, { preserveState: true, replace: true });
+    reload({ start_date: range.start, end_date: range.end, page: 1 });
 }
 
 function selectToday(): void {
     selectedDateMode.value = 'today';
     const today = new Date().toISOString().slice(0, 10);
-    router.get('/admin/transactions', {
-        start_date: today,
-        end_date: today,
-    }, { preserveState: true, replace: true });
+    reload({ start_date: today, end_date: today, page: 1 });
 }
 
 function selectYear(): void {
     selectedDateMode.value = 'year';
     const range = getYearRange(filterYear.value);
-    router.get('/admin/transactions', {
-        start_date: range.start,
-        end_date: range.end,
-    }, { preserveState: true, replace: true });
+    reload({ start_date: range.start, end_date: range.end, page: 1 });
 }
 
 function onYearNav(): void {
@@ -283,40 +294,79 @@ function nextFilterYear(): void {
 }
 
 function applyDateRange(): void {
-    router.get('/admin/transactions', {
-        start_date: dateStartDate.value,
-        end_date: dateEndDate.value,
-    }, { preserveState: true, replace: true });
+    reload({ start_date: dateStartDate.value, end_date: dateEndDate.value, page: 1 });
 }
 
-const filteredTransaksis = computed(() => {
-    const q = searchQuery.value.toLowerCase();
+type QueryValue = string | number;
 
-    let result = props.transaksis.filter((t) => {
-        const matchSearch = !q || t.kode.toLowerCase().includes(q) || t.kasir.toLowerCase().includes(q);
-        const matchKasir = !filterKasir.value || String(t.id_user) === filterKasir.value;
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        kasir: filterKasir.value || undefined,
+        sort: sortBy.value || undefined,
+        start_date: props.date_range.start_date || undefined,
+        end_date: props.date_range.end_date || undefined,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
 
-        return matchSearch && matchKasir;
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
     });
 
-    if (sortBy.value === 'date_asc')   {
-result = [...result].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-} else if (sortBy.value === 'date_desc')  {
-result = [...result].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-} else if (sortBy.value === 'total_asc')  {
-result = [...result].sort((a, b) => a.total_harga - b.total_harga);
-} else if (sortBy.value === 'total_desc') {
-result = [...result].sort((a, b) => b.total_harga - a.total_harga);
-} else if (sortBy.value === 'item_asc')   {
-result = [...result].sort((a, b) => a.jumlah_item - b.jumlah_item);
-} else if (sortBy.value === 'item_desc')  {
-result = [...result].sort((a, b) => b.jumlah_item - a.jumlah_item);
+    return cleaned;
 }
 
-    return result;
-});
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/transactions', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedTransaksis, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredTransaksis.value);
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+// Nomor halaman yang tampil (mirror logika composable usePagination).
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.transaksis.last_page;
+    const current = props.transaksis.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < total - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 const showDetail = ref(false);
 const selectedTrx = ref<Transaksi | null>(null);
@@ -843,7 +893,7 @@ function hapusTransaksi(trx: Transaksi) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedTransaksis.length === 0">
+                        <tr v-if="props.transaksis.data.length === 0">
                             <td colspan="7" class="px-6 py-12 text-center text-muted-foreground">
                                 <ShoppingCart class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">
@@ -856,7 +906,7 @@ function hapusTransaksi(trx: Transaksi) {
                             </td>
                         </tr>
                         <tr
-                            v-for="trx in paginatedTransaksis"
+                            v-for="trx in props.transaksis.data"
                             :key="trx.id_transaksi"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -917,15 +967,15 @@ function hapusTransaksi(trx: Transaksi) {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.transaksis.current_page"
+                :total-pages="props.transaksis.last_page"
+                :total-items="props.transaksis.total"
+                :start-index="props.transaksis.from ?? 0"
+                :end-index="props.transaksis.to ?? 0"
+                :per-page="props.transaksis.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

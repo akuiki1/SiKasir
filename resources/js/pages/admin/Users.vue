@@ -13,10 +13,9 @@ import {
     Save,
     AlertCircle,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import { store as userStore, update as userUpdate, destroy as userDestroy } from '@/routes/admin/users';
 
 defineOptions({
@@ -44,30 +43,112 @@ interface Stats {
     total_kasir: number;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    search: string;
+    role: string;
+    per_page: number;
+}
+
 const props = defineProps<{
-    users: UserItem[];
+    users: Paginator<UserItem>;
     stats: Stats;
+    filters: Filters;
 }>();
 
 const page = usePage();
 const currentUserId = computed(() => (page.props.auth as { user: { id: number } }).user.id);
 
-const searchQuery = ref('');
-const filterRole = ref('');
+// Search & filter dikirim ke server (search di-debounce).
+const searchQuery = ref(props.filters.search ?? '');
+const filterRole = ref(props.filters.role ?? '');
 
-const filteredUsers = computed(() => {
-    return props.users.filter((user) => {
-        const matchSearch =
-            !searchQuery.value ||
-            user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-            user.email.toLowerCase().includes(searchQuery.value.toLowerCase());
-        const matchRole = !filterRole.value || user.role === filterRole.value;
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
+    }
 
-        return matchSearch && matchRole;
-    });
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
 });
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedUsers, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredUsers.value);
+watch(filterRole, (value) => reload({ role: value, page: 1 }));
+
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        role: filterRole.value || undefined,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/users', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.users.last_page;
+    const current = props.users.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < total - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 const showModal = ref(false);
 const editingUser = ref<UserItem | null>(null);
@@ -248,7 +329,7 @@ function formatDate(dateString: string): string {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedUsers.length === 0">
+                        <tr v-if="props.users.data.length === 0">
                             <td colspan="5" class="px-6 py-12 text-center text-muted-foreground">
                                 <User class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">
@@ -261,7 +342,7 @@ function formatDate(dateString: string): string {
                             </td>
                         </tr>
                         <tr
-                            v-for="userItem in paginatedUsers"
+                            v-for="userItem in props.users.data"
                             :key="userItem.id"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -326,15 +407,15 @@ function formatDate(dateString: string): string {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.users.current_page"
+                :total-pages="props.users.last_page"
+                :total-items="props.users.total"
+                :start-index="props.users.from ?? 0"
+                :end-index="props.users.to ?? 0"
+                :per-page="props.users.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

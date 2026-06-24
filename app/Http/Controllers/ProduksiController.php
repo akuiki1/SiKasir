@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Produk;
 use App\Models\Produksi;
 use App\Models\ProduksiBiaya;
@@ -16,15 +17,21 @@ use Inertia\Response;
 
 class ProduksiController extends Controller
 {
+    use ResolvesPerPage;
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $search = trim((string) $request->query('search', ''));
+
         $produksis = Produksi::with(['produk', 'biayas'])
+            ->when($search !== '', fn ($q) => $q->whereHas('produk', fn ($p) => $p->where('nama', 'like', '%'.$search.'%')))
             ->orderByDesc('id_produksi')
-            ->get()
-            ->map(fn (Produksi $produksi) => [
+            ->paginate($this->resolvePerPage($request))
+            ->withQueryString()
+            ->through(fn (Produksi $produksi) => [
                 'id_produksi' => $produksi->id_produksi,
                 'id_produk' => $produksi->id_produk,
                 'produk_nama' => $produksi->produk?->nama ?? 'Produk Terhapus',
@@ -48,9 +55,14 @@ class ProduksiController extends Controller
             'produksis' => $produksis,
             'produks' => $produks,
             'stats' => [
-                'total_batch' => $produksis->count(),
-                'total_unit' => $produksis->sum('jumlah'),
-                'total_biaya' => $produksis->sum('total_biaya'),
+                // Agregat lintas halaman — bukan dari data halaman aktif.
+                'total_batch' => Produksi::count(),
+                'total_unit' => (int) Produksi::sum('jumlah'),
+                'total_biaya' => (int) Produksi::sum('total_biaya'),
+            ],
+            'filters' => [
+                'search' => $search,
+                'per_page' => $this->resolvePerPage($request),
             ],
         ]);
     }

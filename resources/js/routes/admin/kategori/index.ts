@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\KategoriController::store
- * @see app/Http/Controllers/KategoriController.php:37
+ * @see app/Http/Controllers/KategoriController.php:47
  * @route '/admin/kategori'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\KategoriController::store
- * @see app/Http/Controllers/KategoriController.php:37
+ * @see app/Http/Controllers/KategoriController.php:47
  * @route '/admin/kategori'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\KategoriController::store
- * @see app/Http/Controllers/KategoriController.php:37
+ * @see app/Http/Controllers/KategoriController.php:47
  * @route '/admin/kategori'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\KategoriController::store
- * @see app/Http/Controllers/KategoriController.php:37
+ * @see app/Http/Controllers/KategoriController.php:47
  * @route '/admin/kategori'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\KategoriController::store
- * @see app/Http/Controllers/KategoriController.php:37
+ * @see app/Http/Controllers/KategoriController.php:47
  * @route '/admin/kategori'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\KategoriController::update
- * @see app/Http/Controllers/KategoriController.php:51
+ * @see app/Http/Controllers/KategoriController.php:61
  * @route '/admin/kategori/{kategori}'
  */
 export const update = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -71,7 +71,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\KategoriController::update
- * @see app/Http/Controllers/KategoriController.php:51
+ * @see app/Http/Controllers/KategoriController.php:61
  * @route '/admin/kategori/{kategori}'
  */
 update.url = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions) => {
@@ -104,7 +104,7 @@ update.url = (args: { kategori: number | { id_kategori: number } } | [kategori: 
 
 /**
 * @see \App\Http\Controllers\KategoriController::update
- * @see app/Http/Controllers/KategoriController.php:51
+ * @see app/Http/Controllers/KategoriController.php:61
  * @route '/admin/kategori/{kategori}'
  */
 update.put = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -114,7 +114,7 @@ update.put = (args: { kategori: number | { id_kategori: number } } | [kategori: 
 
     /**
 * @see \App\Http\Controllers\KategoriController::update
- * @see app/Http/Controllers/KategoriController.php:51
+ * @see app/Http/Controllers/KategoriController.php:61
  * @route '/admin/kategori/{kategori}'
  */
     const updateForm = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -129,7 +129,7 @@ update.put = (args: { kategori: number | { id_kategori: number } } | [kategori: 
 
             /**
 * @see \App\Http\Controllers\KategoriController::update
- * @see app/Http/Controllers/KategoriController.php:51
+ * @see app/Http/Controllers/KategoriController.php:61
  * @route '/admin/kategori/{kategori}'
  */
         updateForm.put = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -145,7 +145,7 @@ update.put = (args: { kategori: number | { id_kategori: number } } | [kategori: 
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\KategoriController::destroy
- * @see app/Http/Controllers/KategoriController.php:65
+ * @see app/Http/Controllers/KategoriController.php:75
  * @route '/admin/kategori/{kategori}'
  */
 export const destroy = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -160,7 +160,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\KategoriController::destroy
- * @see app/Http/Controllers/KategoriController.php:65
+ * @see app/Http/Controllers/KategoriController.php:75
  * @route '/admin/kategori/{kategori}'
  */
 destroy.url = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions) => {
@@ -193,7 +193,7 @@ destroy.url = (args: { kategori: number | { id_kategori: number } } | [kategori:
 
 /**
 * @see \App\Http\Controllers\KategoriController::destroy
- * @see app/Http/Controllers/KategoriController.php:65
+ * @see app/Http/Controllers/KategoriController.php:75
  * @route '/admin/kategori/{kategori}'
  */
 destroy.delete = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -203,7 +203,7 @@ destroy.delete = (args: { kategori: number | { id_kategori: number } } | [katego
 
     /**
 * @see \App\Http\Controllers\KategoriController::destroy
- * @see app/Http/Controllers/KategoriController.php:65
+ * @see app/Http/Controllers/KategoriController.php:75
  * @route '/admin/kategori/{kategori}'
  */
     const destroyForm = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -218,7 +218,7 @@ destroy.delete = (args: { kategori: number | { id_kategori: number } } | [katego
 
             /**
 * @see \App\Http\Controllers\KategoriController::destroy
- * @see app/Http/Controllers/KategoriController.php:65
+ * @see app/Http/Controllers/KategoriController.php:75
  * @route '/admin/kategori/{kategori}'
  */
         destroyForm.delete = (args: { kategori: number | { id_kategori: number } } | [kategori: number | { id_kategori: number } ] | number | { id_kategori: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

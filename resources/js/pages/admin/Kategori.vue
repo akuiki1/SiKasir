@@ -11,10 +11,9 @@ import {
     Save,
     AlertCircle,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import { store as kategoriStore, update as kategoriUpdate, destroy as kategoriDestroy } from '@/routes/admin/kategori';
 
 defineOptions({
@@ -39,24 +38,105 @@ interface Stats {
     total_produk: number;
 }
 
-const props = defineProps<{
-    kategoris: Kategori[];
-    stats: Stats;
-}>();
-
-// Search
-const searchQuery = ref('');
-const filteredKategoris = computed(() => {
-    if (!searchQuery.value) {
-return props.kategoris;
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
 }
 
-    return props.kategoris.filter((k) =>
-        k.nama_kategori.toLowerCase().includes(searchQuery.value.toLowerCase()),
-    );
+interface Filters {
+    search: string;
+    per_page: number;
+}
+
+const props = defineProps<{
+    kategoris: Paginator<Kategori>;
+    stats: Stats;
+    filters: Filters;
+}>();
+
+// Pencarian dikirim ke server (debounce) — hanya satu halaman data yang dimuat.
+const searchQuery = ref(props.filters.search ?? '');
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
+    }
+
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
 });
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedKategoris, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredKategoris.value);
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/kategori', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+// Nomor halaman yang tampil (mirror logika composable usePagination).
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.kategoris.last_page;
+    const current = props.kategoris.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < total - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 // Modal state
 const showModal = ref(false);
@@ -197,7 +277,7 @@ function hapusKategori(kategori: Kategori) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedKategoris.length === 0">
+                        <tr v-if="props.kategoris.data.length === 0">
                             <td
                                 colspan="4"
                                 class="px-6 py-12 text-center text-muted-foreground"
@@ -213,11 +293,11 @@ function hapusKategori(kategori: Kategori) {
                             </td>
                         </tr>
                         <tr
-                            v-for="(kategori, index) in paginatedKategoris"
+                            v-for="(kategori, index) in props.kategoris.data"
                             :key="kategori.id_kategori"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
-                            <td class="px-6 py-4 text-muted-foreground">{{ startIndex + index }}</td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ (props.kategoris.from ?? 0) + index }}</td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <div
@@ -262,15 +342,15 @@ function hapusKategori(kategori: Kategori) {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.kategoris.current_page"
+                :total-pages="props.kategoris.last_page"
+                :total-items="props.kategoris.total"
+                :start-index="props.kategoris.from ?? 0"
+                :end-index="props.kategoris.to ?? 0"
+                :per-page="props.kategoris.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

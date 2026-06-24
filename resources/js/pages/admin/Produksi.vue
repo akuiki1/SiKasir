@@ -14,10 +14,9 @@ import {
     PencilLine,
     PackageSearch,
 } from 'lucide-vue-next';
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import { store as produksiStore, destroy as produksiDestroy } from '@/routes/admin/produksi';
 
 defineOptions({
@@ -61,10 +60,26 @@ interface Stats {
     total_biaya: number;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    search: string;
+    per_page: number;
+}
+
 const props = defineProps<{
-    produksis: Produksi[];
+    produksis: Paginator<Produksi>;
     produks: ProdukOption[];
     stats: Stats;
+    filters: Filters;
 }>();
 
 const rupiah = (value: number): string => 'Rp ' + (value ?? 0).toLocaleString('id-ID');
@@ -76,28 +91,83 @@ const formatStok = (stok: number): string =>
 /* ----------------------------------------------------------------------------
  | Daftar batch produksi (pencarian + paginasi)
  ---------------------------------------------------------------------------- */
-const searchQuery = ref('');
-const filteredProduksis = computed(() => {
-    if (!searchQuery.value) {
-        return props.produksis;
+// Pencarian dikirim ke server (debounce) — hanya satu halaman data yang dimuat.
+const searchQuery = ref(props.filters.search ?? '');
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
     }
 
-    return props.produksis.filter((item) =>
-        item.produk_nama.toLowerCase().includes(searchQuery.value.toLowerCase()),
-    );
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
 });
 
-const {
-    currentPage,
-    perPage,
-    totalItems,
-    totalPages,
-    paginatedItems: paginatedProduksis,
-    startIndex,
-    endIndex,
-    goToPage,
-    visiblePages,
-} = usePagination(() => filteredProduksis.value);
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/produksi', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.produksis.last_page;
+    const current = props.produksis.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < total - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 /* ----------------------------------------------------------------------------
  | Modal catat produksi
@@ -284,14 +354,14 @@ function hapusProduksi(item: Produksi): void {
             </div>
 
             <!-- Empty state -->
-            <div v-if="paginatedProduksis.length === 0" class="px-6 py-12 text-center text-muted-foreground">
+            <div v-if="props.produksis.data.length === 0" class="px-6 py-12 text-center text-muted-foreground">
                 <Factory class="mx-auto mb-3 h-10 w-10 opacity-30" />
                 <p class="font-medium">Belum ada batch produksi.</p>
             </div>
 
             <!-- Mobile: daftar kartu -->
             <div v-else class="divide-y divide-sidebar-border/70 md:hidden dark:divide-sidebar-border">
-                <div v-for="item in paginatedProduksis" :key="item.id_produksi" class="p-4">
+                <div v-for="item in props.produksis.data" :key="item.id_produksi" class="p-4">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <p class="truncate font-semibold">{{ item.produk_nama }}</p>
@@ -323,7 +393,7 @@ function hapusProduksi(item: Produksi): void {
             </div>
 
             <!-- Desktop: tabel -->
-            <div v-if="paginatedProduksis.length > 0" class="hidden overflow-x-auto md:block">
+            <div v-if="props.produksis.data.length > 0" class="hidden overflow-x-auto md:block">
                 <table class="w-full border-collapse text-left text-sm">
                     <thead>
                         <tr class="border-b border-sidebar-border/70 bg-slate-50/50 dark:border-sidebar-border dark:bg-zinc-800/20">
@@ -338,11 +408,11 @@ function hapusProduksi(item: Produksi): void {
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
                         <tr
-                            v-for="(item, index) in paginatedProduksis"
+                            v-for="(item, index) in props.produksis.data"
                             :key="item.id_produksi"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
-                            <td class="px-6 py-4 text-muted-foreground">{{ startIndex + index }}</td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ (props.produksis.from ?? 0) + index }}</td>
                             <td class="px-6 py-4 font-medium">{{ item.produk_nama }}</td>
                             <td class="px-6 py-4">{{ formatStok(item.jumlah) }} unit</td>
                             <td class="px-6 py-4">{{ rupiah(item.total_biaya) }}</td>
@@ -362,15 +432,15 @@ function hapusProduksi(item: Produksi): void {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.produksis.current_page"
+                :total-pages="props.produksis.last_page"
+                :total-items="props.produksis.total"
+                :start-index="props.produksis.from ?? 0"
+                :end-index="props.produksis.to ?? 0"
+                :per-page="props.produksis.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

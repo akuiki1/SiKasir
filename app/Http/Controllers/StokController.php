@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Produk;
 use App\Models\StokMutasi;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +17,8 @@ use Inertia\Response;
 
 class StokController extends Controller
 {
+    use ResolvesPerPage;
+
     /** Label tipe mutasi untuk kartu stok. */
     private const TIPE_LABEL = [
         'awal' => 'Stok Awal',
@@ -41,14 +44,27 @@ class StokController extends Controller
     /**
      * Halaman manajemen stok: daftar stok produk + kartu stok (riwayat mutasi).
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        // Hanya produk berstok fisik — produk jasa tidak punya stok.
+        // ── Tab 1: Daftar Stok (produk fisik — jasa tidak punya stok) ──
+        $produkSearch = trim((string) $request->query('search', ''));
+        $status = (string) $request->query('status', 'all');
+        $produkPerPage = $this->resolvePerPage($request, 10, 'produk_per_page');
+
         $produks = Produk::with('kategori')
             ->where('tipe_jual', '!=', 'jasa')
+            ->when($produkSearch !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                ->where('nama', 'like', '%'.$produkSearch.'%')
+                ->orWhereHas('kategori', fn ($k) => $k->where('nama_kategori', 'like', '%'.$produkSearch.'%'))))
+            // status_stok adalah accessor — diterjemahkan ke kondisi stok di DB.
+            ->when($status === 'out-of-stock', fn ($q) => $q->where('stok', '<=', 0))
+            ->when($status === 'low-stock', fn ($q) => $q->where('stok', '>', 0)->where('stok', '<=', 5))
+            ->when($status === 'in-stock', fn ($q) => $q->where('stok', '>', 5))
+            ->when($status === 'menipis', fn ($q) => $q->where('stok', '<=', 5))
             ->orderBy('nama')
-            ->get()
-            ->map(fn (Produk $p) => [
+            ->paginate($produkPerPage, ['*'], 'produk_page')
+            ->withQueryString()
+            ->through(fn (Produk $p) => [
                 'id_produk' => $p->id_produk,
                 'nama' => $p->nama,
                 'jenis' => $p->jenis,
@@ -60,12 +76,18 @@ class StokController extends Controller
                 'status_stok' => $p->status_stok,
             ]);
 
-        // Kartu stok: 200 mutasi terbaru (cukup untuk audit harian toko kecil).
+        // ── Tab 2: Kartu Stok (riwayat mutasi, paginasi server-side) ──
+        $mutasiSearch = trim((string) $request->query('m_search', ''));
+        $tipe = (string) $request->query('tipe', 'all');
+        $mutasiPerPage = $this->resolvePerPage($request, 10, 'mutasi_per_page');
+
         $mutasis = StokMutasi::with(['produk', 'user'])
+            ->when($mutasiSearch !== '', fn ($q) => $q->whereHas('produk', fn ($p) => $p->where('nama', 'like', '%'.$mutasiSearch.'%')))
+            ->when($tipe !== 'all', fn ($q) => $q->where('tipe', $tipe))
             ->orderByDesc('id_stok_mutasi')
-            ->take(200)
-            ->get()
-            ->map(fn (StokMutasi $m) => [
+            ->paginate($mutasiPerPage, ['*'], 'mutasi_page')
+            ->withQueryString()
+            ->through(fn (StokMutasi $m) => [
                 'id_stok_mutasi' => $m->id_stok_mutasi,
                 'id_produk' => $m->id_produk,
                 'produk_nama' => $m->produk?->nama ?? 'Produk Terhapus',
@@ -79,13 +101,24 @@ class StokController extends Controller
                 'tanggal' => Carbon::parse($m->created_at)->translatedFormat('d M Y H:i'),
             ]);
 
+        // Stats agregat atas seluruh produk fisik (tidak terpengaruh filter tabel).
+        $physical = fn () => Produk::where('tipe_jual', '!=', 'jasa');
+
         return Inertia::render('admin/Stok', [
             'produks' => $produks,
             'mutasis' => $mutasis,
             'stats' => [
-                'total_produk' => $produks->count(),
-                'stok_menipis' => $produks->where('status_stok', 'low-stock')->count(),
-                'stok_habis' => $produks->where('status_stok', 'out-of-stock')->count(),
+                'total_produk' => $physical()->count(),
+                'stok_menipis' => $physical()->where('stok', '>', 0)->where('stok', '<=', 5)->count(),
+                'stok_habis' => $physical()->where('stok', '<=', 0)->count(),
+            ],
+            'filters' => [
+                'search' => $produkSearch,
+                'status' => $status,
+                'produk_per_page' => $produkPerPage,
+                'm_search' => $mutasiSearch,
+                'tipe' => $tipe,
+                'mutasi_per_page' => $mutasiPerPage,
             ],
         ]);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -14,29 +15,44 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
+    use ResolvesPerPage;
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $users = User::orderBy('name')->get()->map(fn (User $user) => [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
-            'created_at' => $user->created_at,
-        ]);
+        $search = trim((string) $request->query('search', ''));
+        $role = $request->query('role', '');
+        $role = in_array($role, ['admin', 'kasir'], true) ? $role : '';
 
-        $totalUsers = $users->count();
-        $totalAdmin = $users->where('role', 'admin')->count();
-        $totalKasir = $users->where('role', 'kasir')->count();
+        $users = User::when($search !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                ->where('name', 'like', '%'.$search.'%')
+                ->orWhere('email', 'like', '%'.$search.'%')))
+            ->when($role !== '', fn ($q) => $q->where('role', $role))
+            ->orderBy('name')
+            ->paginate($this->resolvePerPage($request))
+            ->withQueryString()
+            ->through(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'created_at' => $user->created_at,
+            ]);
 
         return Inertia::render('admin/Users', [
             'users' => $users,
             'stats' => [
-                'total_users' => $totalUsers,
-                'total_admin' => $totalAdmin,
-                'total_kasir' => $totalKasir,
+                // Agregat lintas halaman — bukan dari data halaman aktif.
+                'total_users' => User::count(),
+                'total_admin' => User::where('role', 'admin')->count(),
+                'total_kasir' => User::where('role', 'kasir')->count(),
+            ],
+            'filters' => [
+                'search' => $search,
+                'role' => $role,
+                'per_page' => $this->resolvePerPage($request),
             ],
         ]);
     }

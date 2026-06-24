@@ -22,10 +22,9 @@ import {
     PackageSearch,
     Boxes,
 } from 'lucide-vue-next';
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import { formatRupiah } from '@/lib/format';
 import { store as promoStore, update as promoUpdate, destroy as promoDestroy } from '@/routes/admin/promos';
 
@@ -69,32 +68,110 @@ interface Stats {
     total_non_aktif: number;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    search: string;
+    status: string;
+    per_page: number;
+}
+
 const props = defineProps<{
-    promos: Promo[];
+    promos: Paginator<Promo>;
     produks: Produk[];
     stats: Stats;
+    filters: Filters;
 }>();
 
-// Search & filter
-const searchQuery = ref('');
-const filterStatus = ref('');
+// Search & filter dikirim ke server (search di-debounce).
+const searchQuery = ref(props.filters.search ?? '');
+const filterStatus = ref(props.filters.status ?? '');
 
-const filteredPromos = computed(() => {
-    return props.promos.filter((p) => {
-        const matchSearch = !searchQuery.value || p.nama.toLowerCase().includes(searchQuery.value.toLowerCase());
-        let matchStatus = true;
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
+    }
 
-        if (filterStatus.value === 'aktif') {
-            matchStatus = p.aktif;
-        } else if (filterStatus.value === 'non-aktif') {
-            matchStatus = !p.aktif;
-        }
-
-        return matchSearch && matchStatus;
-    });
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
 });
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedPromos, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredPromos.value);
+watch(filterStatus, (value) => reload({ status: value, page: 1 }));
+
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        status: filterStatus.value || undefined,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/promos', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.promos.last_page;
+    const current = props.promos.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < total - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 // Format date for display
 function formatDate(dateStr: string): string {
@@ -424,7 +501,7 @@ onMounted(() => {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedPromos.length === 0">
+                        <tr v-if="props.promos.data.length === 0">
                             <td
                                 colspan="7"
                                 class="px-6 py-12 text-center text-muted-foreground"
@@ -440,7 +517,7 @@ onMounted(() => {
                             </td>
                         </tr>
                         <tr
-                            v-for="promo in paginatedPromos"
+                            v-for="promo in props.promos.data"
                             :key="promo.id_promo"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -509,15 +586,15 @@ onMounted(() => {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.promos.current_page"
+                :total-pages="props.promos.last_page"
+                :total-items="props.promos.total"
+                :start-index="props.promos.from ?? 0"
+                :end-index="props.promos.to ?? 0"
+                :per-page="props.promos.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

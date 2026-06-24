@@ -16,7 +16,6 @@ import {
 import { ref, computed, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import {
     store as pengeluaransStore,
     update as pengeluaransUpdate,
@@ -37,13 +36,29 @@ interface Stats {
     total_nominal: number;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    search: string;
+    per_page: number;
+}
+
 const props = defineProps<{
-    pengeluarans: Pengeluaran[];
+    pengeluarans: Paginator<Pengeluaran>;
     stats: Stats;
     date_range: {
         start_date: string;
         end_date: string;
     };
+    filters: Filters;
 }>();
 
 // Tipe yang tergolong modal barang (HPP). Dikecualikan dari Biaya Operasional di
@@ -132,19 +147,13 @@ return 'Hari Ini';
 function selectMonth(monthIndex: number): void {
     selectedDateMode.value = String(monthIndex);
     const range = getMonthRange(filterYear.value, monthIndex);
-    router.get('/admin/pengeluarans', {
-        start_date: range.start,
-        end_date: range.end,
-    }, { preserveState: true, replace: true });
+    reload({ start_date: range.start, end_date: range.end, page: 1 });
 }
 
 function selectToday(): void {
     selectedDateMode.value = 'today';
     const today = new Date().toISOString().slice(0, 10);
-    router.get('/admin/pengeluarans', {
-        start_date: today,
-        end_date: today,
-    }, { preserveState: true, replace: true });
+    reload({ start_date: today, end_date: today, page: 1 });
 }
 
 function prevFilterYear(): void {
@@ -164,26 +173,88 @@ function nextFilterYear(): void {
 }
 
 function applyDateRange(): void {
-    router.get('/admin/pengeluarans', {
-        start_date: dateStartDate.value,
-        end_date: dateEndDate.value,
-    }, { preserveState: true, replace: true });
+    reload({ start_date: dateStartDate.value, end_date: dateEndDate.value, page: 1 });
 }
 
-const searchQuery = ref('');
-const filteredPengeluarans = computed(() => {
-    if (!searchQuery.value) {
-        return props.pengeluarans;
+// Pencarian dikirim ke server (debounce) — hanya satu halaman data yang dimuat.
+const searchQuery = ref(props.filters.search ?? '');
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
     }
 
-    return props.pengeluarans.filter((item) =>
-        `${item.judul} ${item.tipe}`
-            .toLowerCase()
-            .includes(searchQuery.value.toLowerCase()),
-    );
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
 });
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedPengeluarans, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredPengeluarans.value);
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        start_date: props.date_range.start_date || undefined,
+        end_date: props.date_range.end_date || undefined,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/pengeluarans', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.pengeluarans.last_page;
+    const current = props.pengeluarans.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < total - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 const showModal = ref(false);
 const editingPengeluaran = ref<Pengeluaran | null>(null);
@@ -473,18 +544,18 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedPengeluarans.length === 0">
+                        <tr v-if="props.pengeluarans.data.length === 0">
                             <td colspan="6" class="px-6 py-12 text-center text-muted-foreground">
                                 <DollarSign class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">Tidak ada pengeluaran yang cocok.</p>
                             </td>
                         </tr>
                         <tr
-                            v-for="(item, index) in paginatedPengeluarans"
+                            v-for="(item, index) in props.pengeluarans.data"
                             :key="item.id_pengeluaran"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
-                            <td class="px-6 py-4 text-muted-foreground">{{ startIndex + index }}</td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ (props.pengeluarans.from ?? 0) + index }}</td>
                             <td class="px-6 py-4">{{ item.judul }}</td>
                             <td class="px-6 py-4 capitalize">{{ item.tipe.replace('_', ' ') }}</td>
                             <td class="px-6 py-4">Rp {{ item.nominal.toLocaleString('id-ID') }}</td>
@@ -512,15 +583,15 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.pengeluarans.current_page"
+                :total-pages="props.pengeluarans.last_page"
+                :total-items="props.pengeluarans.total"
+                :start-index="props.pengeluarans.from ?? 0"
+                :end-index="props.pengeluarans.to ?? 0"
+                :per-page="props.pengeluarans.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

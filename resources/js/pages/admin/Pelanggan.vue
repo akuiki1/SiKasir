@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { Plus, Search, Contact, BadgePercent, X, Save, Edit, Trash2, AlertCircle, Phone } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import { store as pelangganStore, update as pelangganUpdate, destroy as pelangganDestroy } from '@/routes/admin/pelanggan';
 
 defineOptions({
@@ -33,37 +32,109 @@ interface Stats {
     total_reseller: number;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    search: string;
+    tipe: '' | TipePelanggan;
+    per_page: number;
+}
+
 const props = defineProps<{
-    pelanggans: Pelanggan[];
+    pelanggans: Paginator<Pelanggan>;
     stats: Stats;
+    filters: Filters;
 }>();
 
-const searchQuery = ref('');
-const filterTipe = ref<'' | TipePelanggan>('');
+// Pencarian & filter tipe dikirim ke server (search di-debounce).
+const searchQuery = ref(props.filters.search ?? '');
+const filterTipe = ref<'' | TipePelanggan>(props.filters.tipe ?? '');
 
-const filteredPelanggans = computed(() =>
-    props.pelanggans.filter((p) => {
-        const matchSearch =
-            !searchQuery.value ||
-            p.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-            (p.telp ?? '').includes(searchQuery.value);
-        const matchTipe = !filterTipe.value || p.tipe === filterTipe.value;
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
+    }
 
-        return matchSearch && matchTipe;
-    }),
-);
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
+});
 
-const {
-    currentPage,
-    perPage,
-    totalItems,
-    totalPages,
-    paginatedItems: paginatedPelanggans,
-    startIndex,
-    endIndex,
-    goToPage,
-    visiblePages,
-} = usePagination(() => filteredPelanggans.value);
+watch(filterTipe, (value) => reload({ tipe: value, page: 1 }));
+
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        tipe: filterTipe.value || undefined,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/pelanggan', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.pelanggans.last_page;
+    const current = props.pelanggans.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < total - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 const showModal = ref(false);
 const editing = ref<Pelanggan | null>(null);
@@ -208,18 +279,18 @@ const tipeBadge: Record<TipePelanggan, { label: string; class: string }> = {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedPelanggans.length === 0">
+                        <tr v-if="props.pelanggans.data.length === 0">
                             <td colspan="6" class="px-6 py-12 text-center text-muted-foreground">
                                 <Contact class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">Belum ada pelanggan terdaftar.</p>
                             </td>
                         </tr>
                         <tr
-                            v-for="(pelanggan, index) in paginatedPelanggans"
+                            v-for="(pelanggan, index) in props.pelanggans.data"
                             :key="pelanggan.id_pelanggan"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
-                            <td class="px-6 py-4 text-muted-foreground">{{ startIndex + index }}</td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ (props.pelanggans.from ?? 0) + index }}</td>
                             <td class="px-6 py-4 font-medium">{{ pelanggan.nama }}</td>
                             <td class="px-6 py-4 text-muted-foreground">
                                 <span v-if="pelanggan.telp" class="inline-flex items-center gap-1">
@@ -256,15 +327,15 @@ const tipeBadge: Record<TipePelanggan, { label: string; class: string }> = {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.pelanggans.current_page"
+                :total-pages="props.pelanggans.last_page"
+                :total-items="props.pelanggans.total"
+                :start-index="props.pelanggans.from ?? 0"
+                :end-index="props.pelanggans.to ?? 0"
+                :per-page="props.pelanggans.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

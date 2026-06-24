@@ -18,7 +18,7 @@ test('admin can view kategori page with data', function () {
     $response->assertInertia(
         fn ($page) => $page
             ->component('admin/Kategori')
-            ->has('kategoris', 3)
+            ->has('kategoris.data', 3)
             ->has('stats.total_kategori')
             ->has('stats.total_produk')
     );
@@ -99,7 +99,7 @@ test('admin can view produk page with data', function () {
     $response->assertInertia(
         fn ($page) => $page
             ->component('admin/Products')
-            ->has('produks', 3)
+            ->has('produks.data', 3)
             ->has('stats.total_produk')
             ->has('stats.total_kategori')
             ->has('stats.stok_bermasalah')

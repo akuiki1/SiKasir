@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Kategori;
 use App\Models\Produk;
 use App\Models\TarifJasa;
@@ -12,15 +13,34 @@ use Inertia\Response;
 
 class ProdukController extends Controller
 {
+    use ResolvesPerPage;
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $search = trim((string) $request->query('search', ''));
+        $kategori = $request->query('kategori', '');
+        $kategori = is_numeric($kategori) ? (int) $kategori : null;
+        $sort = (string) $request->query('sort', '');
+
+        [$sortColumn, $sortDir] = match ($sort) {
+            'nama_desc' => ['nama', 'desc'],
+            'harga_asc' => ['harga_jual', 'asc'],
+            'harga_desc' => ['harga_jual', 'desc'],
+            'stok_asc' => ['stok', 'asc'],
+            'stok_desc' => ['stok', 'desc'],
+            default => ['nama', 'asc'],
+        };
+
         $produks = Produk::with(['kategori', 'tarifJasas' => fn ($q) => $q->orderBy('min_nominal')])
-            ->orderBy('nama')
-            ->get()
-            ->map(function (Produk $produk) {
+            ->when($search !== '', fn ($query) => $query->where('nama', 'like', '%'.$search.'%'))
+            ->when($kategori !== null, fn ($query) => $query->where('id_kategori', $kategori))
+            ->orderBy($sortColumn, $sortDir)
+            ->paginate($this->resolvePerPage($request))
+            ->withQueryString()
+            ->through(function (Produk $produk) {
                 return [
                     'id_produk' => $produk->id_produk,
                     'nama' => $produk->nama,
@@ -48,19 +68,23 @@ class ProdukController extends Controller
                 ];
             });
 
-        $totalProduk = $produks->count();
-        $totalKategori = Kategori::count();
-        $stokBermasalah = $produks->filter(fn ($p) => $p['status_stok'] !== 'in-stock')->count();
-
         $kategoris = Kategori::orderBy('nama_kategori')->get(['id_kategori', 'nama_kategori']);
 
         return Inertia::render('admin/Products', [
             'produks' => $produks,
             'kategoris' => $kategoris,
             'stats' => [
-                'total_produk' => $totalProduk,
-                'total_kategori' => $totalKategori,
-                'stok_bermasalah' => $stokBermasalah,
+                // Agregat lintas halaman — bukan dari data halaman aktif.
+                'total_produk' => Produk::count(),
+                'total_kategori' => Kategori::count(),
+                // status_stok bermasalah = produk fisik (non-jasa) dengan stok <= 5.
+                'stok_bermasalah' => Produk::where('tipe_jual', '!=', 'jasa')->where('stok', '<=', 5)->count(),
+            ],
+            'filters' => [
+                'search' => $search,
+                'kategori' => $kategori === null ? '' : (string) $kategori,
+                'sort' => $sort,
+                'per_page' => $this->resolvePerPage($request),
             ],
         ]);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Pengeluaran;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,8 @@ use Inertia\Response;
 
 class PengeluaranController extends Controller
 {
+    use ResolvesPerPage;
+
     /**
      * Display a listing of the resource.
      */
@@ -18,31 +21,41 @@ class PengeluaranController extends Controller
     {
         $startDate = $request->input('start_date') ?: Carbon::today()->toDateString();
         $endDate = $request->input('end_date') ?: Carbon::today()->toDateString();
+        $search = trim((string) $request->query('search', ''));
 
         $pengeluarans = Pengeluaran::whereDate('created_at', '>=', $startDate)
             ->whereDate('created_at', '<=', $endDate)
+            ->when($search !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                ->where('judul', 'like', '%'.$search.'%')
+                ->orWhere('tipe', 'like', '%'.$search.'%')))
             ->orderByDesc('created_at')
-            ->get()
-            ->map(function (Pengeluaran $pengeluaran) {
-                return [
-                    'id_pengeluaran' => $pengeluaran->id_pengeluaran,
-                    'tipe' => $pengeluaran->tipe,
-                    'judul' => $pengeluaran->judul,
-                    'keterangan' => $pengeluaran->keterangan,
-                    'nominal' => $pengeluaran->nominal,
-                    'created_at' => $pengeluaran->created_at->toDateString(),
-                ];
-            });
+            ->paginate($this->resolvePerPage($request))
+            ->withQueryString()
+            ->through(fn (Pengeluaran $pengeluaran) => [
+                'id_pengeluaran' => $pengeluaran->id_pengeluaran,
+                'tipe' => $pengeluaran->tipe,
+                'judul' => $pengeluaran->judul,
+                'keterangan' => $pengeluaran->keterangan,
+                'nominal' => $pengeluaran->nominal,
+                'created_at' => $pengeluaran->created_at->toDateString(),
+            ]);
+
+        // Stats agregat atas rentang tanggal (tidak terpengaruh search) — sesuai perilaku lama.
+        $statBase = Pengeluaran::whereDate('created_at', '>=', $startDate)->whereDate('created_at', '<=', $endDate);
 
         return Inertia::render('admin/Pengeluarans', [
             'pengeluarans' => $pengeluarans,
             'stats' => [
-                'total_pengeluaran' => $pengeluarans->count(),
-                'total_nominal' => $pengeluarans->sum('nominal'),
+                'total_pengeluaran' => (clone $statBase)->count(),
+                'total_nominal' => (int) (clone $statBase)->sum('nominal'),
             ],
             'date_range' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,
+            ],
+            'filters' => [
+                'search' => $search,
+                'per_page' => $this->resolvePerPage($request),
             ],
         ]);
     }

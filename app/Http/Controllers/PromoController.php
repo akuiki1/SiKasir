@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Produk;
 use App\Models\Promo;
 use Illuminate\Http\RedirectResponse;
@@ -11,37 +12,44 @@ use Inertia\Response;
 
 class PromoController extends Controller
 {
+    use ResolvesPerPage;
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $search = trim((string) $request->query('search', ''));
+        $status = (string) $request->query('status', '');
+
         $promos = Promo::with('produk')
+            ->when($search !== '', fn ($q) => $q->where('nama', 'like', '%'.$search.'%'))
+            ->when($status === 'aktif', fn ($q) => $q->where('aktif', true))
+            ->when($status === 'non-aktif', fn ($q) => $q->where('aktif', false))
             ->orderBy('id_promo', 'desc')
-            ->get()
-            ->map(function (Promo $promo) {
-                return [
-                    'id_promo' => $promo->id_promo,
-                    'nama' => $promo->nama,
-                    'deskripsi' => $promo->deskripsi,
-                    'tipe' => $promo->tipe,
-                    'nilai' => $promo->nilai,
-                    'id_produk' => $promo->id_produk,
-                    'produk_nama' => $promo->produk?->nama ?? 'Semua Produk',
-                    'minimal_belanja' => $promo->minimal_belanja,
-                    'tanggal_mulai' => $promo->tanggal_mulai->format('Y-m-d H:i:s'),
-                    'tanggal_selesai' => $promo->tanggal_selesai->format('Y-m-d H:i:s'),
-                    'aktif' => $promo->aktif,
-                ];
-            });
+            ->paginate($this->resolvePerPage($request))
+            ->withQueryString()
+            ->through(fn (Promo $promo) => [
+                'id_promo' => $promo->id_promo,
+                'nama' => $promo->nama,
+                'deskripsi' => $promo->deskripsi,
+                'tipe' => $promo->tipe,
+                'nilai' => $promo->nilai,
+                'id_produk' => $promo->id_produk,
+                'produk_nama' => $promo->produk?->nama ?? 'Semua Produk',
+                'minimal_belanja' => $promo->minimal_belanja,
+                'tanggal_mulai' => $promo->tanggal_mulai->format('Y-m-d H:i:s'),
+                'tanggal_selesai' => $promo->tanggal_selesai->format('Y-m-d H:i:s'),
+                'aktif' => $promo->aktif,
+            ]);
 
         $produks = Produk::orderBy('nama')->get([
             'id_produk', 'nama', 'jenis', 'tipe_jual', 'harga_jual', 'harga_modal',
         ]);
 
-        $totalPromo = $promos->count();
-        $totalAktif = $promos->where('aktif', true)->count();
-        $totalNonAktif = $totalPromo - $totalAktif;
+        // Stats agregat lintas halaman — bukan dari data halaman aktif.
+        $totalPromo = Promo::count();
+        $totalAktif = Promo::where('aktif', true)->count();
 
         return Inertia::render('admin/Promos', [
             'promos' => $promos,
@@ -49,7 +57,12 @@ class PromoController extends Controller
             'stats' => [
                 'total_promo' => $totalPromo,
                 'total_aktif' => $totalAktif,
-                'total_non_aktif' => $totalNonAktif,
+                'total_non_aktif' => $totalPromo - $totalAktif,
+            ],
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+                'per_page' => $this->resolvePerPage($request),
             ],
         ]);
     }

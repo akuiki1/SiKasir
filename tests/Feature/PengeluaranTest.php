@@ -13,7 +13,7 @@ test('admin can view pengeluaran page with data', function () {
     $response->assertInertia(
         fn ($page) => $page
             ->component('admin/Pengeluarans')
-            ->has('pengeluarans', 3)
+            ->has('pengeluarans.data', 3)
             ->has('stats.total_pengeluaran')
             ->has('stats.total_nominal'),
     );

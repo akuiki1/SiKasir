@@ -38,7 +38,6 @@ import {
 import { ref, computed, nextTick, onBeforeUnmount, watch, onMounted } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import { formatRupiah } from '@/lib/format';
 import { store as productStore, update as productUpdate, destroy as productDestroy, generateAll as productGenerateAll } from '@/routes/admin/products';
 
@@ -91,16 +90,34 @@ interface Stats {
     stok_bermasalah: number;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    search: string;
+    kategori: string;
+    sort: string;
+    per_page: number;
+}
+
 const props = defineProps<{
-    produks: Produk[];
+    produks: Paginator<Produk>;
     kategoris: Kategori[];
     stats: Stats;
+    filters: Filters;
 }>();
 
-// Search & filter
-const searchQuery = ref('');
-const filterKategori = ref('');
-const sortBy = ref('');
+// Search & filter — semua dikirim ke server (search di-debounce).
+const searchQuery = ref(props.filters.search ?? '');
+const filterKategori = ref(props.filters.kategori ?? '');
+const sortBy = ref(props.filters.sort ?? '');
 const showFilterPanel = ref(false);
 const filterPanelRef = ref<HTMLDivElement | null>(null);
 
@@ -130,6 +147,7 @@ count++;
 function clearFilters() {
     filterKategori.value = '';
     sortBy.value = '';
+    reload({ page: 1 });
 }
 
 function handleClickOutsideFilter(event: MouseEvent) {
@@ -142,32 +160,93 @@ onMounted(() => {
     document.addEventListener('mousedown', handleClickOutsideFilter);
 });
 
-const filteredProduks = computed(() => {
-    let result = props.produks.filter((p) => {
-        const matchSearch = !searchQuery.value || p.nama.toLowerCase().includes(searchQuery.value.toLowerCase());
-        const matchKategori = !filterKategori.value || String(p.id_kategori) === filterKategori.value;
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (searchTimer) {
+        clearTimeout(searchTimer);
+    }
 
-        return matchSearch && matchKategori;
-    });
-
-    if (sortBy.value === 'nama_asc') {
-result = [...result].sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
-} else if (sortBy.value === 'nama_desc') {
-result = [...result].sort((a, b) => b.nama.localeCompare(a.nama, 'id'));
-} else if (sortBy.value === 'harga_asc') {
-result = [...result].sort((a, b) => a.harga_jual - b.harga_jual);
-} else if (sortBy.value === 'harga_desc') {
-result = [...result].sort((a, b) => b.harga_jual - a.harga_jual);
-} else if (sortBy.value === 'stok_asc') {
-result = [...result].sort((a, b) => a.stok - b.stok);
-} else if (sortBy.value === 'stok_desc') {
-result = [...result].sort((a, b) => b.stok - a.stok);
-}
-
-    return result;
+    searchTimer = setTimeout(() => reload({ search: value, page: 1 }), 350);
 });
 
-const { currentPage, perPage, totalItems, totalPages, paginatedItems: paginatedProduks, startIndex, endIndex, goToPage, visiblePages } = usePagination(() => filteredProduks.value);
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        kategori: filterKategori.value || undefined,
+        sort: sortBy.value || undefined,
+        per_page: props.filters.per_page,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/products', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function setKategori(value: string): void {
+    filterKategori.value = value;
+    reload({ kategori: value, page: 1 });
+}
+
+function setSort(value: string): void {
+    sortBy.value = value;
+    reload({ sort: value, page: 1 });
+}
+
+function goToPage(page: number): void {
+    reload({ page });
+}
+
+function changePerPage(value: number): void {
+    reload({ per_page: value, page: 1 });
+}
+
+// Nomor halaman yang tampil (mirror logika composable usePagination).
+const visiblePages = computed(() => {
+    const pages: number[] = [];
+    const total = props.produks.last_page;
+    const current = props.produks.current_page;
+
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < total - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(total);
+    }
+
+    return pages;
+});
 
 
 // Stok bisa pecahan (curah) — tampilkan tanpa nol di belakang yang tak perlu.
@@ -901,7 +980,7 @@ const statusClass: Record<string, string> = {
                                                     :class="filterKategori === ''
                                                         ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
                                                         : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'"
-                                                    @click="filterKategori = ''"
+                                                    @click="setKategori('')"
                                                 >
                                                     Semua
                                                 </button>
@@ -912,7 +991,7 @@ const statusClass: Record<string, string> = {
                                                     :class="filterKategori === String(kat.id_kategori)
                                                         ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
                                                         : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'"
-                                                    @click="filterKategori = String(kat.id_kategori)"
+                                                    @click="setKategori(String(kat.id_kategori))"
                                                 >
                                                     {{ kat.nama_kategori }}
                                                 </button>
@@ -930,7 +1009,7 @@ const statusClass: Record<string, string> = {
                                                     :class="sortBy === opt.value
                                                         ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
                                                         : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:bg-slate-50 dark:border-sidebar-border dark:bg-zinc-900/30 dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:bg-zinc-800'"
-                                                    @click="sortBy = sortBy === opt.value ? '' : opt.value"
+                                                    @click="setSort(sortBy === opt.value ? '' : opt.value)"
                                                 >
                                                     <component :is="opt.icon" class="h-3.5 w-3.5 shrink-0" />
                                                     <span class="leading-tight">{{ opt.label }}</span>
@@ -993,7 +1072,7 @@ const statusClass: Record<string, string> = {
                         {{ kategoris.find(k => String(k.id_kategori) === filterKategori)?.nama_kategori }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="filterKategori = ''" aria-label="Hapus filter kategori">
+                            @click="setKategori('')" aria-label="Hapus filter kategori">
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
@@ -1006,7 +1085,7 @@ const statusClass: Record<string, string> = {
                         {{ sortOptions.find(s => s.value === sortBy)?.label }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="sortBy = ''" aria-label="Hapus urutan">
+                            @click="setSort('')" aria-label="Hapus urutan">
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
@@ -1037,7 +1116,7 @@ const statusClass: Record<string, string> = {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedProduks.length === 0">
+                        <tr v-if="props.produks.data.length === 0">
                             <td
                                 colspan="6"
                                 class="px-6 py-12 text-center text-muted-foreground"
@@ -1053,7 +1132,7 @@ const statusClass: Record<string, string> = {
                             </td>
                         </tr>
                         <tr
-                            v-for="produk in paginatedProduks"
+                            v-for="produk in props.produks.data"
                             :key="produk.id_produk"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -1136,15 +1215,15 @@ const statusClass: Record<string, string> = {
                 </table>
             </div>
             <Pagination
-                :current-page="currentPage"
-                :total-pages="totalPages"
-                :total-items="totalItems"
-                :start-index="startIndex"
-                :end-index="endIndex"
-                :per-page="perPage"
+                :current-page="props.produks.current_page"
+                :total-pages="props.produks.last_page"
+                :total-items="props.produks.total"
+                :start-index="props.produks.from ?? 0"
+                :end-index="props.produks.to ?? 0"
+                :per-page="props.produks.per_page"
                 :visible-pages="visiblePages"
                 @update:current-page="goToPage"
-                @update:per-page="perPage = $event"
+                @update:per-page="changePerPage"
             />
         </div>
     </div>

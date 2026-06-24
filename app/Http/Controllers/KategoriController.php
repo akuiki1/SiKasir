@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Kategori;
+use App\Models\Produk;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -10,23 +12,31 @@ use Inertia\Response;
 
 class KategoriController extends Controller
 {
+    use ResolvesPerPage;
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $kategoris = Kategori::withCount('produks')
-            ->orderBy('nama_kategori')
-            ->get();
+        $search = trim((string) $request->query('search', ''));
 
-        $totalKategori = $kategoris->count();
-        $totalProduk = $kategoris->sum('produks_count');
+        $kategoris = Kategori::withCount('produks')
+            ->when($search !== '', fn ($query) => $query->where('nama_kategori', 'like', '%'.$search.'%'))
+            ->orderBy('nama_kategori')
+            ->paginate($this->resolvePerPage($request))
+            ->withQueryString();
 
         return Inertia::render('admin/Kategori', [
             'kategoris' => $kategoris,
             'stats' => [
-                'total_kategori' => $totalKategori,
-                'total_produk' => $totalProduk,
+                // Agregat lintas halaman — bukan dari data halaman aktif.
+                'total_kategori' => Kategori::count(),
+                'total_produk' => Produk::whereNotNull('id_kategori')->count(),
+            ],
+            'filters' => [
+                'search' => $search,
+                'per_page' => $this->resolvePerPage($request),
             ],
         ]);
     }

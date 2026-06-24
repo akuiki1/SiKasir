@@ -14,7 +14,7 @@ test('admin can view promos page with data', function () {
     $response->assertInertia(
         fn ($page) => $page
             ->component('admin/Promos')
-            ->has('promos', 3)
+            ->has('promos.data', 3)
             ->has('stats.total_promo')
             ->has('stats.total_aktif')
             ->has('stats.total_non_aktif')

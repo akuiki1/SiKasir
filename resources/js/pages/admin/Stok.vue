@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import {
     Search,
     Warehouse,
@@ -16,10 +16,9 @@ import {
     PencilLine,
     PackageSearch,
 } from 'lucide-vue-next';
-import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
-import { usePagination } from '@/composables/usePagination';
 import { masuk as stokMasuk, keluar as stokKeluar, penyesuaian as stokPenyesuaian } from '@/routes/admin/stok';
 
 defineOptions({
@@ -65,10 +64,30 @@ interface Stats {
     stok_habis: number;
 }
 
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
+interface Filters {
+    search: string;
+    status: 'all' | ProdukStok['status_stok'] | 'menipis';
+    produk_per_page: number;
+    m_search: string;
+    tipe: string;
+    mutasi_per_page: number;
+}
+
 const props = defineProps<{
-    produks: ProdukStok[];
-    mutasis: Mutasi[];
+    produks: Paginator<ProdukStok>;
+    mutasis: Paginator<Mutasi>;
     stats: Stats;
+    filters: Filters;
 }>();
 
 const rupiah = (value: number): string => 'Rp ' + (value ?? 0).toLocaleString('id-ID');
@@ -99,83 +118,119 @@ const tipeBadge: Record<string, string> = {
 
 const activeTab = ref<'daftar' | 'kartu'>('daftar');
 
+// Search & filter kedua tabel dikirim ke server (search di-debounce).
+const searchQuery = ref(props.filters.search ?? '');
+const statusFilter = ref<'all' | ProdukStok['status_stok'] | 'menipis'>(props.filters.status ?? 'all');
+const mutasiSearch = ref(props.filters.m_search ?? '');
+const tipeFilter = ref(props.filters.tipe ?? 'all');
+
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+        produk_per_page: props.filters.produk_per_page,
+        m_search: mutasiSearch.value || undefined,
+        tipe: tipeFilter.value !== 'all' ? tipeFilter.value : undefined,
+        mutasi_per_page: props.filters.mutasi_per_page,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get('/admin/stok', buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+function makeVisiblePages(current: number, last: number): number[] {
+    const pages: number[] = [];
+
+    if (last <= 7) {
+        for (let i = 1; i <= last; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1);
+
+        if (current > 3) {
+            pages.push(-1);
+        }
+
+        for (let i = Math.max(2, current - 1); i <= Math.min(last - 1, current + 1); i++) {
+            pages.push(i);
+        }
+
+        if (current < last - 2) {
+            pages.push(-1);
+        }
+
+        pages.push(last);
+    }
+
+    return pages;
+}
+
 /* ----------------------------------------------------------------------------
  | Tab 1: Daftar Stok
  ---------------------------------------------------------------------------- */
-const searchQuery = ref('');
-const statusFilter = ref<'all' | ProdukStok['status_stok'] | 'menipis'>('all');
-
-// Filter awal dari query URL (mis. dari pintasan "Lihat Stok" di Dashboard) — dibaca
-// setelah mount agar tidak memicu hydration mismatch saat SSR.
-onMounted(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get('status');
-    const search = params.get('search') ?? params.get('q');
-
-    if (status && ['all', 'in-stock', 'low-stock', 'out-of-stock', 'menipis'].includes(status)) {
-        statusFilter.value = status as typeof statusFilter.value;
+let produkSearchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(searchQuery, (value) => {
+    if (produkSearchTimer) {
+        clearTimeout(produkSearchTimer);
     }
 
-    if (search) {
-        searchQuery.value = search;
-    }
+    produkSearchTimer = setTimeout(() => reload({ search: value, produk_page: 1 }), 350);
 });
 
-const filteredProduks = computed(() => {
-    const q = searchQuery.value.toLowerCase();
+watch(statusFilter, (value) => reload({ status: value, produk_page: 1 }));
 
-    return props.produks.filter((p) => {
-        const cocokNama = !q || p.nama.toLowerCase().includes(q) || (p.kategori ?? '').toLowerCase().includes(q);
-        const cocokStatus =
-            statusFilter.value === 'all' ||
-            (statusFilter.value === 'menipis'
-                ? p.status_stok === 'low-stock' || p.status_stok === 'out-of-stock'
-                : p.status_stok === statusFilter.value);
+function goToPageProduk(page: number): void {
+    reload({ produk_page: page });
+}
 
-        return cocokNama && cocokStatus;
-    });
-});
+function changePerPageProduk(value: number): void {
+    reload({ produk_per_page: value, produk_page: 1 });
+}
 
-const {
-    currentPage: pageProduk,
-    perPage: perPageProduk,
-    totalItems: totalProduk,
-    totalPages: totalPagesProduk,
-    paginatedItems: paginatedProduks,
-    startIndex: startProduk,
-    endIndex: endProduk,
-    goToPage: goToPageProduk,
-    visiblePages: visiblePagesProduk,
-} = usePagination(() => filteredProduks.value);
+const visiblePagesProduk = computed(() => makeVisiblePages(props.produks.current_page, props.produks.last_page));
 
 /* ----------------------------------------------------------------------------
  | Tab 2: Kartu Stok (riwayat mutasi)
  ---------------------------------------------------------------------------- */
-const mutasiSearch = ref('');
-const tipeFilter = ref('all');
+let mutasiSearchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(mutasiSearch, (value) => {
+    if (mutasiSearchTimer) {
+        clearTimeout(mutasiSearchTimer);
+    }
 
-const filteredMutasis = computed(() => {
-    const q = mutasiSearch.value.toLowerCase();
-
-    return props.mutasis.filter((m) => {
-        const cocokNama = !q || m.produk_nama.toLowerCase().includes(q);
-        const cocokTipe = tipeFilter.value === 'all' || m.tipe === tipeFilter.value;
-
-        return cocokNama && cocokTipe;
-    });
+    mutasiSearchTimer = setTimeout(() => reload({ m_search: value, mutasi_page: 1 }), 350);
 });
 
-const {
-    currentPage: pageMutasi,
-    perPage: perPageMutasi,
-    totalItems: totalMutasi,
-    totalPages: totalPagesMutasi,
-    paginatedItems: paginatedMutasis,
-    startIndex: startMutasi,
-    endIndex: endMutasi,
-    goToPage: goToPageMutasi,
-    visiblePages: visiblePagesMutasi,
-} = usePagination(() => filteredMutasis.value);
+watch(tipeFilter, (value) => reload({ tipe: value, mutasi_page: 1 }));
+
+function goToPageMutasi(page: number): void {
+    reload({ mutasi_page: page });
+}
+
+function changePerPageMutasi(value: number): void {
+    reload({ mutasi_per_page: value, mutasi_page: 1 });
+}
+
+const visiblePagesMutasi = computed(() => makeVisiblePages(props.mutasis.current_page, props.mutasis.last_page));
 
 /* ----------------------------------------------------------------------------
  | Modal aksi stok (masuk / keluar / penyesuaian)
@@ -346,10 +401,10 @@ function submitForm(): void {
 
 // Pintasan: buka kartu stok satu produk dari tombol di baris daftar.
 function lihatKartu(produk: ProdukStok): void {
-    mutasiSearch.value = produk.nama;
-    tipeFilter.value = 'all';
     activeTab.value = 'kartu';
-    goToPageMutasi(1);
+    tipeFilter.value = 'all';
+    // Memicu reload server (debounce) untuk menampilkan kartu stok produk ini.
+    mutasiSearch.value = produk.nama;
 }
 </script>
 
@@ -467,18 +522,18 @@ function lihatKartu(produk: ProdukStok): void {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedProduks.length === 0">
+                        <tr v-if="props.produks.data.length === 0">
                             <td colspan="6" class="px-6 py-12 text-center text-muted-foreground">
                                 <Warehouse class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">Tidak ada produk yang cocok.</p>
                             </td>
                         </tr>
                         <tr
-                            v-for="(produk, index) in paginatedProduks"
+                            v-for="(produk, index) in props.produks.data"
                             :key="produk.id_produk"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
-                            <td class="px-6 py-4 text-muted-foreground">{{ startProduk + index }}</td>
+                            <td class="px-6 py-4 text-muted-foreground">{{ (props.produks.from ?? 0) + index }}</td>
                             <td class="px-6 py-4">
                                 <button class="text-left font-medium hover:text-indigo-600 dark:hover:text-indigo-400" @click="lihatKartu(produk)">
                                     {{ produk.nama }}
@@ -522,15 +577,15 @@ function lihatKartu(produk: ProdukStok): void {
                 </table>
             </div>
             <Pagination
-                :current-page="pageProduk"
-                :total-pages="totalPagesProduk"
-                :total-items="totalProduk"
-                :start-index="startProduk"
-                :end-index="endProduk"
-                :per-page="perPageProduk"
+                :current-page="props.produks.current_page"
+                :total-pages="props.produks.last_page"
+                :total-items="props.produks.total"
+                :start-index="props.produks.from ?? 0"
+                :end-index="props.produks.to ?? 0"
+                :per-page="props.produks.per_page"
                 :visible-pages="visiblePagesProduk"
                 @update:current-page="goToPageProduk"
-                @update:per-page="perPageProduk = $event"
+                @update:per-page="changePerPageProduk"
             />
         </div>
 
@@ -574,14 +629,14 @@ function lihatKartu(produk: ProdukStok): void {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                        <tr v-if="paginatedMutasis.length === 0">
+                        <tr v-if="props.mutasis.data.length === 0">
                             <td colspan="7" class="px-6 py-12 text-center text-muted-foreground">
                                 <History class="mx-auto mb-3 h-10 w-10 opacity-30" />
                                 <p class="font-medium">Belum ada riwayat mutasi stok.</p>
                             </td>
                         </tr>
                         <tr
-                            v-for="mutasi in paginatedMutasis"
+                            v-for="mutasi in props.mutasis.data"
                             :key="mutasi.id_stok_mutasi"
                             class="transition-colors hover:bg-slate-50/50 dark:hover:bg-zinc-800/10"
                         >
@@ -610,19 +665,16 @@ function lihatKartu(produk: ProdukStok): void {
                 </table>
             </div>
             <Pagination
-                :current-page="pageMutasi"
-                :total-pages="totalPagesMutasi"
-                :total-items="totalMutasi"
-                :start-index="startMutasi"
-                :end-index="endMutasi"
-                :per-page="perPageMutasi"
+                :current-page="props.mutasis.current_page"
+                :total-pages="props.mutasis.last_page"
+                :total-items="props.mutasis.total"
+                :start-index="props.mutasis.from ?? 0"
+                :end-index="props.mutasis.to ?? 0"
+                :per-page="props.mutasis.per_page"
                 :visible-pages="visiblePagesMutasi"
                 @update:current-page="goToPageMutasi"
-                @update:per-page="perPageMutasi = $event"
+                @update:per-page="changePerPageMutasi"
             />
-            <p class="border-t border-sidebar-border/70 px-6 py-3 text-xs text-muted-foreground dark:border-sidebar-border">
-                Menampilkan hingga 200 mutasi terbaru.
-            </p>
         </div>
     </div>
 

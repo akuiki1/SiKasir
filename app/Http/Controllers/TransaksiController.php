@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\DetailTransaksi;
 use App\Models\Produk;
 use App\Models\Transaksi;
@@ -17,6 +18,8 @@ use Inertia\Response;
 
 class TransaksiController extends Controller
 {
+    use ResolvesPerPage;
+
     /**
      * Display a listing of the resource.
      */
@@ -24,19 +27,43 @@ class TransaksiController extends Controller
     {
         $startDate = $request->input('start_date') ?: Carbon::today()->toDateString();
         $endDate = $request->input('end_date') ?: Carbon::today()->toDateString();
+        $search = trim((string) $request->query('search', ''));
+        $kasir = $request->query('kasir', '');
+        $kasir = is_numeric($kasir) ? (int) $kasir : null;
+        $sort = (string) $request->query('sort', '');
 
-        $transaksis = Transaksi::with(['user', 'detailTransaksis.produk', 'promo'])
+        $query = Transaksi::with(['user', 'detailTransaksis.produk', 'promo'])
             ->whereDate('created_at', '>=', $startDate)
             ->whereDate('created_at', '<=', $endDate)
-            ->latest()
-            ->get()
-            ->map(fn (Transaksi $transaksi) => $this->formatTransaksi($transaksi));
+            // Pencarian "kode" = "TRX-{id}" (string bentukan, bukan kolom) atau nama kasir.
+            ->when($search !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                ->whereRaw("CONCAT('TRX-', id_transaksi) LIKE ?", ['%'.$search.'%'])
+                ->orWhereHas('user', fn ($u) => $u->where('name', 'like', '%'.$search.'%'))))
+            ->when($kasir !== null, fn ($q) => $q->where('id_user', $kasir));
 
-        $totalPenjualan = $transaksis->sum('total_harga');
-        $totalTransaksi = $transaksis->count();
-        $rataRata = $totalTransaksi > 0
-            ? (int) ($totalPenjualan / $totalTransaksi)
-            : 0;
+        // jumlah_item = SUM(detail.jumlah) → butuh agregat untuk sort by item.
+        if ($sort === 'item_asc' || $sort === 'item_desc') {
+            $query->withSum('detailTransaksis as item_count', 'jumlah')
+                ->orderBy('item_count', $sort === 'item_asc' ? 'asc' : 'desc');
+        } else {
+            [$sortColumn, $sortDir] = match ($sort) {
+                'date_asc' => ['created_at', 'asc'],
+                'total_asc' => ['total_harga', 'asc'],
+                'total_desc' => ['total_harga', 'desc'],
+                default => ['created_at', 'desc'], // date_desc / kosong = terbaru dulu
+            };
+            $query->orderBy($sortColumn, $sortDir);
+        }
+
+        $transaksis = $query->paginate($this->resolvePerPage($request))
+            ->withQueryString()
+            ->through(fn (Transaksi $transaksi) => $this->formatTransaksi($transaksi));
+
+        // Stats agregat atas rentang tanggal (tidak terpengaruh search/kasir) — sesuai perilaku lama.
+        $statBase = Transaksi::whereDate('created_at', '>=', $startDate)->whereDate('created_at', '<=', $endDate);
+        $totalPenjualan = (int) (clone $statBase)->sum('total_harga');
+        $totalTransaksi = (clone $statBase)->count();
+        $rataRata = $totalTransaksi > 0 ? (int) ($totalPenjualan / $totalTransaksi) : 0;
 
         $kasirs = User::orderBy('name')->get(['id', 'name', 'role']);
         $produks = Produk::with('kategori')
@@ -55,6 +82,12 @@ class TransaksiController extends Controller
             'date_range' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,
+            ],
+            'filters' => [
+                'search' => $search,
+                'kasir' => $kasir === null ? '' : (string) $kasir,
+                'sort' => $sort,
+                'per_page' => $this->resolvePerPage($request),
             ],
         ]);
     }

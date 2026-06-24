@@ -16,7 +16,7 @@ test('admin can view users page with data', function () {
     $response->assertInertia(
         fn ($page) => $page
             ->component('admin/Users')
-            ->has('users', 3)
+            ->has('users.data', 3)
             ->has('stats.total_users')
             ->has('stats.total_admin')
             ->has('stats.total_kasir')
