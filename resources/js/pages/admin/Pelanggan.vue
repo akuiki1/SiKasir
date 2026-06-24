@@ -237,14 +237,14 @@ const tipeBadge: Record<TipePelanggan, { label: string; class: string }> = {
                                 <div class="inline-flex justify-end gap-2">
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-zinc-800"
-                                        title="Edit"
+                                        aria-label="Edit"
                                         @click="openEdit(pelanggan)"
                                     >
                                         <Edit class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                        title="Hapus"
+                                        aria-label="Hapus"
                                         @click="hapus(pelanggan)"
                                     >
                                         <Trash2 class="h-4 w-4" />
@@ -279,7 +279,7 @@ const tipeBadge: Record<TipePelanggan, { label: string; class: string }> = {
             <div class="w-full max-w-md rounded-2xl border border-sidebar-border/70 bg-card p-6 shadow-2xl dark:border-sidebar-border">
                 <div class="mb-5 flex items-center justify-between">
                     <h2 class="text-lg font-bold">{{ editing ? 'Edit Pelanggan' : 'Tambah Pelanggan' }}</h2>
-                    <button class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800" @click="closeModal">
+                    <button class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800" @click="closeModal" aria-label="Tutup">
                         <X class="h-5 w-5" />
                     </button>
                 </div>

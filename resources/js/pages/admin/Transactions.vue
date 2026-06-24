@@ -714,8 +714,7 @@ function hapusTransaksi(trx: Transaksi) {
                                     </div>
                                     <button
                                         class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-zinc-800"
-                                        @click="showFilterPanel = false"
-                                    >
+                                        @click="showFilterPanel = false" aria-label="Tutup">
                                         <X class="h-3.5 w-3.5" />
                                     </button>
                                 </div>
@@ -800,8 +799,7 @@ function hapusTransaksi(trx: Transaksi) {
                         {{ kasirs.find(k => String(k.id) === filterKasir)?.name }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="filterKasir = ''"
-                        >
+                            @click="filterKasir = ''" aria-label="Hapus filter kasir">
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
@@ -814,8 +812,7 @@ function hapusTransaksi(trx: Transaksi) {
                         {{ sortOptions.find(s => s.value === sortBy)?.label }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="sortBy = ''"
-                        >
+                            @click="sortBy = ''" aria-label="Hapus urutan">
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
@@ -894,21 +891,21 @@ function hapusTransaksi(trx: Transaksi) {
                                 <div class="inline-flex justify-end gap-2">
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-zinc-800"
-                                        title="Lihat Detail"
+                                        aria-label="Lihat detail"
                                         @click="openDetail(trx)"
                                     >
                                         <FileText class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-zinc-800"
-                                        title="Edit"
+                                        aria-label="Edit"
                                         @click="openEdit(trx)"
                                     >
                                         <Edit class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                        title="Hapus"
+                                        aria-label="Hapus"
                                         @click="hapusTransaksi(trx)"
                                     >
                                         <Trash2 class="h-4 w-4" />
@@ -948,8 +945,7 @@ function hapusTransaksi(trx: Transaksi) {
                     <h2 class="text-lg font-bold">Detail Transaksi</h2>
                     <button
                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeDetail"
-                    >
+                        @click="closeDetail" aria-label="Tutup">
                         <X class="h-5 w-5" />
                     </button>
                 </div>
@@ -1068,8 +1064,7 @@ function hapusTransaksi(trx: Transaksi) {
                     </h2>
                     <button
                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeFormModal"
-                    >
+                        @click="closeFormModal" aria-label="Tutup">
                         <X class="h-5 w-5" />
                     </button>
                 </div>

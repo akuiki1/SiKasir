@@ -886,8 +886,7 @@ const statusClass: Record<string, string> = {
                                         </div>
                                         <button
                                             class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-zinc-800"
-                                            @click="showFilterPanel = false"
-                                        >
+                                            @click="showFilterPanel = false" aria-label="Tutup">
                                             <X class="h-3.5 w-3.5" />
                                         </button>
                                     </div>
@@ -994,8 +993,7 @@ const statusClass: Record<string, string> = {
                         {{ kategoris.find(k => String(k.id_kategori) === filterKategori)?.nama_kategori }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="filterKategori = ''"
-                        >
+                            @click="filterKategori = ''" aria-label="Hapus filter kategori">
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
@@ -1008,8 +1006,7 @@ const statusClass: Record<string, string> = {
                         {{ sortOptions.find(s => s.value === sortBy)?.label }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="sortBy = ''"
-                        >
+                            @click="sortBy = ''" aria-label="Hapus urutan">
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
@@ -1113,21 +1110,21 @@ const statusClass: Record<string, string> = {
                                     <button
                                         v-if="produk.barcode"
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-zinc-800"
-                                        title="Cetak Barcode"
+                                        aria-label="Cetak barcode"
                                         @click="openPrintBarcode(produk)"
                                     >
                                         <Printer class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-zinc-800"
-                                        title="Edit"
+                                        aria-label="Edit"
                                         @click="openEdit(produk)"
                                     >
                                         <Edit class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                        title="Hapus"
+                                        aria-label="Hapus"
                                         @click="hapusProduk(produk)"
                                     >
                                         <Trash2 class="h-4 w-4" />
@@ -1175,8 +1172,7 @@ const statusClass: Record<string, string> = {
                     </div>
                     <button
                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeBarcodeModal"
-                    >
+                        @click="closeBarcodeModal" aria-label="Tutup">
                         <X class="h-5 w-5" />
                     </button>
                 </div>
@@ -1309,8 +1305,7 @@ const statusClass: Record<string, string> = {
                                 <button
                                     type="button"
                                     class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                                    @click="closeModal"
-                                >
+                                    @click="closeModal" aria-label="Tutup">
                                     <X class="h-5 w-5" />
                                 </button>
                             </div>
@@ -1361,7 +1356,7 @@ const statusClass: Record<string, string> = {
                                                 v-if="fotoPreviewUrl"
                                                 type="button"
                                                 class="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white transition-colors hover:bg-black/80"
-                                                title="Hapus foto"
+                                                aria-label="Hapus foto"
                                                 @click="clearFoto"
                                             >
                                                 <X class="h-3.5 w-3.5" />
@@ -1712,7 +1707,7 @@ const statusClass: Record<string, string> = {
                                             <button
                                                 type="button"
                                                 class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
-                                                title="Hapus range"
+                                                aria-label="Hapus range"
                                                 @click="removeTarif(index)"
                                             >
                                                 <Trash2 class="h-4 w-4" />

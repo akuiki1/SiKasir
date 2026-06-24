@@ -493,14 +493,14 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                                 <div class="inline-flex justify-end gap-2">
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-zinc-800"
-                                        title="Edit"
+                                        aria-label="Edit"
                                         @click="openEdit(item)"
                                     >
                                         <Edit class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                        title="Hapus"
+                                        aria-label="Hapus"
                                         @click="hapusPengeluaran(item)"
                                     >
                                         <Trash2 class="h-4 w-4" />
@@ -536,7 +536,7 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                         <h2 class="text-xl font-semibold">{{ editingPengeluaran ? 'Edit Pengeluaran' : 'Tambah Pengeluaran' }}</h2>
                         <p class="mt-1 text-sm text-muted-foreground">Isi detail pengeluaran untuk pencatatan keuangan.</p>
                     </div>
-                    <button class="rounded-full p-2 text-muted-foreground transition hover:bg-slate-100 dark:hover:bg-zinc-800" @click="closeModal">
+                    <button class="rounded-full p-2 text-muted-foreground transition hover:bg-slate-100 dark:hover:bg-zinc-800" @click="closeModal" aria-label="Tutup">
                         <X class="h-5 w-5" />
                     </button>
                 </div>

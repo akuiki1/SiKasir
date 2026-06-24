@@ -490,14 +490,14 @@ onMounted(() => {
                                 <div class="inline-flex justify-end gap-2">
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-zinc-800"
-                                        title="Edit"
+                                        aria-label="Edit"
                                         @click="openEdit(promo)"
                                     >
                                         <Edit class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                        title="Hapus"
+                                        aria-label="Hapus"
                                         @click="hapusPromo(promo)"
                                     >
                                         <Trash2 class="h-4 w-4" />
@@ -539,8 +539,7 @@ onMounted(() => {
                     </h2>
                     <button
                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeModal"
-                    >
+                        @click="closeModal" aria-label="Tutup">
                         <X class="h-5 w-5" />
                     </button>
                 </div>

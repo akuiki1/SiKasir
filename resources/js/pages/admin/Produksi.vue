@@ -299,7 +299,7 @@ function hapusProduksi(item: Produksi): void {
                         </div>
                         <button
                             class="-mr-1 -mt-1 shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                            title="Hapus"
+                            aria-label="Hapus"
                             @click="hapusProduksi(item)"
                         >
                             <Trash2 class="h-4 w-4" />
@@ -351,7 +351,7 @@ function hapusProduksi(item: Produksi): void {
                             <td class="px-6 py-4 text-right">
                                 <button
                                     class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                    title="Hapus"
+                                    aria-label="Hapus"
                                     @click="hapusProduksi(item)"
                                 >
                                     <Trash2 class="h-4 w-4" />
@@ -392,8 +392,7 @@ function hapusProduksi(item: Produksi): void {
                     </div>
                     <button
                         class="-mr-1 -mt-1 shrink-0 rounded-full p-2 text-muted-foreground transition hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeModal"
-                    >
+                        @click="closeModal" aria-label="Tutup">
                         <X class="h-5 w-5" />
                     </button>
                 </div>

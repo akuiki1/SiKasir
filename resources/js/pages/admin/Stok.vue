@@ -496,21 +496,21 @@ function lihatKartu(produk: ProdukStok): void {
                                 <div class="flex items-center justify-end gap-1">
                                     <button
                                         class="rounded-lg p-1.5 text-emerald-600 transition-colors hover:bg-emerald-500/10 dark:text-emerald-400"
-                                        title="Stok Masuk"
+                                        aria-label="Stok masuk"
                                         @click="openModal('masuk', produk)"
                                     >
                                         <PackagePlus class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
-                                        title="Stok Keluar"
+                                        aria-label="Stok keluar"
                                         @click="openModal('keluar', produk)"
                                     >
                                         <PackageMinus class="h-4 w-4" />
                                     </button>
                                     <button
                                         class="rounded-lg p-1.5 text-amber-600 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
-                                        title="Penyesuaian / Opname"
+                                        aria-label="Penyesuaian / opname"
                                         @click="openModal('penyesuaian', produk)"
                                     >
                                         <ClipboardCheck class="h-4 w-4" />
@@ -635,7 +635,7 @@ function lihatKartu(produk: ProdukStok): void {
                         <h2 class="text-xl font-semibold">{{ modalMeta[modalMode].title }}</h2>
                         <p class="mt-1 text-sm text-muted-foreground">{{ modalMeta[modalMode].desc }}</p>
                     </div>
-                    <button class="rounded-full p-2 text-muted-foreground transition hover:bg-slate-100 dark:hover:bg-zinc-800" @click="closeModal">
+                    <button class="rounded-full p-2 text-muted-foreground transition hover:bg-slate-100 dark:hover:bg-zinc-800" @click="closeModal" aria-label="Tutup">
                         <X class="h-5 w-5" />
                     </button>
                 </div>
