@@ -79,6 +79,49 @@ test('admin cannot delete their own account', function () {
     $this->assertDatabaseHas('users', ['id' => $admin->id]);
 });
 
+test('admin cannot demote the last admin', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)->put(route('admin.users.update', $admin->id), [
+        'name' => $admin->name,
+        'email' => $admin->email,
+        'role' => 'kasir',
+        'password' => '',
+        'password_confirmation' => '',
+    ]);
+
+    $response->assertRedirect(route('admin.users'));
+    $response->assertSessionHas('error');
+    $this->assertDatabaseHas('users', ['id' => $admin->id, 'role' => 'admin']);
+});
+
+test('admin can demote an admin when another admin exists', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $other = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)->put(route('admin.users.update', $other->id), [
+        'name' => $other->name,
+        'email' => $other->email,
+        'role' => 'kasir',
+        'password' => '',
+        'password_confirmation' => '',
+    ]);
+
+    $response->assertRedirect(route('admin.users'));
+    $this->assertDatabaseHas('users', ['id' => $other->id, 'role' => 'kasir']);
+});
+
+test('admin can delete another admin when more than one exists', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $other = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)->delete(route('admin.users.destroy', $other->id));
+
+    $response->assertRedirect(route('admin.users'));
+    $this->assertDatabaseMissing('users', ['id' => $other->id]);
+    expect(User::where('role', 'admin')->count())->toBe(1);
+});
+
 test('kasir cannot access admin users page', function () {
     $kasir = User::factory()->create(['role' => 'kasir']);
 

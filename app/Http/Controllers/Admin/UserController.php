@@ -75,6 +75,11 @@ class UserController extends Controller
             'password' => ['nullable', Password::defaults(), 'confirmed'],
         ]);
 
+        // Cegah menurunkan peran admin terakhir agar panel admin tidak terkunci.
+        if ($user->role === 'admin' && $validated['role'] !== 'admin' && $this->isLastAdmin()) {
+            return redirect()->route('admin.users')->with('error', 'Tidak dapat menurunkan peran admin terakhir.');
+        }
+
         $user->name = $validated['name'];
         $user->email = $validated['email'];
         $user->role = $validated['role'];
@@ -97,8 +102,19 @@ class UserController extends Controller
             return redirect()->route('admin.users')->with('error', 'Anda tidak dapat menghapus akun sendiri.');
         }
 
+        // Cegah menghapus admin terakhir agar selalu ada yang bisa mengelola sistem.
+        if ($user->role === 'admin' && $this->isLastAdmin()) {
+            return redirect()->route('admin.users')->with('error', 'Tidak dapat menghapus admin terakhir.');
+        }
+
         $user->delete();
 
         return redirect()->route('admin.users')->with('success', 'User berhasil dihapus.');
+    }
+
+    /** Apakah sistem hanya tersisa satu akun admin? */
+    private function isLastAdmin(): bool
+    {
+        return User::where('role', 'admin')->count() <= 1;
     }
 }
