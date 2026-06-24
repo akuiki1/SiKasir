@@ -338,6 +338,29 @@ test('the public lookup returns orders for a WA number', function () {
         ->assertJsonPath('pesanans.0.status', 'pending');
 });
 
+test('the public lookup matches the exact number, not just shared trailing digits', function () {
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 10, 'tipe_jual' => 'satuan']);
+
+    // Dua nomor BERBEDA yang berbagi 9 digit terakhir (…333344455).
+    $this->postJson(route('pesan.store'), [
+        'nama' => 'Citra',
+        'telp' => '081333344455',
+        'items' => [['id_produk' => $produk->id_produk, 'jumlah' => 1]],
+    ])->assertOk();
+
+    $this->postJson(route('pesan.store'), [
+        'nama' => 'Dewi',
+        'telp' => '089333344455',
+        'items' => [['id_produk' => $produk->id_produk, 'jumlah' => 1]],
+    ])->assertOk();
+
+    // Melacak nomor Citra TIDAK boleh memunculkan pesanan Dewi (anti-substring).
+    $this->postJson(route('pesan.lacak'), ['telp' => '081333344455'])
+        ->assertOk()
+        ->assertJsonCount(1, 'pesanans')
+        ->assertJsonPath('pesanans.0.nama_pelanggan', 'Citra');
+});
+
 test('abandoned orders are auto-expired and stock is returned', function () {
     $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 10, 'tipe_jual' => 'satuan']);
 

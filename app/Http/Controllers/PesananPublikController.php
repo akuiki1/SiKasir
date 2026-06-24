@@ -86,10 +86,14 @@ class PesananPublikController extends Controller
             ], 422);
         }
 
-        $last9 = substr(PesananService::normalizeTelp($validated['telp']), -9);
+        // Cocokkan nomor SECARA PERSIS (bukan substring "9 digit terakhir") agar
+        // tidak membocorkan pesanan nomor lain yang kebetulan berakhiran digit sama.
+        // telp pesanan selalu tersimpan ternormalisasi (lihat PesananService::buat),
+        // jadi normalisasi input cukup untuk pencocokan yang konsisten.
+        $telp = PesananService::normalizeTelp($validated['telp']);
 
         $pesanans = Pesanan::with('items')
-            ->where('telp', 'like', '%'.$last9.'%')
+            ->where('telp', $telp)
             ->latest('created_at')
             ->limit(20)
             ->get()
