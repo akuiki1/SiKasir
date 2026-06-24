@@ -16,7 +16,11 @@ return [
     */
 
     'ssr' => [
-        'enabled' => true,
+        // Nonaktif: tidak ada proses SSR server yang dijalankan, jadi setiap request
+        // hanya membuang percobaan koneksi gagal ke :13714 lalu fallback ke render
+        // client-side. Aktifkan lagi via INERTIA_SSR_ENABLED=true + jalankan
+        // `php artisan inertia:start-ssr` (build bundle dgn `npm run build:ssr`).
+        'enabled' => env('INERTIA_SSR_ENABLED', false),
         'url' => 'http://127.0.0.1:13714',
         // 'bundle' => base_path('bootstrap/ssr/ssr.mjs'),
 

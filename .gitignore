@@ -5,6 +5,8 @@ node_modules/
 dist/
 build/
 public/build/
+# Bundle SSR Inertia — artefak build, dihasilkan oleh `npm run build:ssr` saat deploy.
+bootstrap/ssr/
 
 # Vite dev artifacts (must NOT be committed — public/hot points to the dev server)
 public/hot
