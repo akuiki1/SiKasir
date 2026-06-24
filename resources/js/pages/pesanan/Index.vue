@@ -25,6 +25,7 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
+import PeriodFilter from '@/components/PeriodFilter.vue';
 import { formatRupiah } from '@/lib/format';
 
 defineOptions({
@@ -75,7 +76,7 @@ const props = defineProps<{
     pesanans_aktif: Pesanan[];
     pesanans_riwayat: Pesanan[];
     produks: ProdukOpsi[];
-    filters: { search: string; tanggal: string };
+    filters: { search: string; start_date: string; end_date: string };
     base_url: string;
 }>();
 
@@ -91,31 +92,57 @@ const STATUS_META: Record<Pesanan['status'], { label: string; badge: string }> =
 
 const metodeLabel: Record<string, string> = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer' };
 
-// ===== Pencarian (server-side, debounce) =====
+// ===== Pencarian (kedua daftar) + filter periode (khusus Riwayat) — server-side =====
 const searchQuery = ref(props.filters.search ?? '');
-const tanggal = ref(props.filters.tanggal ?? '');
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-watch([searchQuery, tanggal], () => {
+type QueryValue = string | number;
+
+function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+    const params: Record<string, QueryValue | undefined> = {
+        search: searchQuery.value || undefined,
+        start_date: props.filters.start_date || undefined,
+        end_date: props.filters.end_date || undefined,
+        ...overrides,
+    };
+
+    const cleaned: Record<string, QueryValue> = {};
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            cleaned[key] = value;
+        }
+    });
+
+    return cleaned;
+}
+
+function reload(overrides: Record<string, QueryValue> = {}): void {
+    router.get(props.base_url, buildParams(overrides), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+}
+
+watch(searchQuery, (value) => {
     if (searchTimer) {
         clearTimeout(searchTimer);
     }
 
-    searchTimer = setTimeout(() => {
-        router.get(
-            props.base_url,
-            { search: searchQuery.value || undefined, tanggal: tanggal.value || undefined },
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
-    }, 350);
+    searchTimer = setTimeout(() => reload({ search: value }), 350);
 });
+
+// Periode hanya mempersempit Riwayat; antrian aktif selalu tampil semua.
+function onPeriod(range: { start_date: string; end_date: string }): void {
+    reload({ start_date: range.start_date, end_date: range.end_date });
+}
 
 function resetFilter(): void {
     searchQuery.value = '';
-    tanggal.value = '';
 }
 
-const adaFilter = computed(() => !!(props.filters.search || props.filters.tanggal));
+const adaFilter = computed(() => !!props.filters.search);
 
 // ===== Pesan WhatsApp (wa.me satu-ketuk ke nomor pelanggan) =====
 function waUrl(telp: string, text: string): string {
@@ -401,12 +428,6 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                     class="w-full rounded-xl border border-sidebar-border/70 bg-background py-2.5 pl-11 pr-4 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
                 />
             </div>
-            <input
-                v-model="tanggal"
-                type="date"
-                aria-label="Tanggal pesanan"
-                class="rounded-xl border border-sidebar-border/70 bg-background py-2.5 px-3 text-sm shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none dark:border-sidebar-border"
-            />
             <button
                 v-if="adaFilter"
                 type="button"
@@ -428,7 +449,7 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                 <Inbox class="mb-3 h-10 w-10 text-muted-foreground/50" />
                 <p class="font-semibold">{{ adaFilter ? 'Tak ada pesanan cocok' : 'Belum ada pesanan menunggu' }}</p>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    {{ adaFilter ? 'Coba kata kunci atau tanggal lain.' : 'Pesanan baru dari web akan muncul di sini.' }}
+                    {{ adaFilter ? 'Coba kata kunci lain.' : 'Pesanan baru dari web akan muncul di sini.' }}
                 </p>
             </div>
 
@@ -549,9 +570,16 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
         </section>
 
         <!-- Riwayat pesanan -->
-        <section v-if="pesanans_riwayat.length > 0" class="space-y-4">
-            <h2 class="text-sm font-bold text-muted-foreground uppercase tracking-wide">Riwayat pesanan</h2>
-            <div class="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-card">
+        <section class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-sm font-bold text-muted-foreground uppercase tracking-wide">Riwayat pesanan</h2>
+                <PeriodFilter
+                    :start-date="props.filters.start_date"
+                    :end-date="props.filters.end_date"
+                    @change="onPeriod"
+                />
+            </div>
+            <div v-if="pesanans_riwayat.length > 0" class="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-card">
                 <div
                     v-for="pesanan in pesanans_riwayat"
                     :key="pesanan.id_pesanan"
@@ -586,6 +614,12 @@ const adaPesananAktif = computed(() => props.pesanans_aktif.length > 0);
                         </button>
                     </div>
                 </div>
+            </div>
+            <div
+                v-else
+                class="rounded-2xl border border-dashed border-sidebar-border/70 bg-card px-4 py-10 text-center text-sm text-muted-foreground"
+            >
+                Tidak ada riwayat pesanan pada periode ini.
             </div>
         </section>
     </div>

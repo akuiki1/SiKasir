@@ -29,24 +29,27 @@ class PesananController extends Controller
     public function index(Request $request): Response
     {
         $search = trim((string) $request->query('search', ''));
-        $tanggal = trim((string) $request->query('tanggal', ''));
-        $adaFilter = $search !== '' || $tanggal !== '';
+        // Periode kalender hanya untuk Riwayat; default bulan berjalan.
+        $startDate = $request->input('start_date') ?: Carbon::today()->startOfMonth()->toDateString();
+        $endDate = $request->input('end_date') ?: Carbon::today()->endOfMonth()->toDateString();
 
-        // Pesanan aktif (perlu ditindak), terlama dulu agar antrian adil.
+        // Antrian aktif (perlu ditindak): SELALU tampil semua — tak terfilter tanggal
+        // agar pesanan pending lama tak hilang dari antrian; hanya ikut pencarian.
         $aktif = $this->applyFilters(
             Pesanan::with(['items', 'pelanggan'])->whereIn('status', PesananService::STATUS_AKTIF),
             $search,
-            $tanggal,
         )
             ->orderBy('created_at')
             ->get()
             ->map(fn (Pesanan $pesanan) => $this->mapPesanan($pesanan));
 
-        // Riwayat ringkas (selesai/batal terbaru). Saat memfilter, perbesar batas.
+        // Riwayat (selesai/batal): dipersempit pencarian + periode. Saat memfilter, perbesar batas.
+        $adaFilter = $search !== '' || $request->filled('start_date') || $request->filled('end_date');
         $riwayat = $this->applyFilters(
             Pesanan::with(['items', 'transaksi'])->whereIn('status', ['selesai', 'batal']),
             $search,
-            $tanggal,
+            $startDate,
+            $endDate,
         )
             ->latest('updated_at')
             ->limit($adaFilter ? 50 : 20)
@@ -69,7 +72,7 @@ class PesananController extends Controller
             'pesanans_aktif' => $aktif,
             'pesanans_riwayat' => $riwayat,
             'produks' => $produks,
-            'filters' => ['search' => $search, 'tanggal' => $tanggal],
+            'filters' => ['search' => $search, 'start_date' => $startDate, 'end_date' => $endDate],
             'base_url' => $this->basePath($request),
         ]);
     }
@@ -194,8 +197,8 @@ class PesananController extends Controller
         return back();
     }
 
-    /** Terapkan filter pencarian (nama/telp) & tanggal pembuatan. */
-    private function applyFilters(Builder $query, string $search, string $tanggal): Builder
+    /** Terapkan filter pencarian (nama/telp) & rentang tanggal pembuatan (opsional). */
+    private function applyFilters(Builder $query, string $search, ?string $startDate = null, ?string $endDate = null): Builder
     {
         if ($search !== '') {
             $digits = preg_replace('/\D/', '', $search);
@@ -210,8 +213,12 @@ class PesananController extends Controller
             });
         }
 
-        if ($tanggal !== '') {
-            $query->whereDate('created_at', $tanggal);
+        if ($startDate !== null && $startDate !== '') {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+
+        if ($endDate !== null && $endDate !== '') {
+            $query->whereDate('created_at', '<=', $endDate);
         }
 
         return $query;

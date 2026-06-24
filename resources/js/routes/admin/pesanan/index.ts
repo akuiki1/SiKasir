@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
 export const siap = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ siap.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
 siap.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ siap.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numbe
 
 /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
 siap.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ siap.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
 
     /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
     const siapForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -69,7 +69,7 @@ siap.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
 
             /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
         siapForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -80,7 +80,7 @@ siap.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
     siap.form = siapForm
 /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
 export const edit = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -95,7 +95,7 @@ edit.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
 edit.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -128,7 +128,7 @@ edit.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numbe
 
 /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
 edit.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -138,7 +138,7 @@ edit.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
 
     /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
     const editForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -148,7 +148,7 @@ edit.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
 
             /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
         editForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -159,7 +159,7 @@ edit.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
     edit.form = editForm
 /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
 export const proses = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -174,7 +174,7 @@ proses.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
 proses.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -207,7 +207,7 @@ proses.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: num
 
 /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
 proses.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -217,7 +217,7 @@ proses.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: nu
 
     /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
     const prosesForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -227,7 +227,7 @@ proses.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: nu
 
             /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
         prosesForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -238,7 +238,7 @@ proses.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: nu
     proses.form = prosesForm
 /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
 export const batal = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -253,7 +253,7 @@ batal.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
 batal.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -286,7 +286,7 @@ batal.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: numb
 
 /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
 batal.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -296,7 +296,7 @@ batal.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: num
 
     /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
     const batalForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -306,7 +306,7 @@ batal.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: num
 
             /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
         batalForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

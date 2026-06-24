@@ -168,7 +168,7 @@ export const index = {
 
 /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
 const siap4ff679c547ec378211ae3b321c078e29 = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -183,7 +183,7 @@ siap4ff679c547ec378211ae3b321c078e29.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
 siap4ff679c547ec378211ae3b321c078e29.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -216,7 +216,7 @@ siap4ff679c547ec378211ae3b321c078e29.url = (args: { pesanan: number | { id_pesan
 
 /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
 siap4ff679c547ec378211ae3b321c078e29.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -226,7 +226,7 @@ siap4ff679c547ec378211ae3b321c078e29.post = (args: { pesanan: number | { id_pesa
 
     /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
     const siap4ff679c547ec378211ae3b321c078e29Form = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -236,7 +236,7 @@ siap4ff679c547ec378211ae3b321c078e29.post = (args: { pesanan: number | { id_pesa
 
             /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/admin/pesanan/{pesanan}/siap'
  */
         siap4ff679c547ec378211ae3b321c078e29Form.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -247,7 +247,7 @@ siap4ff679c547ec378211ae3b321c078e29.post = (args: { pesanan: number | { id_pesa
     siap4ff679c547ec378211ae3b321c078e29.form = siap4ff679c547ec378211ae3b321c078e29Form
     /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
 const siapd5f934b40369b7044325673f539ea489 = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -262,7 +262,7 @@ siapd5f934b40369b7044325673f539ea489.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
 siapd5f934b40369b7044325673f539ea489.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -295,7 +295,7 @@ siapd5f934b40369b7044325673f539ea489.url = (args: { pesanan: number | { id_pesan
 
 /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
 siapd5f934b40369b7044325673f539ea489.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -305,7 +305,7 @@ siapd5f934b40369b7044325673f539ea489.post = (args: { pesanan: number | { id_pesa
 
     /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
     const siapd5f934b40369b7044325673f539ea489Form = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -315,7 +315,7 @@ siapd5f934b40369b7044325673f539ea489.post = (args: { pesanan: number | { id_pesa
 
             /**
 * @see \App\Http\Controllers\PesananController::siap
- * @see app/Http/Controllers/PesananController.php:78
+ * @see app/Http/Controllers/PesananController.php:81
  * @route '/kasir/pesanan/{pesanan}/siap'
  */
         siapd5f934b40369b7044325673f539ea489Form.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -337,7 +337,7 @@ export const siap = {
 
 /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
 const edit836c8ab6cf3dc516862b101055231c6a = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -352,7 +352,7 @@ edit836c8ab6cf3dc516862b101055231c6a.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
 edit836c8ab6cf3dc516862b101055231c6a.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -385,7 +385,7 @@ edit836c8ab6cf3dc516862b101055231c6a.url = (args: { pesanan: number | { id_pesan
 
 /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
 edit836c8ab6cf3dc516862b101055231c6a.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -395,7 +395,7 @@ edit836c8ab6cf3dc516862b101055231c6a.post = (args: { pesanan: number | { id_pesa
 
     /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
     const edit836c8ab6cf3dc516862b101055231c6aForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -405,7 +405,7 @@ edit836c8ab6cf3dc516862b101055231c6a.post = (args: { pesanan: number | { id_pesa
 
             /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/admin/pesanan/{pesanan}/edit'
  */
         edit836c8ab6cf3dc516862b101055231c6aForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -416,7 +416,7 @@ edit836c8ab6cf3dc516862b101055231c6a.post = (args: { pesanan: number | { id_pesa
     edit836c8ab6cf3dc516862b101055231c6a.form = edit836c8ab6cf3dc516862b101055231c6aForm
     /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/kasir/pesanan/{pesanan}/edit'
  */
 const editedd1687a170c34dec9b7af3782904754 = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -431,7 +431,7 @@ editedd1687a170c34dec9b7af3782904754.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/kasir/pesanan/{pesanan}/edit'
  */
 editedd1687a170c34dec9b7af3782904754.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -464,7 +464,7 @@ editedd1687a170c34dec9b7af3782904754.url = (args: { pesanan: number | { id_pesan
 
 /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/kasir/pesanan/{pesanan}/edit'
  */
 editedd1687a170c34dec9b7af3782904754.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -474,7 +474,7 @@ editedd1687a170c34dec9b7af3782904754.post = (args: { pesanan: number | { id_pesa
 
     /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/kasir/pesanan/{pesanan}/edit'
  */
     const editedd1687a170c34dec9b7af3782904754Form = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -484,7 +484,7 @@ editedd1687a170c34dec9b7af3782904754.post = (args: { pesanan: number | { id_pesa
 
             /**
 * @see \App\Http\Controllers\PesananController::edit
- * @see app/Http/Controllers/PesananController.php:94
+ * @see app/Http/Controllers/PesananController.php:97
  * @route '/kasir/pesanan/{pesanan}/edit'
  */
         editedd1687a170c34dec9b7af3782904754Form.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -506,7 +506,7 @@ export const edit = {
 
 /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
 const proses47a996573749e6c1251a26c002a7623c = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -521,7 +521,7 @@ proses47a996573749e6c1251a26c002a7623c.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
 proses47a996573749e6c1251a26c002a7623c.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -554,7 +554,7 @@ proses47a996573749e6c1251a26c002a7623c.url = (args: { pesanan: number | { id_pes
 
 /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
 proses47a996573749e6c1251a26c002a7623c.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -564,7 +564,7 @@ proses47a996573749e6c1251a26c002a7623c.post = (args: { pesanan: number | { id_pe
 
     /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
     const proses47a996573749e6c1251a26c002a7623cForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -574,7 +574,7 @@ proses47a996573749e6c1251a26c002a7623c.post = (args: { pesanan: number | { id_pe
 
             /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/admin/pesanan/{pesanan}/proses'
  */
         proses47a996573749e6c1251a26c002a7623cForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -585,7 +585,7 @@ proses47a996573749e6c1251a26c002a7623c.post = (args: { pesanan: number | { id_pe
     proses47a996573749e6c1251a26c002a7623c.form = proses47a996573749e6c1251a26c002a7623cForm
     /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
 const proses8a78e6fd4f6e8db12503c2f540e2741c = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -600,7 +600,7 @@ proses8a78e6fd4f6e8db12503c2f540e2741c.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
 proses8a78e6fd4f6e8db12503c2f540e2741c.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -633,7 +633,7 @@ proses8a78e6fd4f6e8db12503c2f540e2741c.url = (args: { pesanan: number | { id_pes
 
 /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
 proses8a78e6fd4f6e8db12503c2f540e2741c.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -643,7 +643,7 @@ proses8a78e6fd4f6e8db12503c2f540e2741c.post = (args: { pesanan: number | { id_pe
 
     /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
     const proses8a78e6fd4f6e8db12503c2f540e2741cForm = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -653,7 +653,7 @@ proses8a78e6fd4f6e8db12503c2f540e2741c.post = (args: { pesanan: number | { id_pe
 
             /**
 * @see \App\Http\Controllers\PesananController::proses
- * @see app/Http/Controllers/PesananController.php:119
+ * @see app/Http/Controllers/PesananController.php:122
  * @route '/kasir/pesanan/{pesanan}/proses'
  */
         proses8a78e6fd4f6e8db12503c2f540e2741cForm.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -675,7 +675,7 @@ export const proses = {
 
 /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
 const batal87bba7c8d3d491cfdd6017f4b8948749 = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -690,7 +690,7 @@ batal87bba7c8d3d491cfdd6017f4b8948749.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
 batal87bba7c8d3d491cfdd6017f4b8948749.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -723,7 +723,7 @@ batal87bba7c8d3d491cfdd6017f4b8948749.url = (args: { pesanan: number | { id_pesa
 
 /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
 batal87bba7c8d3d491cfdd6017f4b8948749.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -733,7 +733,7 @@ batal87bba7c8d3d491cfdd6017f4b8948749.post = (args: { pesanan: number | { id_pes
 
     /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
     const batal87bba7c8d3d491cfdd6017f4b8948749Form = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -743,7 +743,7 @@ batal87bba7c8d3d491cfdd6017f4b8948749.post = (args: { pesanan: number | { id_pes
 
             /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/admin/pesanan/{pesanan}/batal'
  */
         batal87bba7c8d3d491cfdd6017f4b8948749Form.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -754,7 +754,7 @@ batal87bba7c8d3d491cfdd6017f4b8948749.post = (args: { pesanan: number | { id_pes
     batal87bba7c8d3d491cfdd6017f4b8948749.form = batal87bba7c8d3d491cfdd6017f4b8948749Form
     /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
 const batal78945c2bd0a05347dc91c2ff2e10d5c2 = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -769,7 +769,7 @@ batal78945c2bd0a05347dc91c2ff2e10d5c2.definition = {
 
 /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
 batal78945c2bd0a05347dc91c2ff2e10d5c2.url = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions) => {
@@ -802,7 +802,7 @@ batal78945c2bd0a05347dc91c2ff2e10d5c2.url = (args: { pesanan: number | { id_pesa
 
 /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
 batal78945c2bd0a05347dc91c2ff2e10d5c2.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -812,7 +812,7 @@ batal78945c2bd0a05347dc91c2ff2e10d5c2.post = (args: { pesanan: number | { id_pes
 
     /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
     const batal78945c2bd0a05347dc91c2ff2e10d5c2Form = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -822,7 +822,7 @@ batal78945c2bd0a05347dc91c2ff2e10d5c2.post = (args: { pesanan: number | { id_pes
 
             /**
 * @see \App\Http\Controllers\PesananController::batal
- * @see app/Http/Controllers/PesananController.php:179
+ * @see app/Http/Controllers/PesananController.php:182
  * @route '/kasir/pesanan/{pesanan}/batal'
  */
         batal78945c2bd0a05347dc91c2ff2e10d5c2Form.post = (args: { pesanan: number | { id_pesanan: number } } | [pesanan: number | { id_pesanan: number } ] | number | { id_pesanan: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
