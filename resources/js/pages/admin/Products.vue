@@ -9,6 +9,8 @@ import {
     AlertTriangle,
     Edit,
     Trash2,
+    Archive,
+    ArchiveRestore,
     X,
     Save,
     AlertCircle,
@@ -50,6 +52,7 @@ import {
     store as productStore,
     update as productUpdate,
     destroy as productDestroy,
+    restore as productRestore,
     generateAll as productGenerateAll,
 } from '@/routes/admin/products';
 
@@ -94,6 +97,8 @@ interface Produk {
     foto_url?: string | null;
     status_stok: 'in-stock' | 'low-stock' | 'out-of-stock';
     tarifs?: TarifJasa[];
+    // Tanggal arsip (terisi hanya di tampilan Arsip).
+    archived_at?: string | null;
 }
 
 interface Stats {
@@ -101,6 +106,7 @@ interface Stats {
     total_kategori: number;
     stok_bermasalah: number;
     produk_tanpa_barcode: number;
+    arsip: number;
 }
 
 interface Paginator<T> {
@@ -117,6 +123,7 @@ interface Filters {
     search: string;
     kategori: string;
     sort: string;
+    view: 'aktif' | 'arsip';
     per_page: number;
 }
 
@@ -142,6 +149,12 @@ const filterKategori = ref(props.filters.kategori ?? '');
 const sortBy = ref(props.filters.sort ?? '');
 const showFilterPanel = ref(false);
 const filterPanelRef = ref<HTMLDivElement | null>(null);
+
+// Tampilan aktif vs arsip (produk yang sudah diarsipkan).
+const currentView = computed<'aktif' | 'arsip'>(
+    () => props.filters.view ?? 'aktif',
+);
+const isArsipView = computed(() => currentView.value === 'arsip');
 
 const sortOptions = [
     { value: 'nama_asc', label: 'Nama A–Z', icon: ArrowUpAZ },
@@ -203,6 +216,7 @@ function buildParams(
         search: searchQuery.value || undefined,
         kategori: filterKategori.value || undefined,
         sort: sortBy.value || undefined,
+        view: currentView.value !== 'aktif' ? currentView.value : undefined,
         per_page: props.filters.per_page,
         ...overrides,
     };
@@ -224,6 +238,15 @@ function reload(overrides: Record<string, QueryValue> = {}): void {
         preserveScroll: true,
         replace: true,
     });
+}
+
+function setView(value: 'aktif' | 'arsip'): void {
+    if (value === currentView.value) {
+        return;
+    }
+
+    // page direset & view 'aktif' dikirim eksplisit agar param lama terhapus.
+    reload({ view: value, page: 1 });
 }
 
 function setKategori(value: string): void {
@@ -810,14 +833,24 @@ function submitForm() {
     }
 }
 
-function hapusProduk(produk: Produk) {
+function arsipkanProduk(produk: Produk) {
     if (
         confirm(
-            `Hapus produk "${produk.nama}"? Tindakan ini tidak dapat dibatalkan.`,
+            `Arsipkan produk "${produk.nama}"? Produk akan disembunyikan dari kasir, katalog, dan stok — tapi riwayat penjualannya tetap tersimpan dan bisa dipulihkan kapan saja.`,
         )
     ) {
-        router.delete(productDestroy(produk.id_produk).url);
+        router.delete(productDestroy(produk.id_produk).url, {
+            preserveScroll: true,
+        });
     }
+}
+
+function pulihkanProduk(produk: Produk) {
+    router.post(
+        productRestore(produk.id_produk).url,
+        {},
+        { preserveScroll: true },
+    );
 }
 
 const statusLabel: Record<string, string> = {
@@ -999,12 +1032,53 @@ const statusClass: Record<string, string> = {
             </div>
 
             <button
+                v-if="!isArsipView"
                 id="btn-tambah-produk"
                 class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-colors hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                 @click="openTambah"
             >
                 <Plus class="h-4 w-4" />
                 Tambah Produk Baru
+            </button>
+        </div>
+
+        <!-- Tab Aktif / Arsip -->
+        <div
+            class="flex gap-1 rounded-xl border border-sidebar-border/70 bg-card p-1 shadow-sm sm:w-fit dark:border-sidebar-border"
+        >
+            <button
+                :class="[
+                    'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition',
+                    !isArsipView
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-muted-foreground hover:bg-slate-100 dark:hover:bg-zinc-800',
+                ]"
+                @click="setView('aktif')"
+            >
+                <Package class="h-4 w-4" />
+                Produk Aktif
+            </button>
+            <button
+                :class="[
+                    'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition',
+                    isArsipView
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-muted-foreground hover:bg-slate-100 dark:hover:bg-zinc-800',
+                ]"
+                @click="setView('arsip')"
+            >
+                <Archive class="h-4 w-4" />
+                Arsip
+                <span
+                    v-if="stats.arsip > 0"
+                    :class="[
+                        'flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
+                        isArsipView
+                            ? 'bg-white/25 text-white'
+                            : 'bg-slate-200 text-slate-600 dark:bg-zinc-700 dark:text-slate-300',
+                    ]"
+                    >{{ stats.arsip }}</span
+                >
             </button>
         </div>
 
@@ -1249,6 +1323,7 @@ const statusClass: Record<string, string> = {
 
                         <!-- Generate All Barcodes & SKU -->
                         <button
+                            v-if="!isArsipView"
                             class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:text-emerald-400"
                             title="Buat barcode & SKU otomatis untuk produk yang belum punya barcode"
                             :disabled="generatingAll"
@@ -1264,6 +1339,7 @@ const statusClass: Record<string, string> = {
 
                         <!-- Print All Barcodes -->
                         <button
+                            v-if="!isArsipView"
                             class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40"
                             title="Cetak barcode semua produk (sesuai filter aktif, lintas halaman)"
                             @click="openPrintAllBarcodes"
@@ -1475,7 +1551,29 @@ const statusClass: Record<string, string> = {
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <div class="inline-flex justify-end gap-2">
+                                <!-- Tampilan Arsip: hanya tombol Pulihkan -->
+                                <div
+                                    v-if="isArsipView"
+                                    class="inline-flex items-center justify-end gap-2"
+                                >
+                                    <span
+                                        v-if="produk.archived_at"
+                                        class="hidden text-xs text-muted-foreground sm:inline"
+                                        >Diarsipkan {{ produk.archived_at }}</span
+                                    >
+                                    <button
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
+                                        @click="pulihkanProduk(produk)"
+                                    >
+                                        <ArchiveRestore class="h-3.5 w-3.5" />
+                                        Pulihkan
+                                    </button>
+                                </div>
+                                <!-- Tampilan Aktif: cetak / edit / arsipkan -->
+                                <div
+                                    v-else
+                                    class="inline-flex justify-end gap-2"
+                                >
                                     <button
                                         v-if="produk.barcode"
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-zinc-800"
@@ -1492,11 +1590,12 @@ const statusClass: Record<string, string> = {
                                         <Edit class="h-4 w-4" />
                                     </button>
                                     <button
-                                        class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                        aria-label="Hapus"
-                                        @click="hapusProduk(produk)"
+                                        class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-amber-600 dark:hover:bg-zinc-800"
+                                        aria-label="Arsipkan"
+                                        title="Arsipkan produk"
+                                        @click="arsipkanProduk(produk)"
                                     >
-                                        <Trash2 class="h-4 w-4" />
+                                        <Archive class="h-4 w-4" />
                                     </button>
                                 </div>
                             </td>

@@ -31,7 +31,8 @@ class Produksi extends Model
 
     public function produk(): BelongsTo
     {
-        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withDefault([
+        // withTrashed: produk yang diarsipkan tetap tampil namanya di riwayat produksi.
+        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withTrashed()->withDefault([
             'nama' => 'Produk Terhapus',
         ]);
     }

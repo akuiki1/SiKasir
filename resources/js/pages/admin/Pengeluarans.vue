@@ -9,9 +9,13 @@ import {
     FileText,
     X,
     Save,
+    Wallet,
+    Factory,
+    Warehouse,
 } from 'lucide-vue-next';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
+import PagePurpose from '@/components/PagePurpose.vue';
 import Pagination from '@/components/Pagination.vue';
 import PeriodFilter from '@/components/PeriodFilter.vue';
 import { formatPeriodLabel } from '@/lib/period';
@@ -243,6 +247,13 @@ function openTambah() {
     showModal.value = true;
 }
 
+// Deep-link dari hub "Catat": /admin/pengeluarans?aksi=tambah langsung buka form.
+onMounted(() => {
+    if (new URLSearchParams(window.location.search).get('aksi') === 'tambah') {
+        openTambah();
+    }
+});
+
 function openEdit(pengeluarans: Pengeluaran) {
     editingPengeluaran.value = pengeluarans;
     form.tipe = pengeluarans.tipe;
@@ -289,7 +300,7 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">Manajemen Pengeluaran</h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Kelola semua pengeluaran operasional dan bahan.</p>
+                    Kelola pengeluaran operasional toko.</p>
             </div>
 
             <div class="flex shrink-0 items-center gap-2">
@@ -310,6 +321,17 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                 </button>
             </div>
         </div>
+
+        <PagePurpose
+            :icon="Wallet"
+            tone="amber"
+            title="Untuk biaya operasional (bukan modal barang)"
+            description="Catat gaji, sewa, listrik, transportasi, dan biaya operasional lain. Biaya bahan & kemasan dicatat di Produksi agar tidak dobel."
+            :links="[
+                { label: 'Bikin barang? Produksi', href: '/admin/produksi', icon: Factory },
+                { label: 'Stok barang? Manajemen Stok', href: '/admin/stok', icon: Warehouse },
+            ]"
+        />
 
 
         <div class="grid gap-4 md:grid-cols-2">

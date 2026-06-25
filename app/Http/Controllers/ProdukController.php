@@ -24,6 +24,8 @@ class ProdukController extends Controller
         $kategori = $request->query('kategori', '');
         $kategori = is_numeric($kategori) ? (int) $kategori : null;
         $sort = (string) $request->query('sort', '');
+        // Tampilan: produk aktif (default) atau arsip (yang sudah diarsipkan).
+        $view = $request->query('view') === 'arsip' ? 'arsip' : 'aktif';
 
         [$sortColumn, $sortDir] = match ($sort) {
             'nama_desc' => ['nama', 'desc'],
@@ -35,6 +37,7 @@ class ProdukController extends Controller
         };
 
         $produks = Produk::with(['kategori', 'tarifJasas' => fn ($q) => $q->orderBy('min_nominal')])
+            ->when($view === 'arsip', fn ($query) => $query->onlyTrashed())
             ->when($search !== '', fn ($query) => $query->where('nama', 'like', '%'.$search.'%'))
             ->when($kategori !== null, fn ($query) => $query->where('id_kategori', $kategori))
             ->orderBy($sortColumn, $sortDir)
@@ -58,6 +61,7 @@ class ProdukController extends Controller
                     'foto' => $produk->foto,
                     'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
                     'status_stok' => $produk->status_stok,
+                    'archived_at' => $produk->deleted_at?->translatedFormat('d M Y'),
                     // Tarif fee bertingkat untuk produk jasa (kosong untuk produk lain).
                     'tarifs' => $produk->tarifJasas
                         ->map(fn (TarifJasa $tarif) => [
@@ -102,11 +106,14 @@ class ProdukController extends Controller
                 'produk_tanpa_barcode' => Produk::where('tipe_jual', '!=', 'jasa')
                     ->where(fn ($q) => $q->whereNull('barcode')->orWhere('barcode', ''))
                     ->count(),
+                // Jumlah produk yang diarsipkan (untuk badge tab Arsip).
+                'arsip' => Produk::onlyTrashed()->count(),
             ],
             'filters' => [
                 'search' => $search,
                 'kategori' => $kategori === null ? '' : (string) $kategori,
                 'sort' => $sort,
+                'view' => $view,
                 'per_page' => $this->resolvePerPage($request),
             ],
         ]);
@@ -318,12 +325,26 @@ class ProdukController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Arsipkan produk (soft delete). Produk hilang dari katalog, kasir, stok, dan
+     * laporan, tapi riwayat transaksi/produksi/pesanannya tetap utuh dan bisa
+     * dipulihkan. Dipakai sebagai pengganti hapus permanen agar tidak terganjal
+     * foreign key untuk produk yang sudah pernah terjual/diproduksi.
      */
     public function destroy(Produk $produk): RedirectResponse
     {
         $produk->delete();
 
-        return redirect()->route('admin.products')->with('success', 'Produk berhasil dihapus.');
+        return redirect()->route('admin.products')->with('success', 'Produk berhasil diarsipkan.');
+    }
+
+    /**
+     * Pulihkan produk yang sebelumnya diarsipkan agar aktif kembali.
+     */
+    public function restore(int $produk): RedirectResponse
+    {
+        Produk::onlyTrashed()->findOrFail($produk)->restore();
+
+        return redirect()->route('admin.products', ['view' => 'arsip'])
+            ->with('success', 'Produk berhasil dipulihkan.');
     }
 }

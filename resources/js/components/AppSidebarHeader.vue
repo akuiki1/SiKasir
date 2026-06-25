@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppearanceToggle from '@/components/AppearanceToggle.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import CatatMenu from '@/components/CatatMenu.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,6 +46,11 @@ const showAvatar = computed(() => !!user.value?.avatar);
             <template v-if="breadcrumbs && breadcrumbs.length > 0">
                 <Breadcrumbs :breadcrumbs="breadcrumbs" />
             </template>
+        </div>
+
+        <!-- Admin: hub "Catat" sebagai satu pintu masuk pencatatan terpandu. -->
+        <div v-if="!isKasir" class="flex shrink-0 items-center gap-1">
+            <CatatMenu />
         </div>
 
         <!-- Akun + pengaturan tampilan kasir di kanan atas header. -->

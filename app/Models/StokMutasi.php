@@ -34,7 +34,8 @@ class StokMutasi extends Model
 
     public function produk(): BelongsTo
     {
-        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withDefault([
+        // withTrashed: produk yang diarsipkan tetap tampil namanya di kartu stok.
+        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withTrashed()->withDefault([
             'nama' => 'Produk Terhapus',
         ]);
     }

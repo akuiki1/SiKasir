@@ -92,8 +92,12 @@ class LaporanStokService
             return $r;
         });
 
-        // Tidak terjual pada periode = dead-stock.
-        $dead = $rows->reject(fn (array $r) => $r['qty'] > 0)
+        // Tidak terjual pada periode = dead-stock — TAPI hanya yang masih berstok
+        // (>0), karena dead-stock berarti modal yang mengendap di gudang. Produk
+        // tak terjual & stok 0 bukan modal mengendap (mis. produk lama yang sudah
+        // habis), jadi tidak ditampilkan agar daftar tidak penuh noise.
+        $dead = $rows
+            ->filter(fn (array $r) => $r['qty'] <= 0 && $r['stok'] > 0)
             ->map(function (array $r) {
                 $r['kelas'] = 'dead';
 

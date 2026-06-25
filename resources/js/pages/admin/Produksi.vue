@@ -13,9 +13,11 @@ import {
     Check,
     PencilLine,
     PackageSearch,
+    Warehouse,
 } from 'lucide-vue-next';
-import { ref, computed, nextTick, watch } from 'vue';
+import { ref, computed, nextTick, watch, onMounted } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
+import PagePurpose from '@/components/PagePurpose.vue';
 import Pagination from '@/components/Pagination.vue';
 import { store as produksiStore, destroy as produksiDestroy } from '@/routes/admin/produksi';
 
@@ -250,6 +252,13 @@ function openTambah(): void {
     nextTick(() => produkSearchInput.value?.focus());
 }
 
+// Deep-link dari hub "Catat": /admin/produksi?aksi=tambah langsung membuka form batch.
+onMounted(() => {
+    if (new URLSearchParams(window.location.search).get('aksi') === 'tambah') {
+        openTambah();
+    }
+});
+
 function closeModal(): void {
     showModal.value = false;
     produkSearch.value = '';
@@ -309,6 +318,17 @@ function hapusProduksi(item: Produksi): void {
                 Catat Produksi
             </button>
         </div>
+
+        <PagePurpose
+            :icon="Factory"
+            tone="emerald"
+            title="Untuk barang yang dibuat sendiri"
+            description="Catat batch produksi beserta biaya bahannya. Stok barang jadi bertambah & modal per unit (HPP) dihitung otomatis."
+            :links="[
+                { label: 'Barang beli? Stok', href: '/admin/stok', icon: Warehouse },
+                { label: 'Biaya operasional? Pengeluaran', href: '/admin/pengeluarans', icon: Wallet },
+            ]"
+        />
 
         <div class="grid gap-4 md:grid-cols-3">
             <div class="flex items-center gap-4 rounded-xl border border-sidebar-border/70 bg-card p-4 shadow-sm sm:p-6 dark:border-sidebar-border">

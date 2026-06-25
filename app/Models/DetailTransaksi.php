@@ -41,7 +41,8 @@ class DetailTransaksi extends Model
 
     public function produk(): BelongsTo
     {
-        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withDefault([
+        // withTrashed: produk yang diarsipkan tetap tampil namanya di riwayat transaksi.
+        return $this->belongsTo(Produk::class, 'id_produk', 'id_produk')->withTrashed()->withDefault([
             'nama' => 'Produk Terhapus',
         ]);
     }

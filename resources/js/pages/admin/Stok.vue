@@ -15,9 +15,12 @@ import {
     Check,
     PencilLine,
     PackageSearch,
+    Factory,
+    Wallet,
 } from 'lucide-vue-next';
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
+import PagePurpose from '@/components/PagePurpose.vue';
 import Pagination from '@/components/Pagination.vue';
 import {
     masuk as stokMasuk,
@@ -466,6 +469,13 @@ function lihatKartu(produk: ProdukStok): void {
     // Memicu reload server (debounce) untuk menampilkan kartu stok produk ini.
     mutasiSearch.value = produk.nama;
 }
+
+// Deep-link dari hub "Catat": /admin/stok?aksi=masuk langsung membuka form stok masuk.
+onMounted(() => {
+    if (new URLSearchParams(window.location.search).get('aksi') === 'masuk') {
+        openModal('masuk');
+    }
+});
 </script>
 
 <template>
@@ -494,6 +504,17 @@ function lihatKartu(produk: ProdukStok): void {
                 Stok Masuk
             </button>
         </div>
+
+        <PagePurpose
+            :icon="Warehouse"
+            tone="sky"
+            title="Untuk barang yang dibeli jadi dari supplier"
+            description="Catat stok masuk (restock), stok keluar (rusak/hilang), dan opname. Modal barang beli diatur di sini."
+            :links="[
+                { label: 'Buatan sendiri? Produksi', href: '/admin/produksi', icon: Factory },
+                { label: 'Biaya operasional? Pengeluaran', href: '/admin/pengeluarans', icon: Wallet },
+            ]"
+        />
 
         <!-- Stats -->
         <div class="grid gap-4 md:grid-cols-3">
