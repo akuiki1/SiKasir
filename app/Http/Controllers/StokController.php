@@ -76,6 +76,22 @@ class StokController extends Controller
                 'status_stok' => $p->status_stok,
             ]);
 
+        // Daftar lengkap produk fisik untuk pemilih di modal aksi stok. Sengaja
+        // tanpa paginasi: pencarian pemilih berjalan di klien atas SEMUA produk,
+        // bukan cuma halaman tabel yang sedang tampil.
+        $produkOptions = Produk::with('kategori')
+            ->where('tipe_jual', '!=', 'jasa')
+            ->orderBy('nama')
+            ->get()
+            ->map(fn (Produk $p) => [
+                'id_produk' => $p->id_produk,
+                'nama' => $p->nama,
+                'jenis' => $p->jenis,
+                'satuan' => $p->satuan,
+                'kategori' => $p->kategori?->nama_kategori,
+                'stok' => (float) $p->stok,
+            ]);
+
         // ── Tab 2: Kartu Stok (riwayat mutasi, paginasi server-side) ──
         $mutasiSearch = trim((string) $request->query('m_search', ''));
         $tipe = (string) $request->query('tipe', 'all');
@@ -106,6 +122,7 @@ class StokController extends Controller
 
         return Inertia::render('admin/Stok', [
             'produks' => $produks,
+            'produk_options' => $produkOptions,
             'mutasis' => $mutasis,
             'stats' => [
                 'total_produk' => $physical()->count(),

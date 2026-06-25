@@ -35,11 +35,23 @@ import {
     Check,
     Upload,
 } from 'lucide-vue-next';
-import { ref, computed, nextTick, onBeforeUnmount, watch, onMounted } from 'vue';
+import {
+    ref,
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    watch,
+    onMounted,
+} from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import { formatRupiah } from '@/lib/format';
-import { store as productStore, update as productUpdate, destroy as productDestroy, generateAll as productGenerateAll } from '@/routes/admin/products';
+import {
+    store as productStore,
+    update as productUpdate,
+    destroy as productDestroy,
+    generateAll as productGenerateAll,
+} from '@/routes/admin/products';
 
 defineOptions({
     layout: {
@@ -88,6 +100,7 @@ interface Stats {
     total_produk: number;
     total_kategori: number;
     stok_bermasalah: number;
+    produk_tanpa_barcode: number;
 }
 
 interface Paginator<T> {
@@ -134,12 +147,12 @@ const activeFilterCount = computed(() => {
     let count = 0;
 
     if (filterKategori.value) {
-count++;
-}
+        count++;
+    }
 
     if (sortBy.value) {
-count++;
-}
+        count++;
+    }
 
     return count;
 });
@@ -151,7 +164,10 @@ function clearFilters() {
 }
 
 function handleClickOutsideFilter(event: MouseEvent) {
-    if (filterPanelRef.value && !filterPanelRef.value.contains(event.target as Node)) {
+    if (
+        filterPanelRef.value &&
+        !filterPanelRef.value.contains(event.target as Node)
+    ) {
         showFilterPanel.value = false;
     }
 }
@@ -171,7 +187,9 @@ watch(searchQuery, (value) => {
 
 type QueryValue = string | number;
 
-function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+function buildParams(
+    overrides: Record<string, QueryValue> = {},
+): Record<string, QueryValue> {
     const params: Record<string, QueryValue | undefined> = {
         search: searchQuery.value || undefined,
         kategori: filterKategori.value || undefined,
@@ -234,7 +252,11 @@ const visiblePages = computed(() => {
             pages.push(-1);
         }
 
-        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+        for (
+            let i = Math.max(2, current - 1);
+            i <= Math.min(total - 1, current + 1);
+            i++
+        ) {
             pages.push(i);
         }
 
@@ -248,15 +270,22 @@ const visiblePages = computed(() => {
     return pages;
 });
 
-
 // Stok bisa pecahan (curah) — tampilkan tanpa nol di belakang yang tak perlu.
 function formatStok(value: number): string {
-    return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 }).format(Number(value) || 0);
+    return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 3 }).format(
+        Number(value) || 0,
+    );
 }
 
 const tipeJualBadge: Record<string, { label: string; class: string }> = {
-    curah: { label: 'Curah', class: 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400' },
-    jasa: { label: 'Jasa', class: 'border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400' },
+    curah: {
+        label: 'Curah',
+        class: 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400',
+    },
+    jasa: {
+        label: 'Jasa',
+        class: 'border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    },
 };
 
 function resolveFoto(foto: string | null): string | null {
@@ -264,7 +293,11 @@ function resolveFoto(foto: string | null): string | null {
         return null;
     }
 
-    if (foto.startsWith('http://') || foto.startsWith('https://') || foto.startsWith('/')) {
+    if (
+        foto.startsWith('http://') ||
+        foto.startsWith('https://') ||
+        foto.startsWith('/')
+    ) {
         return foto;
     }
 
@@ -314,37 +347,81 @@ const form = useForm({
 });
 
 // Harga setelah potongan reseller & peringatan bila di bawah modal (jual rugi).
-const hargaReseller = computed(() => Math.max(0, Number(form.harga_jual || 0) - Number(form.potongan_reseller || 0)));
+const hargaReseller = computed(() =>
+    Math.max(
+        0,
+        Number(form.harga_jual || 0) - Number(form.potongan_reseller || 0),
+    ),
+);
 const resellerBelowModal = computed(() => {
     const potongan = Number(form.potongan_reseller || 0);
 
     if (potongan <= 0) {
-return false;
-}
+        return false;
+    }
 
     return hargaReseller.value < Number(form.harga_modal || 0);
 });
 
-const tipeJualOptions: { value: TipeJual; label: string; short: string; hint: string; icon: typeof Package }[] = [
-    { value: 'satuan', label: 'Satuan', short: 'per biji', hint: 'Dihitung per buah/bungkus. Cocok untuk cemilan, kue, permen.', icon: Package },
-    { value: 'curah', label: 'Curah', short: 'per takaran', hint: 'Dijual per liter/kg, boleh pecahan. Kasir bisa input rupiah (mis. bensin, bawang).', icon: Scale },
-    { value: 'jasa', label: 'Jasa', short: 'biaya admin', hint: 'Tanpa stok. Harga = fee/biaya admin (mis. transfer, tarik tunai).', icon: HandCoins },
+const tipeJualOptions: {
+    value: TipeJual;
+    label: string;
+    short: string;
+    hint: string;
+    icon: typeof Package;
+}[] = [
+    {
+        value: 'satuan',
+        label: 'Satuan',
+        short: 'per biji',
+        hint: 'Dihitung per buah/bungkus. Cocok untuk cemilan, kue, permen.',
+        icon: Package,
+    },
+    {
+        value: 'curah',
+        label: 'Curah',
+        short: 'per takaran',
+        hint: 'Dijual per liter/kg, boleh pecahan. Kasir bisa input rupiah (mis. bensin, bawang).',
+        icon: Scale,
+    },
+    {
+        value: 'jasa',
+        label: 'Jasa',
+        short: 'biaya admin',
+        hint: 'Tanpa stok. Harga = fee/biaya admin (mis. transfer, tarik tunai).',
+        icon: HandCoins,
+    },
 ];
 
-const jenisOptions: { value: 'beli' | 'produksi'; label: string; hint: string; icon: typeof Package }[] = [
-    { value: 'beli', label: 'Beli Jadi', hint: 'Dibeli dari agen / supplier', icon: ShoppingBag },
-    { value: 'produksi', label: 'Buatan Sendiri', hint: 'Modal dihitung dari produksi', icon: ChefHat },
+const jenisOptions: {
+    value: 'beli' | 'produksi';
+    label: string;
+    hint: string;
+    icon: typeof Package;
+}[] = [
+    {
+        value: 'beli',
+        label: 'Beli Jadi',
+        hint: 'Dibeli dari agen / supplier',
+        icon: ShoppingBag,
+    },
+    {
+        value: 'produksi',
+        label: 'Buatan Sendiri',
+        hint: 'Modal dihitung dari produksi',
+        icon: ChefHat,
+    },
 ];
 
 // Saran satuan sesuai tipe jual (tetap bisa diketik bebas).
 const satuanSuggestions = computed<string[]>(() => {
     if (form.tipe_jual === 'curah') {
-return ['liter', 'kg', 'gram', 'meter'];
-}
+        return ['liter', 'kg', 'gram', 'meter'];
+    }
 
     if (form.tipe_jual === 'jasa') {
-return ['transaksi', 'layanan'];
-}
+        return ['transaksi', 'layanan'];
+    }
 
     return ['pcs', 'bungkus', 'box', 'pack'];
 });
@@ -366,7 +443,9 @@ function setFotoUploadPreview(file: File | null) {
 }
 
 // Gambar yang ditampilkan di kotak preview: prioritaskan file baru, lalu URL/path.
-const fotoPreviewUrl = computed<string | null>(() => fotoUploadPreview.value ?? resolveFoto(form.foto));
+const fotoPreviewUrl = computed<string | null>(
+    () => fotoUploadPreview.value ?? resolveFoto(form.foto),
+);
 
 function openTambah() {
     editingProduk.value = null;
@@ -392,7 +471,10 @@ function openEdit(produk: Produk) {
     form.stok = String(produk.stok);
     form.barcode = produk.barcode ?? '';
     form.sku = produk.sku ?? '';
-    form.tarifs = (produk.tarifs ?? []).map((t) => ({ min_nominal: t.min_nominal, fee: t.fee }));
+    form.tarifs = (produk.tarifs ?? []).map((t) => ({
+        min_nominal: t.min_nominal,
+        fee: t.fee,
+    }));
     setFotoUploadPreview(null);
     showModal.value = true;
     startScannerListening();
@@ -441,7 +523,10 @@ function looksLikeBarcodeScanner(device: HidDeviceInfo): boolean {
         productName.includes('scan') ||
         productName.includes('qr');
 
-    const hasBarcodeUsagePage = device.collections?.some((collection) => collection.usagePage === 0x8c) ?? false;
+    const hasBarcodeUsagePage =
+        device.collections?.some(
+            (collection) => collection.usagePage === 0x8c,
+        ) ?? false;
 
     return productNameLooksLikeScanner || hasBarcodeUsagePage;
 }
@@ -467,7 +552,9 @@ async function detectScannerDevice(): Promise<void> {
 
     try {
         const devices = await hid.getDevices();
-        const scanner = devices.find((device) => looksLikeBarcodeScanner(device));
+        const scanner = devices.find((device) =>
+            looksLikeBarcodeScanner(device),
+        );
 
         if (scanner) {
             markScannerDetected('Scanner terhubung');
@@ -513,7 +600,12 @@ function handleScannerKeydown(event: KeyboardEvent): void {
         return;
     }
 
-    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (
+        event.key.length === 1 &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.metaKey
+    ) {
         scannerBuffer.value += event.key;
     }
 }
@@ -543,7 +635,6 @@ onBeforeUnmount(() => {
     setFotoUploadPreview(null);
     document.removeEventListener('mousedown', handleClickOutsideFilter);
 });
-
 
 const lastGeneratedSku = ref('');
 
@@ -611,30 +702,46 @@ function generateBarcodeAndSku(): void {
 const generatingAll = ref(false);
 
 function runGenerateAllBarcodes(): void {
-    const tanpaBarcode = props.produks.filter((p) => p.tipe_jual !== 'jasa' && !p.barcode).length;
+    const tanpaBarcode = props.stats.produk_tanpa_barcode;
 
     if (tanpaBarcode === 0) {
-        alert('Semua produk (non-jasa) sudah memiliki barcode. Tidak ada yang perlu dibuat.');
+        alert(
+            'Semua produk (non-jasa) sudah memiliki barcode. Tidak ada yang perlu dibuat.',
+        );
 
         return;
     }
 
-    if (!confirm(`Buat barcode & SKU otomatis untuk ${tanpaBarcode} produk yang belum memiliki barcode? Produk jasa dilewati.`)) {
+    if (
+        !confirm(
+            `Buat barcode & SKU otomatis untuk ${tanpaBarcode} produk yang belum memiliki barcode? Produk jasa dilewati.`,
+        )
+    ) {
         return;
     }
 
-    router.post(productGenerateAll().url, {}, {
-        preserveScroll: true,
-        onStart: () => (generatingAll.value = true),
-        onFinish: () => (generatingAll.value = false),
-    });
+    router.post(
+        productGenerateAll().url,
+        {},
+        {
+            preserveScroll: true,
+            onStart: () => (generatingAll.value = true),
+            onFinish: () => (generatingAll.value = false),
+        },
+    );
 }
 
 // ===== Tarif fee bertingkat (produk jasa) =====
 function addTarif() {
     // Baris baru otomatis melanjutkan dari batas tertinggi yang ada.
-    const tertinggi = form.tarifs.reduce((max, t) => Math.max(max, Number(t.min_nominal || 0)), 0);
-    form.tarifs.push({ min_nominal: form.tarifs.length === 0 ? 0 : tertinggi, fee: '' });
+    const tertinggi = form.tarifs.reduce(
+        (max, t) => Math.max(max, Number(t.min_nominal || 0)),
+        0,
+    );
+    form.tarifs.push({
+        min_nominal: form.tarifs.length === 0 ? 0 : tertinggi,
+        fee: '',
+    });
 }
 
 function removeTarif(index: number) {
@@ -664,15 +771,22 @@ function submitForm() {
         foto: form.foto || null,
         // Jasa: harga_jual tak dipakai (fee dari tarif/manual kasir) → kirim 0.
         harga_jual: form.tipe_jual === 'jasa' ? 0 : Number(form.harga_jual),
-        harga_modal: form.tipe_jual === 'jasa' || form.jenis === 'produksi' ? 0 : Number(form.harga_modal || 0),
+        harga_modal:
+            form.tipe_jual === 'jasa' || form.jenis === 'produksi'
+                ? 0
+                : Number(form.harga_modal || 0),
         // Jasa tidak punya stok fisik / potongan reseller; backend juga memaksanya ke 0.
         stok: form.tipe_jual === 'jasa' ? 0 : Number(form.stok || 0),
-        potongan_reseller: form.tipe_jual === 'jasa' ? 0 : Number(form.potongan_reseller || 0),
+        potongan_reseller:
+            form.tipe_jual === 'jasa' ? 0 : Number(form.potongan_reseller || 0),
         satuan: form.satuan || 'pcs',
         // Tarif bertingkat hanya untuk jasa; tipe lain dikirim kosong (backend membersihkan).
         tarifs:
             form.tipe_jual === 'jasa'
-                ? form.tarifs.map((t) => ({ min_nominal: Number(t.min_nominal || 0), fee: Number(t.fee || 0) }))
+                ? form.tarifs.map((t) => ({
+                      min_nominal: Number(t.min_nominal || 0),
+                      fee: Number(t.fee || 0),
+                  }))
                 : [],
     };
 
@@ -688,7 +802,11 @@ function submitForm() {
 }
 
 function hapusProduk(produk: Produk) {
-    if (confirm(`Hapus produk "${produk.nama}"? Tindakan ini tidak dapat dibatalkan.`)) {
+    if (
+        confirm(
+            `Hapus produk "${produk.nama}"? Tindakan ini tidak dapat dibatalkan.`,
+        )
+    ) {
         router.delete(productDestroy(produk.id_produk).url);
     }
 }
@@ -719,7 +837,7 @@ function openPrintBarcode(produk: Produk) {
 function openPrintAllBarcodes() {
     barcodeMode.value = 'all';
     barcodeCopies.value = 1;
-    barcodePrintList.value = filteredProduks.value.filter((p) => p.barcode);
+    barcodePrintList.value = props.produks.data.filter((p) => p.barcode);
     showBarcodeModal.value = true;
     nextTick(() => renderBarcodes());
 }
@@ -763,7 +881,10 @@ function printBarcodes() {
     // Jumlah salinan tiap label: di mode 'single' user bisa pilih, di mode 'all' selalu 1.
     const copies =
         barcodeMode.value === 'single'
-            ? Math.min(Math.max(Math.floor(barcodeCopies.value) || 1, 1), MAX_BARCODE_COPIES)
+            ? Math.min(
+                  Math.max(Math.floor(barcodeCopies.value) || 1, 1),
+                  MAX_BARCODE_COPIES,
+              )
             : 1;
 
     const labels = barcodePrintList.value
@@ -786,8 +907,8 @@ function printBarcodes() {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
 
     if (!printWindow) {
-return;
-}
+        return;
+    }
 
     printWindow.document.write(`
         <!DOCTYPE html>
@@ -830,9 +951,12 @@ return;
 }
 
 const statusClass: Record<string, string> = {
-    'in-stock': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-    'low-stock': 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    'out-of-stock': 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+    'in-stock':
+        'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    'low-stock':
+        'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+    'out-of-stock':
+        'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
 };
 </script>
 
@@ -841,12 +965,16 @@ const statusClass: Record<string, string> = {
 
     <div class="flex h-full flex-1 flex-col gap-6 p-6">
         <!-- Header Section -->
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div
+            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        >
             <div>
-                <h1 class="text-3xl font-extrabold tracking-tight">Manajemen Produk</h1>
+                <h1 class="text-3xl font-extrabold tracking-tight">
+                    Manajemen Produk
+                </h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Kelola data produk, persediaan stok, kategori barang, dan harga penjualan toko
-                    Anda.
+                    Kelola data produk, persediaan stok, kategori barang, dan
+                    harga penjualan toko Anda.
                 </p>
             </div>
 
@@ -871,8 +999,12 @@ const statusClass: Record<string, string> = {
                     <Package class="h-6 w-6" />
                 </div>
                 <div>
-                    <span class="text-xs font-medium text-muted-foreground">Total Produk</span>
-                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.total_produk }} Item</h3>
+                    <span class="text-xs font-medium text-muted-foreground"
+                        >Total Produk</span
+                    >
+                    <h3 class="mt-0.5 text-xl font-bold">
+                        {{ stats.total_produk }} Item
+                    </h3>
                 </div>
             </div>
             <div
@@ -884,8 +1016,12 @@ const statusClass: Record<string, string> = {
                     <Layers class="h-6 w-6" />
                 </div>
                 <div>
-                    <span class="text-xs font-medium text-muted-foreground">Kategori</span>
-                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.total_kategori }} Kategori</h3>
+                    <span class="text-xs font-medium text-muted-foreground"
+                        >Kategori</span
+                    >
+                    <h3 class="mt-0.5 text-xl font-bold">
+                        {{ stats.total_kategori }} Kategori
+                    </h3>
                 </div>
             </div>
             <div
@@ -897,8 +1033,12 @@ const statusClass: Record<string, string> = {
                     <AlertTriangle class="h-6 w-6" />
                 </div>
                 <div>
-                    <span class="text-xs font-medium text-muted-foreground">Stok Menipis / Habis</span>
-                    <h3 class="mt-0.5 text-xl font-bold">{{ stats.stok_bermasalah }} Produk</h3>
+                    <span class="text-xs font-medium text-muted-foreground"
+                        >Stok Menipis / Habis</span
+                    >
+                    <h3 class="mt-0.5 text-xl font-bold">
+                        {{ stats.stok_bermasalah }} Produk
+                    </h3>
                 </div>
             </div>
         </div>
@@ -908,16 +1048,22 @@ const statusClass: Record<string, string> = {
             class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card shadow-sm dark:border-sidebar-border"
         >
             <!-- Table Action Bar -->
-            <div class="border-b border-sidebar-border/70 dark:border-sidebar-border">
-                <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div
+                class="border-b border-sidebar-border/70 dark:border-sidebar-border"
+            >
+                <div
+                    class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
                     <!-- Search -->
-                    <div class="relative flex-1 max-w-sm">
-                        <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <div class="relative max-w-sm flex-1">
+                        <Search
+                            class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                        />
                         <input
                             v-model="searchQuery"
                             type="text"
                             placeholder="Cari produk berdasarkan nama..."
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-9 pr-4 text-sm transition-colors focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pr-4 pl-9 text-sm transition-colors focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                         />
                     </div>
 
@@ -927,9 +1073,11 @@ const statusClass: Record<string, string> = {
                         <div ref="filterPanelRef" class="relative">
                             <button
                                 class="inline-flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-150"
-                                :class="activeFilterCount > 0
-                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 hover:bg-indigo-500'
-                                    : 'border border-sidebar-border/70 bg-background text-slate-700 hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40'"
+                                :class="
+                                    activeFilterCount > 0
+                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 hover:bg-indigo-500'
+                                        : 'border border-sidebar-border/70 bg-background text-slate-700 hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40'
+                                "
                                 @click="showFilterPanel = !showFilterPanel"
                             >
                                 <SlidersHorizontal class="h-4 w-4" />
@@ -937,7 +1085,8 @@ const statusClass: Record<string, string> = {
                                 <span
                                     v-if="activeFilterCount > 0"
                                     class="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white/25 px-1 text-[10px] font-bold"
-                                >{{ activeFilterCount }}</span>
+                                    >{{ activeFilterCount }}</span
+                                >
                                 <ChevronDown
                                     class="h-3.5 w-3.5 transition-transform duration-200"
                                     :class="{ 'rotate-180': showFilterPanel }"
@@ -955,17 +1104,25 @@ const statusClass: Record<string, string> = {
                             >
                                 <div
                                     v-if="showFilterPanel"
-                                    class="absolute right-0 top-full z-30 mt-2 w-80 origin-top-right overflow-hidden rounded-2xl border border-sidebar-border/70 bg-card shadow-2xl dark:border-sidebar-border"
+                                    class="absolute top-full right-0 z-30 mt-2 w-80 origin-top-right overflow-hidden rounded-2xl border border-sidebar-border/70 bg-card shadow-2xl dark:border-sidebar-border"
                                 >
                                     <!-- Panel header -->
-                                    <div class="flex items-center justify-between border-b border-sidebar-border/70 px-4 py-3 dark:border-sidebar-border">
+                                    <div
+                                        class="flex items-center justify-between border-b border-sidebar-border/70 px-4 py-3 dark:border-sidebar-border"
+                                    >
                                         <div class="flex items-center gap-2">
-                                            <SlidersHorizontal class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                                            <span class="text-sm font-semibold">Filter & Urutkan</span>
+                                            <SlidersHorizontal
+                                                class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
+                                            />
+                                            <span class="text-sm font-semibold"
+                                                >Filter & Urutkan</span
+                                            >
                                         </div>
                                         <button
                                             class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-zinc-800"
-                                            @click="showFilterPanel = false" aria-label="Tutup">
+                                            @click="showFilterPanel = false"
+                                            aria-label="Tutup"
+                                        >
                                             <X class="h-3.5 w-3.5" />
                                         </button>
                                     </div>
@@ -973,13 +1130,19 @@ const statusClass: Record<string, string> = {
                                     <div class="p-4">
                                         <!-- Kategori -->
                                         <div class="mb-5">
-                                            <p class="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Kategori</p>
+                                            <p
+                                                class="mb-2.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase"
+                                            >
+                                                Kategori
+                                            </p>
                                             <div class="flex flex-wrap gap-1.5">
                                                 <button
                                                     class="rounded-full border px-3 py-1 text-xs font-medium transition-all duration-100"
-                                                    :class="filterKategori === ''
-                                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
-                                                        : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'"
+                                                    :class="
+                                                        filterKategori === ''
+                                                            ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                            : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
+                                                    "
                                                     @click="setKategori('')"
                                                 >
                                                     Semua
@@ -988,10 +1151,19 @@ const statusClass: Record<string, string> = {
                                                     v-for="kat in kategoris"
                                                     :key="kat.id_kategori"
                                                     class="rounded-full border px-3 py-1 text-xs font-medium transition-all duration-100"
-                                                    :class="filterKategori === String(kat.id_kategori)
-                                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
-                                                        : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'"
-                                                    @click="setKategori(String(kat.id_kategori))"
+                                                    :class="
+                                                        filterKategori ===
+                                                        String(kat.id_kategori)
+                                                            ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                            : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
+                                                    "
+                                                    @click="
+                                                        setKategori(
+                                                            String(
+                                                                kat.id_kategori,
+                                                            ),
+                                                        )
+                                                    "
                                                 >
                                                     {{ kat.nama_kategori }}
                                                 </button>
@@ -1000,19 +1172,39 @@ const statusClass: Record<string, string> = {
 
                                         <!-- Urutkan -->
                                         <div>
-                                            <p class="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Urutkan Berdasarkan</p>
-                                            <div class="grid grid-cols-2 gap-1.5">
+                                            <p
+                                                class="mb-2.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase"
+                                            >
+                                                Urutkan Berdasarkan
+                                            </p>
+                                            <div
+                                                class="grid grid-cols-2 gap-1.5"
+                                            >
                                                 <button
                                                     v-for="opt in sortOptions"
                                                     :key="opt.value"
                                                     class="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-all duration-100"
-                                                    :class="sortBy === opt.value
-                                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
-                                                        : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:bg-slate-50 dark:border-sidebar-border dark:bg-zinc-900/30 dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:bg-zinc-800'"
-                                                    @click="setSort(sortBy === opt.value ? '' : opt.value)"
+                                                    :class="
+                                                        sortBy === opt.value
+                                                            ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                            : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:bg-slate-50 dark:border-sidebar-border dark:bg-zinc-900/30 dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:bg-zinc-800'
+                                                    "
+                                                    @click="
+                                                        setSort(
+                                                            sortBy === opt.value
+                                                                ? ''
+                                                                : opt.value,
+                                                        )
+                                                    "
                                                 >
-                                                    <component :is="opt.icon" class="h-3.5 w-3.5 shrink-0" />
-                                                    <span class="leading-tight">{{ opt.label }}</span>
+                                                    <component
+                                                        :is="opt.icon"
+                                                        class="h-3.5 w-3.5 shrink-0"
+                                                    />
+                                                    <span
+                                                        class="leading-tight"
+                                                        >{{ opt.label }}</span
+                                                    >
                                                 </button>
                                             </div>
                                         </div>
@@ -1043,7 +1235,11 @@ const statusClass: Record<string, string> = {
                             @click="runGenerateAllBarcodes"
                         >
                             <Sparkles class="h-4 w-4" />
-                            {{ generatingAll ? 'Membuat...' : 'Generate Barcode Semua' }}
+                            {{
+                                generatingAll
+                                    ? 'Membuat...'
+                                    : 'Generate Barcode Semua'
+                            }}
                         </button>
 
                         <!-- Print All Barcodes -->
@@ -1063,29 +1259,45 @@ const statusClass: Record<string, string> = {
                     v-if="activeFilterCount > 0"
                     class="flex flex-wrap items-center gap-2 border-t border-indigo-100 bg-indigo-50/60 px-4 py-2.5 dark:border-indigo-500/10 dark:bg-indigo-500/5"
                 >
-                    <span class="text-xs font-medium text-muted-foreground">Filter aktif:</span>
+                    <span class="text-xs font-medium text-muted-foreground"
+                        >Filter aktif:</span
+                    >
 
                     <span
                         v-if="filterKategori"
-                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pl-2.5 pr-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pr-1.5 pl-2.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
                     >
-                        {{ kategoris.find(k => String(k.id_kategori) === filterKategori)?.nama_kategori }}
+                        {{
+                            kategoris.find(
+                                (k) => String(k.id_kategori) === filterKategori,
+                            )?.nama_kategori
+                        }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="setKategori('')" aria-label="Hapus filter kategori">
+                            @click="setKategori('')"
+                            aria-label="Hapus filter kategori"
+                        >
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
 
                     <span
                         v-if="sortBy"
-                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pl-2.5 pr-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pr-1.5 pl-2.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
                     >
-                        <component :is="sortOptions.find(s => s.value === sortBy)?.icon" class="h-3 w-3" />
-                        {{ sortOptions.find(s => s.value === sortBy)?.label }}
+                        <component
+                            :is="
+                                sortOptions.find((s) => s.value === sortBy)
+                                    ?.icon
+                            "
+                            class="h-3 w-3"
+                        />
+                        {{ sortOptions.find((s) => s.value === sortBy)?.label }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="setSort('')" aria-label="Hapus urutan">
+                            @click="setSort('')"
+                            aria-label="Hapus urutan"
+                        >
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
@@ -1099,29 +1311,49 @@ const statusClass: Record<string, string> = {
                         <tr
                             class="border-b border-sidebar-border/70 bg-slate-50/50 dark:border-sidebar-border dark:bg-zinc-800/20"
                         >
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
                                 Nama Produk
                             </th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">Kategori</th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
+                                Kategori
+                            </th>
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
                                 Harga Jual
                             </th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
                                 Persediaan (Stok)
                             </th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">Status</th>
-                            <th class="px-6 py-4 text-right font-semibold text-muted-foreground">
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
+                                Status
+                            </th>
+                            <th
+                                class="px-6 py-4 text-right font-semibold text-muted-foreground"
+                            >
                                 Aksi
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
+                    <tbody
+                        class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border"
+                    >
                         <tr v-if="props.produks.data.length === 0">
                             <td
                                 colspan="6"
                                 class="px-6 py-12 text-center text-muted-foreground"
                             >
-                                <Package class="mx-auto mb-3 h-10 w-10 opacity-30" />
+                                <Package
+                                    class="mx-auto mb-3 h-10 w-10 opacity-30"
+                                />
                                 <p class="font-medium">
                                     {{
                                         searchQuery
@@ -1139,8 +1371,16 @@ const statusClass: Record<string, string> = {
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <img
-                                        v-if="resolveFoto(produk.foto_url ?? produk.foto)"
-                                        :src="resolveFoto(produk.foto_url ?? produk.foto) ?? undefined"
+                                        v-if="
+                                            resolveFoto(
+                                                produk.foto_url ?? produk.foto,
+                                            )
+                                        "
+                                        :src="
+                                            resolveFoto(
+                                                produk.foto_url ?? produk.foto,
+                                            ) ?? undefined
+                                        "
                                         :alt="produk.nama"
                                         class="h-12 w-12 rounded-lg border border-sidebar-border/70 object-cover dark:border-sidebar-border"
                                     />
@@ -1152,27 +1392,57 @@ const statusClass: Record<string, string> = {
                                     </div>
                                     <div class="min-w-0">
                                         <div class="flex items-center gap-2">
-                                            <p class="truncate font-semibold text-foreground">{{ produk.nama }}</p>
-                                            <span
-                                                v-if="tipeJualBadge[produk.tipe_jual]"
-                                                :class="['inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold', tipeJualBadge[produk.tipe_jual].class]"
+                                            <p
+                                                class="truncate font-semibold text-foreground"
                                             >
-                                                {{ tipeJualBadge[produk.tipe_jual].label }}
+                                                {{ produk.nama }}
+                                            </p>
+                                            <span
+                                                v-if="
+                                                    tipeJualBadge[
+                                                        produk.tipe_jual
+                                                    ]
+                                                "
+                                                :class="[
+                                                    'inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold',
+                                                    tipeJualBadge[
+                                                        produk.tipe_jual
+                                                    ].class,
+                                                ]"
+                                            >
+                                                {{
+                                                    tipeJualBadge[
+                                                        produk.tipe_jual
+                                                    ].label
+                                                }}
                                             </span>
                                         </div>
-                                        <p class="text-xs text-muted-foreground">SKU: {{ produk.sku }}</p>
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            SKU: {{ produk.sku }}
+                                        </p>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-muted-foreground">
                                 {{ produk.kategori ?? '-' }}
                             </td>
-                            <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
+                            <td
+                                class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200"
+                            >
                                 {{ formatRupiah(produk.harga_jual) }}
                             </td>
                             <td class="px-6 py-4 font-medium">
-                                <span v-if="produk.tipe_jual === 'jasa'" class="text-muted-foreground">—</span>
-                                <span v-else>{{ formatStok(produk.stok) }} {{ produk.satuan }}</span>
+                                <span
+                                    v-if="produk.tipe_jual === 'jasa'"
+                                    class="text-muted-foreground"
+                                    >—</span
+                                >
+                                <span v-else
+                                    >{{ formatStok(produk.stok) }}
+                                    {{ produk.satuan }}</span
+                                >
                             </td>
                             <td class="px-6 py-4">
                                 <span
@@ -1244,27 +1514,51 @@ const statusClass: Record<string, string> = {
                         <h2 class="text-lg font-bold">Cetak Barcode Produk</h2>
                         <p class="mt-0.5 text-xs text-muted-foreground">
                             <template v-if="barcodeMode === 'single'">
-                                {{ Math.min(Math.max(Math.floor(barcodeCopies) || 1, 1), MAX_BARCODE_COPIES) }} label barcode siap dicetak
+                                {{
+                                    Math.min(
+                                        Math.max(
+                                            Math.floor(barcodeCopies) || 1,
+                                            1,
+                                        ),
+                                        MAX_BARCODE_COPIES,
+                                    )
+                                }}
+                                label barcode siap dicetak
                             </template>
-                            <template v-else> {{ barcodePrintList.length }} label barcode siap dicetak </template>
+                            <template v-else>
+                                {{ barcodePrintList.length }} label barcode siap
+                                dicetak
+                            </template>
                         </p>
                     </div>
                     <button
                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeBarcodeModal" aria-label="Tutup">
+                        @click="closeBarcodeModal"
+                        aria-label="Tutup"
+                    >
                         <X class="h-5 w-5" />
                     </button>
                 </div>
 
-                <div v-if="barcodePrintList.length === 0" class="py-10 text-center text-muted-foreground">
+                <div
+                    v-if="barcodePrintList.length === 0"
+                    class="py-10 text-center text-muted-foreground"
+                >
                     <Barcode class="mx-auto mb-3 h-10 w-10 opacity-30" />
-                    <p class="text-sm font-medium">Tidak ada produk dengan barcode yang dapat dicetak.</p>
-                    <p class="mt-1 text-xs">Tambahkan barcode ke produk terlebih dahulu melalui menu Edit.</p>
+                    <p class="text-sm font-medium">
+                        Tidak ada produk dengan barcode yang dapat dicetak.
+                    </p>
+                    <p class="mt-1 text-xs">
+                        Tambahkan barcode ke produk terlebih dahulu melalui menu
+                        Edit.
+                    </p>
                 </div>
 
                 <div v-else>
                     <!-- Preview labels -->
-                    <div class="mb-5 flex flex-wrap gap-4 rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20">
+                    <div
+                        class="mb-5 flex flex-wrap gap-4 rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20"
+                    >
                         <div
                             v-for="(produk, index) in barcodePrintList"
                             :key="produk.id_produk"
@@ -1274,10 +1568,14 @@ const statusClass: Record<string, string> = {
                                 :ref="(el) => setBarcodeRef(el, index)"
                                 class="w-full"
                             />
-                            <p class="mt-2 text-center text-xs font-semibold leading-tight text-slate-800 dark:text-slate-200">
+                            <p
+                                class="mt-2 text-center text-xs leading-tight font-semibold text-slate-800 dark:text-slate-200"
+                            >
                                 {{ produk.nama }}
                             </p>
-                            <p class="mt-0.5 text-center text-xs text-muted-foreground">
+                            <p
+                                class="mt-0.5 text-center text-xs text-muted-foreground"
+                            >
                                 {{ formatRupiah(produk.harga_jual) }}
                             </p>
                         </div>
@@ -1286,12 +1584,17 @@ const statusClass: Record<string, string> = {
                     <!-- Pilihan jumlah salinan: hanya untuk cetak per produk -->
                     <div
                         v-if="barcodeMode === 'single'"
-                        class="mb-5 flex flex-col gap-2 rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20 sm:flex-row sm:items-center sm:justify-between"
+                        class="mb-5 flex flex-col gap-2 rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-sidebar-border dark:bg-zinc-800/20"
                     >
                         <div>
-                            <label for="barcode-copies" class="block text-sm font-medium">Jumlah label dicetak</label>
+                            <label
+                                for="barcode-copies"
+                                class="block text-sm font-medium"
+                                >Jumlah label dicetak</label
+                            >
                             <p class="mt-0.5 text-xs text-muted-foreground">
-                                Cetak beberapa label sekaligus dalam satu kertas (maks. {{ MAX_BARCODE_COPIES }}).
+                                Cetak beberapa label sekaligus dalam satu kertas
+                                (maks. {{ MAX_BARCODE_COPIES }}).
                             </p>
                         </div>
                         <div class="flex items-center gap-1.5">
@@ -1299,7 +1602,12 @@ const statusClass: Record<string, string> = {
                                 type="button"
                                 class="flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border/70 bg-background text-lg font-semibold transition-colors hover:bg-slate-100 disabled:opacity-40 dark:border-sidebar-border dark:hover:bg-zinc-800"
                                 :disabled="barcodeCopies <= 1"
-                                @click="barcodeCopies = Math.max(1, Math.floor(barcodeCopies || 1) - 1)"
+                                @click="
+                                    barcodeCopies = Math.max(
+                                        1,
+                                        Math.floor(barcodeCopies || 1) - 1,
+                                    )
+                                "
                             >
                                 −
                             </button>
@@ -1309,14 +1617,27 @@ const statusClass: Record<string, string> = {
                                 type="number"
                                 min="1"
                                 :max="MAX_BARCODE_COPIES"
-                                class="h-9 w-20 rounded-lg border border-sidebar-border/70 bg-background text-center text-sm font-semibold focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-sidebar-border"
-                                @blur="barcodeCopies = Math.min(Math.max(Math.floor(barcodeCopies || 1), 1), MAX_BARCODE_COPIES)"
+                                class="h-9 w-20 rounded-lg border border-sidebar-border/70 bg-background text-center text-sm font-semibold focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                @blur="
+                                    barcodeCopies = Math.min(
+                                        Math.max(
+                                            Math.floor(barcodeCopies || 1),
+                                            1,
+                                        ),
+                                        MAX_BARCODE_COPIES,
+                                    )
+                                "
                             />
                             <button
                                 type="button"
                                 class="flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border/70 bg-background text-lg font-semibold transition-colors hover:bg-slate-100 disabled:opacity-40 dark:border-sidebar-border dark:hover:bg-zinc-800"
                                 :disabled="barcodeCopies >= MAX_BARCODE_COPIES"
-                                @click="barcodeCopies = Math.min(MAX_BARCODE_COPIES, Math.floor(barcodeCopies || 1) + 1)"
+                                @click="
+                                    barcodeCopies = Math.min(
+                                        MAX_BARCODE_COPIES,
+                                        Math.floor(barcodeCopies || 1) + 1,
+                                    )
+                                "
                             >
                                 +
                             </button>
@@ -1361,48 +1682,82 @@ const statusClass: Record<string, string> = {
                 @click.self="closeModal"
             >
                 <div
-                    class="flex h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-sidebar-border/70 bg-card shadow-2xl dark:border-sidebar-border sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl"
+                    class="flex h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-sidebar-border/70 bg-card shadow-2xl sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl dark:border-sidebar-border"
                 >
-                    <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="submitForm">
+                    <form
+                        class="flex min-h-0 flex-1 flex-col"
+                        @submit.prevent="submitForm"
+                    >
                         <!-- Header (tetap terlihat saat scroll) -->
-                        <div class="shrink-0 border-b border-sidebar-border/70 bg-card px-5 pb-4 pt-3 dark:border-sidebar-border">
-                            <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-zinc-700 sm:hidden"></div>
+                        <div
+                            class="shrink-0 border-b border-sidebar-border/70 bg-card px-5 pt-3 pb-4 dark:border-sidebar-border"
+                        >
+                            <div
+                                class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-300 sm:hidden dark:bg-zinc-700"
+                            ></div>
                             <div class="flex items-start justify-between gap-3">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                                    <div
+                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                                    >
                                         <Package class="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <h2 class="text-base font-bold leading-tight sm:text-lg">
-                                            {{ editingProduk ? 'Edit Produk' : 'Tambah Produk Baru' }}
+                                        <h2
+                                            class="text-base leading-tight font-bold sm:text-lg"
+                                        >
+                                            {{
+                                                editingProduk
+                                                    ? 'Edit Produk'
+                                                    : 'Tambah Produk Baru'
+                                            }}
                                         </h2>
-                                        <p class="text-xs text-muted-foreground">
-                                            Kolom bertanda <span class="font-semibold text-rose-500">*</span> wajib diisi
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            Kolom bertanda
+                                            <span
+                                                class="font-semibold text-rose-500"
+                                                >*</span
+                                            >
+                                            wajib diisi
                                         </p>
                                     </div>
                                 </div>
                                 <button
                                     type="button"
                                     class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                                    @click="closeModal" aria-label="Tutup">
+                                    @click="closeModal"
+                                    aria-label="Tutup"
+                                >
                                     <X class="h-5 w-5" />
                                 </button>
                             </div>
                         </div>
 
                         <!-- Isi form (area yang bisa di-scroll) -->
-                        <div class="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-5">
+                        <div
+                            class="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-5"
+                        >
                             <!-- ====== Bagian 1: Informasi Produk ====== -->
                             <section class="space-y-4">
                                 <div class="flex items-center gap-2">
-                                    <Package class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                    <h3 class="text-sm font-bold">Informasi Produk</h3>
+                                    <Package
+                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                    />
+                                    <h3 class="text-sm font-bold">
+                                        Informasi Produk
+                                    </h3>
                                 </div>
 
                                 <!-- Nama -->
                                 <div>
-                                    <label class="mb-1.5 block text-sm font-medium" for="prod-nama">
-                                        Nama Produk <span class="text-rose-500">*</span>
+                                    <label
+                                        class="mb-1.5 block text-sm font-medium"
+                                        for="prod-nama"
+                                    >
+                                        Nama Produk
+                                        <span class="text-rose-500">*</span>
                                     </label>
                                     <input
                                         id="prod-nama"
@@ -1410,44 +1765,70 @@ const statusClass: Record<string, string> = {
                                         type="text"
                                         placeholder="mis. Kopi Sachet, Bensin Eceran…"
                                         class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                        :class="{ 'border-rose-500': form.errors.nama }"
+                                        :class="{
+                                            'border-rose-500': form.errors.nama,
+                                        }"
                                     />
-                                    <p v-if="form.errors.nama" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                        <AlertCircle class="h-3 w-3" />{{ form.errors.nama }}
+                                    <p
+                                        v-if="form.errors.nama"
+                                        class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                    >
+                                        <AlertCircle class="h-3 w-3" />{{
+                                            form.errors.nama
+                                        }}
                                     </p>
                                 </div>
 
                                 <!-- Foto + preview -->
                                 <div>
-                                    <span class="mb-1.5 block text-sm font-medium">Foto Produk</span>
+                                    <span
+                                        class="mb-1.5 block text-sm font-medium"
+                                        >Foto Produk</span
+                                    >
                                     <div class="flex items-start gap-3">
-                                        <div class="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-800">
+                                        <div
+                                            class="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-800"
+                                        >
                                             <img
                                                 v-if="fotoPreviewUrl"
                                                 :src="fotoPreviewUrl"
                                                 alt="Pratinjau foto produk"
                                                 class="h-full w-full object-cover"
                                             />
-                                            <div v-else class="flex h-full w-full items-center justify-center text-muted-foreground">
+                                            <div
+                                                v-else
+                                                class="flex h-full w-full items-center justify-center text-muted-foreground"
+                                            >
                                                 <ImageIcon class="h-7 w-7" />
                                             </div>
                                             <button
                                                 v-if="fotoPreviewUrl"
                                                 type="button"
-                                                class="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white transition-colors hover:bg-black/80"
+                                                class="absolute top-1 right-1 rounded-full bg-black/60 p-0.5 text-white transition-colors hover:bg-black/80"
                                                 aria-label="Hapus foto"
                                                 @click="clearFoto"
                                             >
                                                 <X class="h-3.5 w-3.5" />
                                             </button>
                                         </div>
-                                        <div class="flex min-w-0 flex-1 flex-col gap-2">
+                                        <div
+                                            class="flex min-w-0 flex-1 flex-col gap-2"
+                                        >
                                             <label
                                                 class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900 dark:text-slate-200 dark:hover:bg-zinc-800"
                                             >
                                                 <Upload class="h-4 w-4" />
-                                                {{ fotoUploadName ? 'Ganti Foto' : 'Upload dari Galeri' }}
-                                                <input type="file" accept="image/*" class="hidden" @change="handleFileUpload" />
+                                                {{
+                                                    fotoUploadName
+                                                        ? 'Ganti Foto'
+                                                        : 'Upload dari Galeri'
+                                                }}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    class="hidden"
+                                                    @change="handleFileUpload"
+                                                />
                                             </label>
                                             <input
                                                 id="prod-foto"
@@ -1455,28 +1836,46 @@ const statusClass: Record<string, string> = {
                                                 type="text"
                                                 placeholder="atau tempel URL gambar…"
                                                 class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{ 'border-rose-500': form.errors.foto }"
+                                                :class="{
+                                                    'border-rose-500':
+                                                        form.errors.foto,
+                                                }"
                                             />
                                         </div>
                                     </div>
-                                    <p v-if="fotoUploadName" class="mt-1.5 truncate text-xs text-muted-foreground">
+                                    <p
+                                        v-if="fotoUploadName"
+                                        class="mt-1.5 truncate text-xs text-muted-foreground"
+                                    >
                                         File dipilih: {{ fotoUploadName }}
                                     </p>
-                                    <p v-if="form.errors.foto" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                        <AlertCircle class="h-3 w-3" />{{ form.errors.foto }}
+                                    <p
+                                        v-if="form.errors.foto"
+                                        class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                    >
+                                        <AlertCircle class="h-3 w-3" />{{
+                                            form.errors.foto
+                                        }}
                                     </p>
                                 </div>
 
                                 <!-- Kategori -->
                                 <div>
-                                    <label class="mb-1.5 block text-sm font-medium" for="prod-kategori">
-                                        Kategori <span class="text-rose-500">*</span>
+                                    <label
+                                        class="mb-1.5 block text-sm font-medium"
+                                        for="prod-kategori"
+                                    >
+                                        Kategori
+                                        <span class="text-rose-500">*</span>
                                     </label>
                                     <select
                                         id="prod-kategori"
                                         v-model="form.id_kategori"
                                         class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                        :class="{ 'border-rose-500': form.errors.id_kategori }"
+                                        :class="{
+                                            'border-rose-500':
+                                                form.errors.id_kategori,
+                                        }"
                                     >
                                         <option value="">Pilih kategori</option>
                                         <option
@@ -1487,8 +1886,13 @@ const statusClass: Record<string, string> = {
                                             {{ kat.nama_kategori }}
                                         </option>
                                     </select>
-                                    <p v-if="form.errors.id_kategori" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                        <AlertCircle class="h-3 w-3" />{{ form.errors.id_kategori }}
+                                    <p
+                                        v-if="form.errors.id_kategori"
+                                        class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                    >
+                                        <AlertCircle class="h-3 w-3" />{{
+                                            form.errors.id_kategori
+                                        }}
                                     </p>
                                 </div>
                             </section>
@@ -1496,34 +1900,57 @@ const statusClass: Record<string, string> = {
                             <!-- ====== Bagian 2: Jenis & Cara Jual ====== -->
                             <section class="space-y-4">
                                 <div class="flex items-center gap-2">
-                                    <Tag class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                    <h3 class="text-sm font-bold">Jenis &amp; Cara Jual</h3>
+                                    <Tag
+                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                    />
+                                    <h3 class="text-sm font-bold">
+                                        Jenis &amp; Cara Jual
+                                    </h3>
                                 </div>
 
                                 <!-- Asal produk (kartu pilihan) — tak relevan untuk jasa (tanpa modal). -->
                                 <div v-if="form.tipe_jual !== 'jasa'">
-                                    <span class="mb-2 block text-sm font-medium">Asal Produk</span>
+                                    <span class="mb-2 block text-sm font-medium"
+                                        >Asal Produk</span
+                                    >
                                     <div class="grid grid-cols-2 gap-2.5">
                                         <button
                                             v-for="opt in jenisOptions"
                                             :key="opt.value"
                                             type="button"
                                             class="flex items-center gap-2.5 rounded-xl border p-3 text-left transition-all"
-                                            :class="form.jenis === opt.value
-                                                ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:bg-indigo-500/10'
-                                                : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'"
+                                            :class="
+                                                form.jenis === opt.value
+                                                    ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:bg-indigo-500/10'
+                                                    : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'
+                                            "
                                             @click="form.jenis = opt.value"
                                         >
                                             <component
                                                 :is="opt.icon"
                                                 class="h-5 w-5 shrink-0"
-                                                :class="form.jenis === opt.value ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'"
+                                                :class="
+                                                    form.jenis === opt.value
+                                                        ? 'text-indigo-600 dark:text-indigo-400'
+                                                        : 'text-muted-foreground'
+                                                "
                                             />
                                             <div class="min-w-0">
-                                                <p class="text-sm font-semibold leading-tight" :class="{ 'text-indigo-700 dark:text-indigo-300': form.jenis === opt.value }">
+                                                <p
+                                                    class="text-sm leading-tight font-semibold"
+                                                    :class="{
+                                                        'text-indigo-700 dark:text-indigo-300':
+                                                            form.jenis ===
+                                                            opt.value,
+                                                    }"
+                                                >
                                                     {{ opt.label }}
                                                 </p>
-                                                <p class="mt-0.5 text-[11px] leading-tight text-muted-foreground">{{ opt.hint }}</p>
+                                                <p
+                                                    class="mt-0.5 text-[11px] leading-tight text-muted-foreground"
+                                                >
+                                                    {{ opt.hint }}
+                                                </p>
                                             </div>
                                         </button>
                                     </div>
@@ -1531,44 +1958,77 @@ const statusClass: Record<string, string> = {
 
                                 <!-- Tipe jual (kartu pilihan) -->
                                 <div>
-                                    <span class="mb-2 block text-sm font-medium">Tipe Jual</span>
+                                    <span class="mb-2 block text-sm font-medium"
+                                        >Tipe Jual</span
+                                    >
                                     <div class="grid grid-cols-3 gap-2.5">
                                         <button
                                             v-for="opt in tipeJualOptions"
                                             :key="opt.value"
                                             type="button"
                                             class="relative flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all"
-                                            :class="form.tipe_jual === opt.value
-                                                ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:bg-indigo-500/10'
-                                                : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'"
+                                            :class="
+                                                form.tipe_jual === opt.value
+                                                    ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:bg-indigo-500/10'
+                                                    : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'
+                                            "
                                             @click="form.tipe_jual = opt.value"
                                         >
                                             <Check
-                                                v-if="form.tipe_jual === opt.value"
-                                                class="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
+                                                v-if="
+                                                    form.tipe_jual === opt.value
+                                                "
+                                                class="absolute top-1.5 right-1.5 h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
                                             />
                                             <component
                                                 :is="opt.icon"
                                                 class="h-6 w-6"
-                                                :class="form.tipe_jual === opt.value ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'"
+                                                :class="
+                                                    form.tipe_jual === opt.value
+                                                        ? 'text-indigo-600 dark:text-indigo-400'
+                                                        : 'text-muted-foreground'
+                                                "
                                             />
                                             <div>
-                                                <p class="text-xs font-semibold leading-tight" :class="{ 'text-indigo-700 dark:text-indigo-300': form.tipe_jual === opt.value }">
+                                                <p
+                                                    class="text-xs leading-tight font-semibold"
+                                                    :class="{
+                                                        'text-indigo-700 dark:text-indigo-300':
+                                                            form.tipe_jual ===
+                                                            opt.value,
+                                                    }"
+                                                >
                                                     {{ opt.label }}
                                                 </p>
-                                                <p class="text-[10px] leading-tight text-muted-foreground">{{ opt.short }}</p>
+                                                <p
+                                                    class="text-[10px] leading-tight text-muted-foreground"
+                                                >
+                                                    {{ opt.short }}
+                                                </p>
                                             </div>
                                         </button>
                                     </div>
-                                    <p class="mt-2 flex items-start gap-1.5 rounded-lg bg-indigo-50/70 px-3 py-2 text-xs text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
-                                        <Info class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                                        <span>{{ tipeJualOptions.find((o) => o.value === form.tipe_jual)?.hint }}</span>
+                                    <p
+                                        class="mt-2 flex items-start gap-1.5 rounded-lg bg-indigo-50/70 px-3 py-2 text-xs text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                                    >
+                                        <Info
+                                            class="mt-0.5 h-3.5 w-3.5 shrink-0"
+                                        />
+                                        <span>{{
+                                            tipeJualOptions.find(
+                                                (o) =>
+                                                    o.value === form.tipe_jual,
+                                            )?.hint
+                                        }}</span>
                                     </p>
                                 </div>
 
                                 <!-- Satuan -->
                                 <div v-if="form.tipe_jual !== 'jasa'">
-                                    <label class="mb-1.5 block text-sm font-medium" for="prod-satuan">
+                                    <label
+                                        class="mb-1.5 block text-sm font-medium"
+                                        for="prod-satuan"
+                                    >
                                         Satuan
                                     </label>
                                     <input
@@ -1578,10 +2038,17 @@ const statusClass: Record<string, string> = {
                                         list="satuan-suggestions"
                                         placeholder="pcs / liter / kg"
                                         class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                        :class="{ 'border-rose-500': form.errors.satuan }"
+                                        :class="{
+                                            'border-rose-500':
+                                                form.errors.satuan,
+                                        }"
                                     />
                                     <datalist id="satuan-suggestions">
-                                        <option v-for="s in satuanSuggestions" :key="s" :value="s" />
+                                        <option
+                                            v-for="s in satuanSuggestions"
+                                            :key="s"
+                                            :value="s"
+                                        />
                                     </datalist>
                                     <div class="mt-2 flex flex-wrap gap-1.5">
                                         <button
@@ -1589,123 +2056,216 @@ const statusClass: Record<string, string> = {
                                             :key="s"
                                             type="button"
                                             class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
-                                            :class="form.satuan === s
-                                                ? 'border-indigo-500 bg-indigo-600 text-white'
-                                                : 'border-sidebar-border/70 text-muted-foreground hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border'"
+                                            :class="
+                                                form.satuan === s
+                                                    ? 'border-indigo-500 bg-indigo-600 text-white'
+                                                    : 'border-sidebar-border/70 text-muted-foreground hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border'
+                                            "
                                             @click="form.satuan = s"
                                         >
                                             {{ s }}
                                         </button>
                                     </div>
-                                    <p v-if="form.errors.satuan" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                        <AlertCircle class="h-3 w-3" />{{ form.errors.satuan }}
+                                    <p
+                                        v-if="form.errors.satuan"
+                                        class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                    >
+                                        <AlertCircle class="h-3 w-3" />{{
+                                            form.errors.satuan
+                                        }}
                                     </p>
                                 </div>
                             </section>
 
                             <!-- ====== Bagian 3: Harga & Stok (jasa tak punya harga/stok — diatur via Tarif Fee) ====== -->
-                            <section v-if="form.tipe_jual !== 'jasa'" class="space-y-4">
+                            <section
+                                v-if="form.tipe_jual !== 'jasa'"
+                                class="space-y-4"
+                            >
                                 <div class="flex items-center gap-2">
-                                    <Wallet class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                    <h3 class="text-sm font-bold">Harga &amp; Stok</h3>
+                                    <Wallet
+                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                    />
+                                    <h3 class="text-sm font-bold">
+                                        Harga &amp; Stok
+                                    </h3>
                                 </div>
 
                                 <div class="grid gap-4 sm:grid-cols-2">
                                     <!-- Harga Jual -->
                                     <div>
-                                        <label class="mb-1.5 block text-sm font-medium" for="prod-harga-jual">
-                                            {{ form.tipe_jual === 'curah' ? `Harga per ${form.satuan || 'satuan'}` : 'Harga Jual' }}
+                                        <label
+                                            class="mb-1.5 block text-sm font-medium"
+                                            for="prod-harga-jual"
+                                        >
+                                            {{
+                                                form.tipe_jual === 'curah'
+                                                    ? `Harga per ${form.satuan || 'satuan'}`
+                                                    : 'Harga Jual'
+                                            }}
                                             <span class="text-rose-500">*</span>
                                         </label>
                                         <div class="relative">
-                                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">Rp</span>
+                                            <span
+                                                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-muted-foreground"
+                                                >Rp</span
+                                            >
                                             <input
                                                 id="prod-harga-jual"
                                                 v-model="form.harga_jual"
                                                 type="number"
                                                 min="0"
                                                 placeholder="0"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{ 'border-rose-500': form.errors.harga_jual }"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pr-4 pl-9 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{
+                                                    'border-rose-500':
+                                                        form.errors.harga_jual,
+                                                }"
                                             />
                                         </div>
-                                        <p v-if="form.errors.harga_jual" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                            <AlertCircle class="h-3 w-3" />{{ form.errors.harga_jual }}
+                                        <p
+                                            v-if="form.errors.harga_jual"
+                                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                        >
+                                            <AlertCircle class="h-3 w-3" />{{
+                                                form.errors.harga_jual
+                                            }}
                                         </p>
                                     </div>
 
                                     <!-- Harga Modal (hanya produk beli-jadi) -->
                                     <div v-if="form.jenis === 'beli'">
-                                        <label class="mb-1.5 block text-sm font-medium" for="prod-harga-modal">
+                                        <label
+                                            class="mb-1.5 block text-sm font-medium"
+                                            for="prod-harga-modal"
+                                        >
                                             Harga Modal / Beli
                                         </label>
                                         <div class="relative">
-                                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">Rp</span>
+                                            <span
+                                                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-muted-foreground"
+                                                >Rp</span
+                                            >
                                             <input
                                                 id="prod-harga-modal"
                                                 v-model="form.harga_modal"
                                                 type="number"
                                                 min="0"
                                                 placeholder="0"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{ 'border-rose-500': form.errors.harga_modal }"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pr-4 pl-9 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{
+                                                    'border-rose-500':
+                                                        form.errors.harga_modal,
+                                                }"
                                             />
                                         </div>
-                                        <p v-if="form.errors.harga_modal" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                            <AlertCircle class="h-3 w-3" />{{ form.errors.harga_modal }}
+                                        <p
+                                            v-if="form.errors.harga_modal"
+                                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                        >
+                                            <AlertCircle class="h-3 w-3" />{{
+                                                form.errors.harga_modal
+                                            }}
                                         </p>
                                     </div>
                                 </div>
 
                                 <!-- Info modal produksi -->
-                                <div v-if="form.jenis !== 'beli'" class="flex items-start gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
-                                    <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" />
-                                    <span>Modal produk ini dihitung otomatis lewat menu <strong>Produksi</strong>, jadi tidak perlu diisi manual.</span>
+                                <div
+                                    v-if="form.jenis !== 'beli'"
+                                    class="flex items-start gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3.5 py-2.5 text-xs text-muted-foreground"
+                                >
+                                    <Info
+                                        class="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500"
+                                    />
+                                    <span
+                                        >Modal produk ini dihitung otomatis
+                                        lewat menu <strong>Produksi</strong>,
+                                        jadi tidak perlu diisi manual.</span
+                                    >
                                 </div>
 
                                 <div class="grid gap-4 sm:grid-cols-2">
                                     <!-- Stok -->
                                     <div>
-                                        <label class="mb-1.5 block text-sm font-medium" for="prod-stok">
-                                            Stok{{ form.satuan ? ` (${form.satuan})` : '' }}
+                                        <label
+                                            class="mb-1.5 block text-sm font-medium"
+                                            for="prod-stok"
+                                        >
+                                            Stok{{
+                                                form.satuan
+                                                    ? ` (${form.satuan})`
+                                                    : ''
+                                            }}
                                         </label>
                                         <input
                                             id="prod-stok"
                                             v-model="form.stok"
                                             type="number"
                                             min="0"
-                                            :step="form.tipe_jual === 'curah' ? 'any' : '1'"
+                                            :step="
+                                                form.tipe_jual === 'curah'
+                                                    ? 'any'
+                                                    : '1'
+                                            "
                                             placeholder="0"
                                             class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                            :class="{ 'border-rose-500': form.errors.stok }"
+                                            :class="{
+                                                'border-rose-500':
+                                                    form.errors.stok,
+                                            }"
                                         />
-                                        <p v-if="form.tipe_jual === 'curah'" class="mt-1 text-xs text-muted-foreground">
-                                            Boleh pecahan, mis. 12.5 {{ form.satuan || 'satuan' }}.
+                                        <p
+                                            v-if="form.tipe_jual === 'curah'"
+                                            class="mt-1 text-xs text-muted-foreground"
+                                        >
+                                            Boleh pecahan, mis. 12.5
+                                            {{ form.satuan || 'satuan' }}.
                                         </p>
-                                        <p v-if="form.errors.stok" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                            <AlertCircle class="h-3 w-3" />{{ form.errors.stok }}
+                                        <p
+                                            v-if="form.errors.stok"
+                                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                        >
+                                            <AlertCircle class="h-3 w-3" />{{
+                                                form.errors.stok
+                                            }}
                                         </p>
                                     </div>
 
                                     <!-- Potongan reseller -->
                                     <div>
-                                        <label class="mb-1.5 block text-sm font-medium" for="prod-potongan">
+                                        <label
+                                            class="mb-1.5 block text-sm font-medium"
+                                            for="prod-potongan"
+                                        >
                                             Potongan Reseller
                                         </label>
                                         <div class="relative">
-                                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">Rp</span>
+                                            <span
+                                                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-muted-foreground"
+                                                >Rp</span
+                                            >
                                             <input
                                                 id="prod-potongan"
                                                 v-model="form.potongan_reseller"
                                                 type="number"
                                                 min="0"
                                                 placeholder="0"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pl-9 pr-4 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{ 'border-rose-500': form.errors.potongan_reseller }"
+                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pr-4 pl-9 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                :class="{
+                                                    'border-rose-500':
+                                                        form.errors
+                                                            .potongan_reseller,
+                                                }"
                                             />
                                         </div>
-                                        <p v-if="form.errors.potongan_reseller" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                            <AlertCircle class="h-3 w-3" />{{ form.errors.potongan_reseller }}
+                                        <p
+                                            v-if="form.errors.potongan_reseller"
+                                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                        >
+                                            <AlertCircle class="h-3 w-3" />{{
+                                                form.errors.potongan_reseller
+                                            }}
                                         </p>
                                     </div>
                                 </div>
@@ -1715,72 +2275,141 @@ const statusClass: Record<string, string> = {
                                     v-if="Number(form.potongan_reseller) > 0"
                                     class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2.5 text-xs"
                                 >
-                                    <span class="text-muted-foreground">Harga untuk reseller: </span>
-                                    <strong class="text-emerald-700 dark:text-emerald-400">{{ formatRupiah(hargaReseller) }}</strong>
-                                    <span class="text-muted-foreground"> (dari {{ formatRupiah(Number(form.harga_jual || 0)) }})</span>
+                                    <span class="text-muted-foreground"
+                                        >Harga untuk reseller:
+                                    </span>
+                                    <strong
+                                        class="text-emerald-700 dark:text-emerald-400"
+                                        >{{
+                                            formatRupiah(hargaReseller)
+                                        }}</strong
+                                    >
+                                    <span class="text-muted-foreground">
+                                        (dari
+                                        {{
+                                            formatRupiah(
+                                                Number(form.harga_jual || 0),
+                                            )
+                                        }})</span
+                                    >
                                 </div>
                                 <p v-else class="text-xs text-muted-foreground">
-                                    Kosongkan / 0 bila produk ini tidak diberi potongan untuk reseller.
+                                    Kosongkan / 0 bila produk ini tidak diberi
+                                    potongan untuk reseller.
                                 </p>
-                                <p v-if="resellerBelowModal" class="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                                    <AlertCircle class="h-3.5 w-3.5 shrink-0" /> Harga reseller di bawah modal ({{ formatRupiah(Number(form.harga_modal || 0)) }}) — berisiko rugi.
+                                <p
+                                    v-if="resellerBelowModal"
+                                    class="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"
+                                >
+                                    <AlertCircle class="h-3.5 w-3.5 shrink-0" />
+                                    Harga reseller di bawah modal ({{
+                                        formatRupiah(
+                                            Number(form.harga_modal || 0),
+                                        )
+                                    }}) — berisiko rugi.
                                 </p>
                             </section>
 
                             <!-- ====== Tarif Fee Bertingkat (khusus jasa) ====== -->
-                            <section v-if="form.tipe_jual === 'jasa'" class="space-y-3">
+                            <section
+                                v-if="form.tipe_jual === 'jasa'"
+                                class="space-y-3"
+                            >
                                 <div class="flex items-center gap-2">
-                                    <HandCoins class="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                                    <h3 class="text-sm font-bold">Tarif Fee Bertingkat</h3>
-                                    <span class="text-xs font-normal text-muted-foreground">(opsional)</span>
+                                    <HandCoins
+                                        class="h-4 w-4 text-violet-600 dark:text-violet-400"
+                                    />
+                                    <h3 class="text-sm font-bold">
+                                        Tarif Fee Bertingkat
+                                    </h3>
+                                    <span
+                                        class="text-xs font-normal text-muted-foreground"
+                                        >(opsional)</span
+                                    >
                                 </div>
 
                                 <!-- Catatan akunting jasa (dipindah dari section Harga & Stok) -->
-                                <div class="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
-                                    <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
+                                <div
+                                    class="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5 text-xs text-muted-foreground"
+                                >
+                                    <Info
+                                        class="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500"
+                                    />
                                     <span>
-                                        Produk <strong>jasa</strong> tidak menyimpan stok. Pendapatan toko = <strong>fee (biaya admin)</strong>,
-                                        bukan nominal transfer/tarik. Atur fee-nya di sini.
+                                        Produk <strong>jasa</strong> tidak
+                                        menyimpan stok. Pendapatan toko =
+                                        <strong>fee (biaya admin)</strong>,
+                                        bukan nominal transfer/tarik. Atur
+                                        fee-nya di sini.
                                     </span>
                                 </div>
 
-                                <div class="flex items-start gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3.5 py-2.5 text-xs text-muted-foreground">
-                                    <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />
+                                <div
+                                    class="flex items-start gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3.5 py-2.5 text-xs text-muted-foreground"
+                                >
+                                    <Info
+                                        class="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500"
+                                    />
                                     <span>
-                                        Atur fee sesuai <strong>range nominal</strong>. Saat transaksi, kasir cukup mengisi nominal lalu
-                                        fee terisi otomatis. Untuk <strong>fee tetap</strong> (sama berapa pun nominal), cukup buat satu
-                                        range mulai Rp0. <strong>Kosongkan</strong> bila fee ingin diketik manual tiap transaksi.
+                                        Atur fee sesuai
+                                        <strong>range nominal</strong>. Saat
+                                        transaksi, kasir cukup mengisi nominal
+                                        lalu fee terisi otomatis. Untuk
+                                        <strong>fee tetap</strong> (sama berapa
+                                        pun nominal), cukup buat satu range
+                                        mulai Rp0.
+                                        <strong>Kosongkan</strong> bila fee
+                                        ingin diketik manual tiap transaksi.
                                     </span>
                                 </div>
 
-                                <div v-if="form.tarifs.length > 0" class="space-y-2.5">
-                                    <div class="grid grid-cols-[1fr_1fr_auto] gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                                <div
+                                    v-if="form.tarifs.length > 0"
+                                    class="space-y-2.5"
+                                >
+                                    <div
+                                        class="grid grid-cols-[1fr_1fr_auto] gap-2 px-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase"
+                                    >
                                         <span>Mulai dari</span>
                                         <span>Fee</span>
                                         <span class="w-8"></span>
                                     </div>
-                                    <div v-for="(tarif, index) in form.tarifs" :key="index" class="space-y-1">
-                                        <div class="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                                    <div
+                                        v-for="(tarif, index) in form.tarifs"
+                                        :key="index"
+                                        class="space-y-1"
+                                    >
+                                        <div
+                                            class="grid grid-cols-[1fr_1fr_auto] items-center gap-2"
+                                        >
                                             <div class="relative">
-                                                <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">Rp</span>
+                                                <span
+                                                    class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+                                                    >Rp</span
+                                                >
                                                 <input
-                                                    v-model.number="tarif.min_nominal"
+                                                    v-model.number="
+                                                        tarif.min_nominal
+                                                    "
                                                     type="number"
                                                     min="0"
                                                     inputmode="numeric"
                                                     placeholder="0"
-                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pl-7 pr-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pr-2 pl-7 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                                                 />
                                             </div>
                                             <div class="relative">
-                                                <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">Rp</span>
+                                                <span
+                                                    class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+                                                    >Rp</span
+                                                >
                                                 <input
                                                     v-model.number="tarif.fee"
                                                     type="number"
                                                     min="0"
                                                     inputmode="numeric"
                                                     placeholder="0"
-                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pl-7 pr-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pr-2 pl-7 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                                                 />
                                             </div>
                                             <button
@@ -1792,8 +2421,16 @@ const statusClass: Record<string, string> = {
                                                 <Trash2 class="h-4 w-4" />
                                             </button>
                                         </div>
-                                        <p class="px-1 text-[11px] text-muted-foreground">
-                                            Berlaku untuk <strong class="font-semibold text-foreground">{{ tarifRangeLabel(index) }}</strong>
+                                        <p
+                                            class="px-1 text-[11px] text-muted-foreground"
+                                        >
+                                            Berlaku untuk
+                                            <strong
+                                                class="font-semibold text-foreground"
+                                                >{{
+                                                    tarifRangeLabel(index)
+                                                }}</strong
+                                            >
                                         </p>
                                     </div>
                                 </div>
@@ -1807,21 +2444,36 @@ const statusClass: Record<string, string> = {
                                     Tambah Range
                                 </button>
 
-                                <p v-if="form.tarifs.length > 0" class="text-[11px] text-muted-foreground">
-                                    Nominal di bawah range terendah otomatis ikut fee range terendah.
+                                <p
+                                    v-if="form.tarifs.length > 0"
+                                    class="text-[11px] text-muted-foreground"
+                                >
+                                    Nominal di bawah range terendah otomatis
+                                    ikut fee range terendah.
                                 </p>
                             </section>
 
                             <!-- ====== Bagian 4: Barcode & SKU ====== -->
                             <section class="space-y-3">
                                 <div class="flex items-center gap-2">
-                                    <ScanLine class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                    <h3 class="text-sm font-bold">Barcode &amp; SKU</h3>
-                                    <span class="text-xs font-normal text-muted-foreground">(opsional)</span>
+                                    <ScanLine
+                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                                    />
+                                    <h3 class="text-sm font-bold">
+                                        Barcode &amp; SKU
+                                    </h3>
+                                    <span
+                                        class="text-xs font-normal text-muted-foreground"
+                                        >(opsional)</span
+                                    >
                                 </div>
 
-                                <div class="rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20">
-                                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <div
+                                    class="rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20"
+                                >
+                                    <div
+                                        class="mb-3 flex flex-wrap items-center justify-between gap-2"
+                                    >
                                         <div
                                             role="status"
                                             :class="[
@@ -1836,7 +2488,9 @@ const statusClass: Record<string, string> = {
                                             <span
                                                 :class="[
                                                     'h-2 w-2 rounded-full',
-                                                    isScannerDetected ? 'bg-emerald-500' : 'bg-rose-500',
+                                                    isScannerDetected
+                                                        ? 'bg-emerald-500'
+                                                        : 'bg-rose-500',
                                                 ]"
                                             ></span>
                                             {{ scannerStatusText }}
@@ -1851,14 +2505,23 @@ const statusClass: Record<string, string> = {
                                             Generate Otomatis
                                         </button>
                                     </div>
-                                    <p class="mb-3 text-xs text-muted-foreground">
-                                        Boleh dikosongkan dulu jika produk belum punya barcode. Klik
-                                        <strong>Generate Otomatis</strong> untuk membuat barcode &amp; SKU sekaligus,
+                                    <p
+                                        class="mb-3 text-xs text-muted-foreground"
+                                    >
+                                        Boleh dikosongkan dulu jika produk belum
+                                        punya barcode. Klik
+                                        <strong>Generate Otomatis</strong> untuk
+                                        membuat barcode &amp; SKU sekaligus,
                                         atau scan / isi manual.
                                     </p>
-                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div
+                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                                    >
                                         <div>
-                                            <label class="mb-1.5 block text-sm font-medium" for="prod-barcode">
+                                            <label
+                                                class="mb-1.5 block text-sm font-medium"
+                                                for="prod-barcode"
+                                            >
                                                 Barcode
                                             </label>
                                             <input
@@ -1867,14 +2530,25 @@ const statusClass: Record<string, string> = {
                                                 type="text"
                                                 placeholder="Barcode unik"
                                                 class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{ 'border-rose-500': form.errors.barcode }"
+                                                :class="{
+                                                    'border-rose-500':
+                                                        form.errors.barcode,
+                                                }"
                                             />
-                                            <p v-if="form.errors.barcode" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                                <AlertCircle class="h-3 w-3" />{{ form.errors.barcode }}
+                                            <p
+                                                v-if="form.errors.barcode"
+                                                class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                            >
+                                                <AlertCircle
+                                                    class="h-3 w-3"
+                                                />{{ form.errors.barcode }}
                                             </p>
                                         </div>
                                         <div>
-                                            <label class="mb-1.5 block text-sm font-medium" for="prod-sku">
+                                            <label
+                                                class="mb-1.5 block text-sm font-medium"
+                                                for="prod-sku"
+                                            >
                                                 SKU
                                             </label>
                                             <input
@@ -1883,10 +2557,18 @@ const statusClass: Record<string, string> = {
                                                 type="text"
                                                 placeholder="SKU unik"
                                                 class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{ 'border-rose-500': form.errors.sku }"
+                                                :class="{
+                                                    'border-rose-500':
+                                                        form.errors.sku,
+                                                }"
                                             />
-                                            <p v-if="form.errors.sku" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
-                                                <AlertCircle class="h-3 w-3" />{{ form.errors.sku }}
+                                            <p
+                                                v-if="form.errors.sku"
+                                                class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                            >
+                                                <AlertCircle
+                                                    class="h-3 w-3"
+                                                />{{ form.errors.sku }}
                                             </p>
                                         </div>
                                     </div>
@@ -1895,7 +2577,9 @@ const statusClass: Record<string, string> = {
                         </div>
 
                         <!-- Footer (tombol aksi selalu terlihat) -->
-                        <div class="shrink-0 border-t border-sidebar-border/70 bg-card px-5 py-3.5 dark:border-sidebar-border">
+                        <div
+                            class="shrink-0 border-t border-sidebar-border/70 bg-card px-5 py-3.5 dark:border-sidebar-border"
+                        >
                             <div class="flex gap-3">
                                 <button
                                     type="button"

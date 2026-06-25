@@ -79,6 +79,11 @@ class ProdukController extends Controller
                 'total_kategori' => Kategori::count(),
                 // status_stok bermasalah = produk fisik (non-jasa) dengan stok <= 5.
                 'stok_bermasalah' => Produk::where('tipe_jual', '!=', 'jasa')->where('stok', '<=', 5)->count(),
+                // Produk fisik tanpa barcode — guard tombol "Generate Barcode Semua"
+                // (harus lintas halaman, selaras dengan generateAllBarcodes()).
+                'produk_tanpa_barcode' => Produk::where('tipe_jual', '!=', 'jasa')
+                    ->where(fn ($q) => $q->whereNull('barcode')->orWhere('barcode', ''))
+                    ->count(),
             ],
             'filters' => [
                 'search' => $search,

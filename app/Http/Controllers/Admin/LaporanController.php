@@ -11,9 +11,9 @@ use App\Services\LaporanFinansialService;
 use App\Services\LaporanPelangganService;
 use App\Services\LaporanStokService;
 use DateInterval;
-use DatePeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -103,17 +103,10 @@ class LaporanController extends Controller
             $previous,
         );
 
-        // Tren omzet harian untuk grafik ringkasan di atas.
+        // Tren omzet untuk grafik di bawah — granularity adaptif sesuai rentang.
         $transactions = Transaksi::whereBetween('created_at', [$startDate, $endDate])
             ->get(['id_transaksi', 'total_harga', 'metode_pembayaran', 'created_at']);
-        $dailyRevenue = $transactions->groupBy(fn (Transaksi $trx) => $trx->created_at->format('Y-m-d'));
-        $period = new DatePeriod($startDate, new DateInterval('P1D'), $endDate->copy()->addDay());
-        $revenueChart = collect(iterator_to_array($period))
-            ->map(fn (\DateTimeInterface $date) => [
-                'label' => Carbon::parse($date)->format('d M'),
-                'value' => (int) $dailyRevenue->get(Carbon::parse($date)->format('Y-m-d'), collect([]))->sum('total_harga'),
-            ])
-            ->values();
+        $revenueChart = $this->buildRevenueChart($transactions, $startDate, $endDate);
 
         // ---------------------------------------------------------------
         // 2. ARUS KAS (CASH FLOW) — basis kas dari data yang tercatat.
@@ -233,20 +226,8 @@ class LaporanController extends Controller
         $weekday = $this->finansial->weekdayDistribution($transactions);
         $cashiers = $this->finansial->cashierPerformance($transactions);
 
-        // Tren omzet & jumlah transaksi harian (mengikuti filter periode).
-        $byDate = $transactions->groupBy(fn (Transaksi $trx) => $trx->created_at->format('Y-m-d'));
-        $period = new DatePeriod($startDate, new DateInterval('P1D'), $endDate->copy()->addDay());
-        $revenueChart = collect(iterator_to_array($period))
-            ->map(function (\DateTimeInterface $date) use ($byDate) {
-                $group = $byDate->get(Carbon::parse($date)->format('Y-m-d'));
-
-                return [
-                    'label' => Carbon::parse($date)->format('d M'),
-                    'value' => $group ? (int) $group->sum('total_harga') : 0,
-                    'count' => $group ? $group->count() : 0,
-                ];
-            })
-            ->values();
+        // Tren omzet & jumlah transaksi — granularity adaptif mengikuti rentang.
+        $revenueChart = $this->buildRevenueChart($transactions, $startDate, $endDate);
 
         // Tren pertumbuhan: periode berjalan (s/d sekarang) vs periode setara sebelumnya.
         // Sengaja tidak terpengaruh filter — indikator kesehatan bisnis "saat ini".
@@ -293,6 +274,59 @@ class LaporanController extends Controller
             'revenue' => (int) Transaksi::whereBetween('created_at', [$start, $end])->sum('total_harga'),
             'count' => (int) Transaksi::whereBetween('created_at', [$start, $end])->count(),
         ];
+    }
+
+    /**
+     * Bangun data tren omzet dengan granularity adaptif agar jumlah titik tetap
+     * terbaca: harian (≤62 hari), mingguan (≤182 hari), atau bulanan (>182 hari).
+     * Setiap titik tetap berisi omzet + jumlah transaksi pada bucket-nya.
+     *
+     * @param  Collection<int, Transaksi>  $transactions
+     * @return array{granularity: string, points: array<int, array{label: string, value: int, count: int}>}
+     */
+    private function buildRevenueChart(Collection $transactions, Carbon $startDate, Carbon $endDate): array
+    {
+        $periodDays = (int) $startDate->diffInDays($endDate) + 1;
+
+        if ($periodDays <= 62) {
+            $granularity = 'daily';
+            $interval = new DateInterval('P1D');
+            $cursor = $startDate->copy()->startOfDay();
+            $bucketStart = fn (Carbon $d) => $d->copy()->startOfDay();
+            $keyFormat = 'Y-m-d';
+            $labelFor = fn (Carbon $d) => $d->format('d M');
+        } elseif ($periodDays <= 182) {
+            $granularity = 'weekly';
+            $interval = new DateInterval('P1W');
+            $cursor = $startDate->copy()->startOfWeek();
+            $bucketStart = fn (Carbon $d) => $d->copy()->startOfWeek();
+            $keyFormat = 'Y-m-d';
+            $labelFor = fn (Carbon $d) => $d->format('d M');
+        } else {
+            $granularity = 'monthly';
+            $interval = new DateInterval('P1M');
+            $cursor = $startDate->copy()->startOfMonth();
+            $bucketStart = fn (Carbon $d) => $d->copy()->startOfMonth();
+            $keyFormat = 'Y-m';
+            $labelFor = fn (Carbon $d) => $d->format('M Y');
+        }
+
+        $grouped = $transactions->groupBy(
+            fn (Transaksi $trx) => $bucketStart(Carbon::parse($trx->created_at))->format($keyFormat),
+        );
+
+        $points = [];
+        while ($cursor <= $endDate) {
+            $group = $grouped->get($cursor->format($keyFormat));
+            $points[] = [
+                'label' => $labelFor($cursor),
+                'value' => $group ? (int) $group->sum('total_harga') : 0,
+                'count' => $group ? $group->count() : 0,
+            ];
+            $cursor = $cursor->add($interval);
+        }
+
+        return ['granularity' => $granularity, 'points' => $points];
     }
 
     /**
