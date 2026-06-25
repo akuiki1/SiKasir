@@ -84,8 +84,19 @@ Route::get('/', function () {
         ->where('produks.tipe_jual', 'satuan')
         ->groupBy('produks.id_produk', 'produks.nama', 'produks.harga_jual', 'produks.stok', 'produks.foto')
         ->orderByDesc('total_terjual')
-        ->take(5)
+        // Ambil kandidat lebih banyak dari yang ditampilkan supaya produk
+        // berfoto bisa "naik" ke etalase walau peringkat penjualannya sedikit
+        // di bawah — tapi tetap dibatasi ke 10 terlaris agar kartu yang tampil
+        // selalu produk yang benar-benar laku (badge "Best seller" tak nyasar).
+        ->take(10)
         ->get()
+        // Kurasi etalase: di antara 10 terlaris, produk berfoto tampil lebih
+        // dulu (tetap urut penjualan dalam tiap grup), lalu ambil 5 teratas.
+        // Tujuannya carousel landing tampil maksimal sekaligus jadi insentif
+        // owner mengunggah foto produk unggulannya.
+        ->sortByDesc(fn ($p) => [$p->foto ? 1 : 0, (int) $p->total_terjual])
+        ->take(5)
+        ->values()
         ->map(fn ($p) => [
             'id_produk' => $p->id_produk,
             'nama' => $p->nama,
@@ -109,8 +120,13 @@ Route::get('/', function () {
             'foto_url' => $p->foto ? asset("storage/{$p->foto}") : null,
             'promo' => $promoFor($p->id_produk, $p->harga_jual),
         ])
-        // Produk yang sedang promo tampil paling atas (urutan nama tetap dalam tiap grup).
-        ->sortBy(fn ($p) => $p['promo'] === null ? 1 : 0)
+        // Produk berfoto tampil paling atas, lalu yang sedang promo; urutan nama
+        // tetap dalam tiap grup (sort PHP 8 stabil). Konsisten dengan etalase
+        // best seller: produk berfoto selalu lebih dulu muncul di landing.
+        ->sortBy(fn ($p) => [
+            $p['foto_url'] === null ? 1 : 0,
+            $p['promo'] === null ? 1 : 0,
+        ])
         ->values();
 
     return Inertia::render('Welcome', [
