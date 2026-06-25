@@ -841,31 +841,39 @@ const promoCountdown = (berakhirPada: string): string | null => {
                     class="reveal mb-8 max-w-2xl md:mb-12"
                 >
                     <span
-                        class="text-xs font-bold tracking-widest text-[var(--kg-primary)] uppercase"
-                        >Kenapa Mba Tutut</span
+                        class="inline-flex items-center gap-2 text-[0.7rem] font-bold tracking-widest text-[var(--kg-primary)] uppercase sm:text-xs"
                     >
+                        <span
+                            class="h-1.5 w-1.5 rounded-full bg-[var(--kg-primary)]"
+                        ></span>
+                        Kenapa Mba Tutut
+                    </span>
                     <h2
-                        class="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
+                        class="mt-3 font-display text-[1.6rem] leading-[1.15] font-extrabold tracking-tight text-balance sm:text-3xl md:text-4xl"
                     >
                         Cemilan rumahan, dibuat sepenuh hati.
                     </h2>
                 </div>
 
-                <div class="grid grid-cols-1 gap-5 md:grid-cols-3">
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-5">
                     <div
                         v-reveal
-                        class="bento-card flex h-[280px] flex-col justify-between rounded-[2rem] border border-[#ff5c00]/10 bg-[#ff5c00]/5 p-8 dark:border-[#ff5c00]/20 dark:bg-[#ff5c00]/10"
+                        class="bento-card flex flex-row items-center gap-4 rounded-2xl border border-[#ff5c00]/10 bg-[#ff5c00]/5 p-4 md:h-[280px] md:flex-col md:items-start md:justify-between md:gap-0 md:rounded-[2rem] md:p-8 dark:border-[#ff5c00]/20 dark:bg-[#ff5c00]/10"
                     >
                         <div
-                            class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ffdbce] text-[#a73a00]"
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#ffdbce] text-[#a73a00] md:h-14 md:w-14 md:rounded-2xl"
                         >
-                            <Leaf class="h-7 w-7" />
+                            <Leaf class="h-6 w-6 md:h-7 md:w-7" />
                         </div>
-                        <div>
-                            <h3 class="font-display text-2xl font-bold">
+                        <div class="min-w-0">
+                            <h3
+                                class="font-display text-base leading-tight font-bold md:text-2xl"
+                            >
                                 Homemade
                             </h3>
-                            <p class="mt-2 text-[var(--kg-sec)]">
+                            <p
+                                class="mt-1 text-sm text-[var(--kg-sec)] md:mt-2 md:text-base"
+                            >
                                 Resep keluarga, tanpa pengawet. Dibuat fresh dalam
                                 jumlah terbatas tiap hari.
                             </p>
@@ -874,18 +882,22 @@ const promoCountdown = (berakhirPada: string): string | null => {
 
                     <div
                         v-reveal="{ delay: 100 }"
-                        class="bento-card flex h-[280px] flex-col justify-between rounded-[2rem] border border-[#8494ac]/30 bg-[#d3e4fe]/40 p-8 dark:border-white/10 dark:bg-[#1c2c40]/40"
+                        class="bento-card flex flex-row items-center gap-4 rounded-2xl border border-[#8494ac]/30 bg-[#d3e4fe]/40 p-4 md:h-[280px] md:flex-col md:items-start md:justify-between md:gap-0 md:rounded-[2rem] md:p-8 dark:border-white/10 dark:bg-[#1c2c40]/40"
                     >
                         <div
-                            class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#d3e4fe] text-[#0b1c30]"
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#d3e4fe] text-[#0b1c30] md:h-14 md:w-14 md:rounded-2xl"
                         >
-                            <ShieldCheck class="h-7 w-7" />
+                            <ShieldCheck class="h-6 w-6 md:h-7 md:w-7" />
                         </div>
-                        <div>
-                            <h3 class="font-display text-2xl font-bold">
-                                Higiene & rapi
+                        <div class="min-w-0">
+                            <h3
+                                class="font-display text-base leading-tight font-bold md:text-2xl"
+                            >
+                                Higiene &amp; rapi
                             </h3>
-                            <p class="mt-2 text-[var(--kg-sec)]">
+                            <p
+                                class="mt-1 text-sm text-[var(--kg-sec)] md:mt-2 md:text-base"
+                            >
                                 Diproses bersih dengan kemasan rapi agar kesegaran
                                 rasa terjaga lebih lama.
                             </p>
@@ -894,18 +906,22 @@ const promoCountdown = (berakhirPada: string): string | null => {
 
                     <div
                         v-reveal="{ delay: 200 }"
-                        class="bento-card flex h-[280px] flex-col justify-between rounded-[2rem] border border-black/5 bg-[var(--kg-sc)] p-8 dark:border-white/10"
+                        class="bento-card flex flex-row items-center gap-4 rounded-2xl border border-black/5 bg-[var(--kg-sc)] p-4 md:h-[280px] md:flex-col md:items-start md:justify-between md:gap-0 md:rounded-[2rem] md:p-8 dark:border-white/10"
                     >
                         <div
-                            class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--kg-surface)] text-[var(--kg-primary)] shadow-sm"
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--kg-surface)] text-[var(--kg-primary)] shadow-sm md:h-14 md:w-14 md:rounded-2xl"
                         >
-                            <Tag class="h-7 w-7" />
+                            <Tag class="h-6 w-6 md:h-7 md:w-7" />
                         </div>
-                        <div>
-                            <h3 class="font-display text-2xl font-bold">
+                        <div class="min-w-0">
+                            <h3
+                                class="font-display text-base leading-tight font-bold md:text-2xl"
+                            >
                                 Serba 10 ribuan
                             </h3>
-                            <p class="mt-2 text-[var(--kg-sec)]">
+                            <p
+                                class="mt-1 text-sm text-[var(--kg-sec)] md:mt-2 md:text-base"
+                            >
                                 Enak tak harus mahal — pas untuk stok cemilan
                                 mingguan keluarga.
                             </p>
@@ -922,7 +938,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                 >
                     <div>
                         <h2
-                            class="font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
+                            class="font-display text-2xl leading-[1.15] font-extrabold tracking-tight text-balance sm:text-3xl md:text-4xl"
                         >
                             Produk favorit
                         </h2>
@@ -1043,7 +1059,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                     class="reveal mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between"
                 >
                     <h2
-                        class="font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
+                        class="font-display text-2xl leading-[1.15] font-extrabold tracking-tight text-balance sm:text-3xl md:text-4xl"
                     >
                         Katalog lengkap
                     </h2>
@@ -1241,11 +1257,15 @@ const promoCountdown = (berakhirPada: string): string | null => {
                     <!-- Info -->
                     <div class="flex flex-col justify-center p-8 md:p-12">
                         <span
-                            class="text-xs font-bold tracking-widest text-[var(--kg-primary)] uppercase"
-                            >Kunjungi kami</span
+                            class="inline-flex items-center gap-2 text-[0.7rem] font-bold tracking-widest text-[var(--kg-primary)] uppercase sm:text-xs"
                         >
+                            <span
+                                class="h-1.5 w-1.5 rounded-full bg-[var(--kg-primary)]"
+                            ></span>
+                            Kunjungi kami
+                        </span>
                         <h2
-                            class="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
+                            class="mt-3 font-display text-2xl leading-[1.15] font-extrabold tracking-tight text-balance sm:text-3xl md:text-4xl"
                         >
                             Ambil di tempat,<br />atau diantar.
                         </h2>
@@ -1338,11 +1358,15 @@ const promoCountdown = (berakhirPada: string): string | null => {
                 >
                     <div class="mx-auto max-w-xl text-center">
                         <span
-                            class="text-xs font-bold tracking-widest text-[var(--kg-primary)] uppercase"
-                            >Lacak Pesanan</span
+                            class="inline-flex items-center gap-2 text-[0.7rem] font-bold tracking-widest text-[var(--kg-primary)] uppercase sm:text-xs"
                         >
+                            <span
+                                class="h-1.5 w-1.5 rounded-full bg-[var(--kg-primary)]"
+                            ></span>
+                            Lacak Pesanan
+                        </span>
                         <h2
-                            class="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl"
+                            class="mt-3 font-display text-2xl leading-[1.15] font-extrabold tracking-tight text-balance sm:text-3xl md:text-4xl"
                         >
                             Cek status pesananmu
                         </h2>
