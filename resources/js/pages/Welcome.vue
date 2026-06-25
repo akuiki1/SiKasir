@@ -1268,7 +1268,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                         <h2
                             class="mt-3 font-display text-2xl leading-[1.15] font-extrabold tracking-tight text-balance sm:text-3xl md:text-4xl"
                         >
-                            Ambil di tempat,<br />atau diantar.
+                            Ambil di tempat,<br />atau tanya admin.
                         </h2>
 
                         <ul class="mt-8 space-y-5">
