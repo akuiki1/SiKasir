@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\KasirController::cetak
- * @see app/Http/Controllers/KasirController.php:655
+ * @see app/Http/Controllers/KasirController.php:657
  * @route '/kasir/riwayat/cetak'
  */
 export const cetak = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ cetak.definition = {
 
 /**
 * @see \App\Http\Controllers\KasirController::cetak
- * @see app/Http/Controllers/KasirController.php:655
+ * @see app/Http/Controllers/KasirController.php:657
  * @route '/kasir/riwayat/cetak'
  */
 cetak.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ cetak.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\KasirController::cetak
- * @see app/Http/Controllers/KasirController.php:655
+ * @see app/Http/Controllers/KasirController.php:657
  * @route '/kasir/riwayat/cetak'
  */
 cetak.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ cetak.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\KasirController::cetak
- * @see app/Http/Controllers/KasirController.php:655
+ * @see app/Http/Controllers/KasirController.php:657
  * @route '/kasir/riwayat/cetak'
  */
 cetak.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ cetak.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\KasirController::cetak
- * @see app/Http/Controllers/KasirController.php:655
+ * @see app/Http/Controllers/KasirController.php:657
  * @route '/kasir/riwayat/cetak'
  */
     const cetakForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ cetak.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\KasirController::cetak
- * @see app/Http/Controllers/KasirController.php:655
+ * @see app/Http/Controllers/KasirController.php:657
  * @route '/kasir/riwayat/cetak'
  */
         cetakForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ cetak.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\KasirController::cetak
- * @see app/Http/Controllers/KasirController.php:655
+ * @see app/Http/Controllers/KasirController.php:657
  * @route '/kasir/riwayat/cetak'
  */
         cetakForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

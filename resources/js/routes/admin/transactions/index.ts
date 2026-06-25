@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\TransaksiController::store
- * @see app/Http/Controllers/TransaksiController.php:98
+ * @see app/Http/Controllers/TransaksiController.php:100
  * @route '/admin/transactions'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\TransaksiController::store
- * @see app/Http/Controllers/TransaksiController.php:98
+ * @see app/Http/Controllers/TransaksiController.php:100
  * @route '/admin/transactions'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\TransaksiController::store
- * @see app/Http/Controllers/TransaksiController.php:98
+ * @see app/Http/Controllers/TransaksiController.php:100
  * @route '/admin/transactions'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\TransaksiController::store
- * @see app/Http/Controllers/TransaksiController.php:98
+ * @see app/Http/Controllers/TransaksiController.php:100
  * @route '/admin/transactions'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -45,7 +45,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\TransaksiController::store
- * @see app/Http/Controllers/TransaksiController.php:98
+ * @see app/Http/Controllers/TransaksiController.php:100
  * @route '/admin/transactions'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -56,7 +56,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\TransaksiController::update
- * @see app/Http/Controllers/TransaksiController.php:120
+ * @see app/Http/Controllers/TransaksiController.php:122
  * @route '/admin/transactions/{transaksi}'
  */
 export const update = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -71,7 +71,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\TransaksiController::update
- * @see app/Http/Controllers/TransaksiController.php:120
+ * @see app/Http/Controllers/TransaksiController.php:122
  * @route '/admin/transactions/{transaksi}'
  */
 update.url = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions) => {
@@ -104,7 +104,7 @@ update.url = (args: { transaksi: number | { id_transaksi: number } } | [transaks
 
 /**
 * @see \App\Http\Controllers\TransaksiController::update
- * @see app/Http/Controllers/TransaksiController.php:120
+ * @see app/Http/Controllers/TransaksiController.php:122
  * @route '/admin/transactions/{transaksi}'
  */
 update.put = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -114,7 +114,7 @@ update.put = (args: { transaksi: number | { id_transaksi: number } } | [transaks
 
     /**
 * @see \App\Http\Controllers\TransaksiController::update
- * @see app/Http/Controllers/TransaksiController.php:120
+ * @see app/Http/Controllers/TransaksiController.php:122
  * @route '/admin/transactions/{transaksi}'
  */
     const updateForm = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -129,7 +129,7 @@ update.put = (args: { transaksi: number | { id_transaksi: number } } | [transaks
 
             /**
 * @see \App\Http\Controllers\TransaksiController::update
- * @see app/Http/Controllers/TransaksiController.php:120
+ * @see app/Http/Controllers/TransaksiController.php:122
  * @route '/admin/transactions/{transaksi}'
  */
         updateForm.put = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -145,7 +145,7 @@ update.put = (args: { transaksi: number | { id_transaksi: number } } | [transaks
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\TransaksiController::destroy
- * @see app/Http/Controllers/TransaksiController.php:144
+ * @see app/Http/Controllers/TransaksiController.php:146
  * @route '/admin/transactions/{transaksi}'
  */
 export const destroy = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -160,7 +160,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\TransaksiController::destroy
- * @see app/Http/Controllers/TransaksiController.php:144
+ * @see app/Http/Controllers/TransaksiController.php:146
  * @route '/admin/transactions/{transaksi}'
  */
 destroy.url = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions) => {
@@ -193,7 +193,7 @@ destroy.url = (args: { transaksi: number | { id_transaksi: number } } | [transak
 
 /**
 * @see \App\Http\Controllers\TransaksiController::destroy
- * @see app/Http/Controllers/TransaksiController.php:144
+ * @see app/Http/Controllers/TransaksiController.php:146
  * @route '/admin/transactions/{transaksi}'
  */
 destroy.delete = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -203,7 +203,7 @@ destroy.delete = (args: { transaksi: number | { id_transaksi: number } } | [tran
 
     /**
 * @see \App\Http\Controllers\TransaksiController::destroy
- * @see app/Http/Controllers/TransaksiController.php:144
+ * @see app/Http/Controllers/TransaksiController.php:146
  * @route '/admin/transactions/{transaksi}'
  */
     const destroyForm = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -218,7 +218,7 @@ destroy.delete = (args: { transaksi: number | { id_transaksi: number } } | [tran
 
             /**
 * @see \App\Http\Controllers\TransaksiController::destroy
- * @see app/Http/Controllers/TransaksiController.php:144
+ * @see app/Http/Controllers/TransaksiController.php:146
  * @route '/admin/transactions/{transaksi}'
  */
         destroyForm.delete = (args: { transaksi: number | { id_transaksi: number } } | [transaksi: number | { id_transaksi: number } ] | number | { id_transaksi: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\PengeluaranController::store
- * @see app/Http/Controllers/PengeluaranController.php:66
+ * @see app/Http/Controllers/PengeluaranController.php:68
  * @route '/admin/pengeluarans'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\PengeluaranController::store
- * @see app/Http/Controllers/PengeluaranController.php:66
+ * @see app/Http/Controllers/PengeluaranController.php:68
  * @route '/admin/pengeluarans'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PengeluaranController::store
- * @see app/Http/Controllers/PengeluaranController.php:66
+ * @see app/Http/Controllers/PengeluaranController.php:68
  * @route '/admin/pengeluarans'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\PengeluaranController::store
- * @see app/Http/Controllers/PengeluaranController.php:66
+ * @see app/Http/Controllers/PengeluaranController.php:68
  * @route '/admin/pengeluarans'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\PengeluaranController::store
- * @see app/Http/Controllers/PengeluaranController.php:66
+ * @see app/Http/Controllers/PengeluaranController.php:68
  * @route '/admin/pengeluarans'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -134,7 +134,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\PengeluaranController::update
- * @see app/Http/Controllers/PengeluaranController.php:83
+ * @see app/Http/Controllers/PengeluaranController.php:85
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
 export const update = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -149,7 +149,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\PengeluaranController::update
- * @see app/Http/Controllers/PengeluaranController.php:83
+ * @see app/Http/Controllers/PengeluaranController.php:85
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
 update.url = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions) => {
@@ -182,7 +182,7 @@ update.url = (args: { pengeluaran: number | { id_pengeluaran: number } } | [peng
 
 /**
 * @see \App\Http\Controllers\PengeluaranController::update
- * @see app/Http/Controllers/PengeluaranController.php:83
+ * @see app/Http/Controllers/PengeluaranController.php:85
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
 update.put = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -192,7 +192,7 @@ update.put = (args: { pengeluaran: number | { id_pengeluaran: number } } | [peng
 
     /**
 * @see \App\Http\Controllers\PengeluaranController::update
- * @see app/Http/Controllers/PengeluaranController.php:83
+ * @see app/Http/Controllers/PengeluaranController.php:85
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
     const updateForm = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -207,7 +207,7 @@ update.put = (args: { pengeluaran: number | { id_pengeluaran: number } } | [peng
 
             /**
 * @see \App\Http\Controllers\PengeluaranController::update
- * @see app/Http/Controllers/PengeluaranController.php:83
+ * @see app/Http/Controllers/PengeluaranController.php:85
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
         updateForm.put = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -223,7 +223,7 @@ update.put = (args: { pengeluaran: number | { id_pengeluaran: number } } | [peng
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\PengeluaranController::destroy
- * @see app/Http/Controllers/PengeluaranController.php:100
+ * @see app/Http/Controllers/PengeluaranController.php:102
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
 export const destroy = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -238,7 +238,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\PengeluaranController::destroy
- * @see app/Http/Controllers/PengeluaranController.php:100
+ * @see app/Http/Controllers/PengeluaranController.php:102
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
 destroy.url = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions) => {
@@ -271,7 +271,7 @@ destroy.url = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pen
 
 /**
 * @see \App\Http\Controllers\PengeluaranController::destroy
- * @see app/Http/Controllers/PengeluaranController.php:100
+ * @see app/Http/Controllers/PengeluaranController.php:102
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
 destroy.delete = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -281,7 +281,7 @@ destroy.delete = (args: { pengeluaran: number | { id_pengeluaran: number } } | [
 
     /**
 * @see \App\Http\Controllers\PengeluaranController::destroy
- * @see app/Http/Controllers/PengeluaranController.php:100
+ * @see app/Http/Controllers/PengeluaranController.php:102
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
     const destroyForm = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -296,7 +296,7 @@ destroy.delete = (args: { pengeluaran: number | { id_pengeluaran: number } } | [
 
             /**
 * @see \App\Http\Controllers\PengeluaranController::destroy
- * @see app/Http/Controllers/PengeluaranController.php:100
+ * @see app/Http/Controllers/PengeluaranController.php:102
  * @route '/admin/pengeluarans/{pengeluaran}'
  */
         destroyForm.delete = (args: { pengeluaran: number | { id_pengeluaran: number } } | [pengeluaran: number | { id_pengeluaran: number } ] | number | { id_pengeluaran: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
