@@ -60,20 +60,16 @@ const props = defineProps<{
     filters: Filters;
 }>();
 
-// Tipe yang tergolong modal barang (HPP). Dikecualikan dari Biaya Operasional di
-// Laporan Laba Rugi karena modal produk sudah dihitung lewat batch produksi/HPP —
-// tetap tercatat di Arus Kas sebagai "Belanja Bahan & Produksi".
-const COGS_TIPES = ['bahan_baku', 'kemasan'];
+// Tipe modal barang (HPP). Sengaja TIDAK lagi bisa diinput di sini: bahan baku &
+// kemasan dicatat lewat menu Produksi (batch costing) agar tidak dobel-input antar
+// halaman. Labelnya tetap dipakai untuk menampilkan data lama yang sudah terlanjur ada.
+const LEGACY_COGS_LABELS: Record<string, string> = {
+    bahan_baku: 'Bahan Baku',
+    kemasan: 'Kemasan',
+};
 
-// Dropdown dikelompokkan agar admin paham perbedaan modal barang vs biaya operasional.
+// Hanya biaya operasional yang bisa dipilih untuk entri baru.
 const tipeGroups = [
-    {
-        label: 'Modal Barang (masuk HPP)',
-        options: [
-            { value: 'bahan_baku', label: 'Bahan Baku' },
-            { value: 'kemasan', label: 'Kemasan' },
-        ],
-    },
     {
         label: 'Biaya Operasional',
         options: [
@@ -90,7 +86,25 @@ const tipeGroups = [
     },
 ];
 
-const isModalBarangTipe = computed(() => COGS_TIPES.includes(form.tipe));
+// Saat mengedit pengeluaran lama bertipe modal barang, tampilkan tipenya sebagai
+// grup terpisah supaya nilainya tak hilang — tapi tetap tak tersedia untuk entri baru.
+const tipeOptionGroups = computed(() => {
+    const legacyLabel = LEGACY_COGS_LABELS[form.tipe];
+
+    if (!legacyLabel) {
+        return tipeGroups;
+    }
+
+    return [
+        {
+            label: 'Tipe Lama (kini dicatat via Produksi)',
+            options: [{ value: form.tipe, label: legacyLabel }],
+        },
+        ...tipeGroups,
+    ];
+});
+
+const isLegacyCogsTipe = computed(() => form.tipe in LEGACY_COGS_LABELS);
 
 const periodLabel = computed(() => formatPeriodLabel(props.date_range.start_date, props.date_range.end_date));
 
@@ -421,7 +435,7 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                             class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 px-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                         >
                             <option value="" disabled>Pilih tipe</option>
-                            <optgroup v-for="group in tipeGroups" :key="group.label" :label="group.label">
+                            <optgroup v-for="group in tipeOptionGroups" :key="group.label" :label="group.label">
                                 <option v-for="option in group.options" :key="option.value" :value="option.value">
                                     {{ option.label }}
                                 </option>
@@ -429,10 +443,10 @@ function hapusPengeluaran(pengeluarans: Pengeluaran) {
                         </select>
                         <p v-if="form.errors.tipe" class="mt-2 text-sm text-rose-600">{{ form.errors.tipe }}</p>
                         <p
-                            v-else-if="isModalBarangTipe"
-                            class="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
+                            v-else-if="isLegacyCogsTipe"
+                            class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
                         >
-                            Tipe ini dihitung sebagai <strong>modal/HPP barang</strong>, jadi muncul di laporan <strong>Arus Kas</strong> — bukan di Biaya Operasional Laba Rugi, supaya modal tidak terhitung dua kali.
+                            <strong>Bahan baku &amp; kemasan kini dicatat di menu Produksi</strong> (batch costing), bukan di sini, supaya modal tidak terinput dua kali. Tipe ini hanya tampil karena data lama.
                         </p>
                     </div>
                     <div>

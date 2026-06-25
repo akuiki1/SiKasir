@@ -120,11 +120,20 @@ interface Filters {
     per_page: number;
 }
 
+// Item ringkas untuk cetak barcode lintas halaman (lihat barcode_print di server).
+interface BarcodePrintItem {
+    id_produk: number;
+    nama: string;
+    harga_jual: number;
+    barcode: string;
+}
+
 const props = defineProps<{
     produks: Paginator<Produk>;
     kategoris: Kategori[];
     stats: Stats;
     filters: Filters;
+    barcode_print: BarcodePrintItem[];
 }>();
 
 // Search & filter — semua dikirim ke server (search di-debounce).
@@ -819,7 +828,7 @@ const statusLabel: Record<string, string> = {
 
 // Barcode print
 const showBarcodeModal = ref(false);
-const barcodePrintList = ref<Produk[]>([]);
+const barcodePrintList = ref<BarcodePrintItem[]>([]);
 const barcodeRefs = ref<SVGElement[]>([]);
 // Mode 'single' = cetak per produk (boleh pilih jumlah salinan), 'all' = cetak semua produk.
 const barcodeMode = ref<'single' | 'all'>('single');
@@ -829,7 +838,17 @@ const MAX_BARCODE_COPIES = 200;
 function openPrintBarcode(produk: Produk) {
     barcodeMode.value = 'single';
     barcodeCopies.value = 1;
-    barcodePrintList.value = [produk];
+    // Tombol hanya tampil bila produk punya barcode; petakan ke bentuk cetak ringkas.
+    barcodePrintList.value = produk.barcode
+        ? [
+              {
+                  id_produk: produk.id_produk,
+                  nama: produk.nama,
+                  harga_jual: produk.harga_jual,
+                  barcode: produk.barcode,
+              },
+          ]
+        : [];
     showBarcodeModal.value = true;
     nextTick(() => renderBarcodes());
 }
@@ -837,7 +856,8 @@ function openPrintBarcode(produk: Produk) {
 function openPrintAllBarcodes() {
     barcodeMode.value = 'all';
     barcodeCopies.value = 1;
-    barcodePrintList.value = props.produks.data.filter((p) => p.barcode);
+    // Lintas halaman & mengikuti filter aktif (bukan cuma halaman tabel yang tampil).
+    barcodePrintList.value = props.barcode_print;
     showBarcodeModal.value = true;
     nextTick(() => renderBarcodes());
 }
@@ -1245,7 +1265,7 @@ const statusClass: Record<string, string> = {
                         <!-- Print All Barcodes -->
                         <button
                             class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40"
-                            title="Cetak barcode semua produk yang tampil"
+                            title="Cetak barcode semua produk (sesuai filter aktif, lintas halaman)"
                             @click="openPrintAllBarcodes"
                         >
                             <Printer class="h-4 w-4" />

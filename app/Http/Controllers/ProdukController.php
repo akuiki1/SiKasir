@@ -70,9 +70,27 @@ class ProdukController extends Controller
 
         $kategoris = Kategori::orderBy('nama_kategori')->get(['id_kategori', 'nama_kategori']);
 
+        // Daftar barcode untuk "Cetak Semua Barcode": lintas halaman (bukan cuma
+        // halaman aktif), mengikuti filter pencarian & kategori yang sedang dipakai.
+        // Hanya produk fisik yang sudah punya barcode. Kolom dibatasi seperlunya.
+        $barcodePrint = Produk::where('tipe_jual', '!=', 'jasa')
+            ->whereNotNull('barcode')
+            ->where('barcode', '!=', '')
+            ->when($search !== '', fn ($query) => $query->where('nama', 'like', '%'.$search.'%'))
+            ->when($kategori !== null, fn ($query) => $query->where('id_kategori', $kategori))
+            ->orderBy('nama')
+            ->get(['id_produk', 'nama', 'harga_jual', 'barcode'])
+            ->map(fn (Produk $produk) => [
+                'id_produk' => $produk->id_produk,
+                'nama' => $produk->nama,
+                'harga_jual' => $produk->harga_jual,
+                'barcode' => $produk->barcode,
+            ]);
+
         return Inertia::render('admin/Products', [
             'produks' => $produks,
             'kategoris' => $kategoris,
+            'barcode_print' => $barcodePrint,
             'stats' => [
                 // Agregat lintas halaman — bukan dari data halaman aktif.
                 'total_produk' => Produk::count(),
