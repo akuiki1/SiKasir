@@ -34,6 +34,7 @@ import {
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import type { DirectiveBinding } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import ProductThumb from '@/components/ProductThumb.vue';
 import { useAppearance } from '@/composables/useAppearance';
 import { useCart } from '@/composables/useCart';
 import { useCatalog } from '@/composables/useCatalog';
@@ -669,9 +670,19 @@ const promoCountdown = (berakhirPada: string): string | null => {
 
                     <!-- Slide 1: promo hari ini + foto produk -->
                     <div class="relative h-full w-full shrink-0">
+                        <!-- Banner tunggal: foto promo bila ada, monogram bila produk
+                             promo tanpa foto, atau foto brand bila tak ada promo. -->
+                        <ProductThumb
+                            v-if="promoOfDay"
+                            :src="promoOfDay.foto_url"
+                            :name="promoOfDay.nama"
+                            :alt="promoOfDay.nama"
+                            class="absolute inset-0 h-full w-full object-cover"
+                        />
                         <img
-                            :src="promoOfDay?.foto_url || '/images/hero.png'"
-                            :alt="promoOfDay?.nama || 'Promo Cemilan Mba Tutut'"
+                            v-else
+                            src="/images/hero.png"
+                            alt="Promo Cemilan Mba Tutut"
                             class="absolute inset-0 h-full w-full object-cover"
                         />
                         <div
@@ -952,8 +963,9 @@ const promoCountdown = (berakhirPada: string): string | null => {
                             <div
                                 class="relative mb-4 aspect-square overflow-hidden rounded-3xl bg-[var(--kg-sc)] shadow-sm transition-shadow duration-300 group-hover:shadow-2xl group-hover:shadow-black/10"
                             >
-                                <img
-                                    :src="product.foto_url || '/images/hero.png'"
+                                <ProductThumb
+                                    :src="product.foto_url"
+                                    :name="product.nama"
                                     :alt="product.nama"
                                     loading="lazy"
                                     class="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
@@ -1112,8 +1124,9 @@ const promoCountdown = (berakhirPada: string): string | null => {
                                 class="absolute inset-0 z-10 flex items-center justify-center bg-black/45 text-sm font-bold text-white"
                                 >Stok habis</span
                             >
-                            <img
-                                :src="product.foto_url || '/images/hero.png'"
+                            <ProductThumb
+                                :src="product.foto_url"
+                                :name="product.nama"
                                 :alt="product.nama"
                                 loading="lazy"
                                 class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
@@ -1639,8 +1652,9 @@ const promoCountdown = (berakhirPada: string): string | null => {
                             :key="item.id_produk"
                             class="flex gap-3 rounded-2xl bg-[var(--kg-surface)] p-2.5 ring-1 ring-black/5 dark:ring-white/10"
                         >
-                            <img
-                                :src="item.foto_url || '/images/hero.png'"
+                            <ProductThumb
+                                :src="item.foto_url"
+                                :name="item.nama"
                                 :alt="item.nama"
                                 class="h-20 w-20 shrink-0 rounded-xl object-cover"
                             />
