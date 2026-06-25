@@ -167,15 +167,16 @@ const promoOfDay = computed<Product | BestSeller | null>(() => {
 // Peta inline pakai OpenStreetMap (frameable & tanpa API key; embed Google
 // "output=embed" kini diblokir X-Frame-Options). Tombol "Buka di Google Maps"
 // tetap mengarah ke Google untuk navigasi/arah.
-// Koordinat ≈ Barabai, Hulu Sungai Tengah — sesuaikan bila titik usaha bergeser.
-const LOKASI_LAT = -2.5833;
-const LOKASI_LNG = 115.3833;
+// Koordinat persis toko "Cemilan mba Tutut" (dari pin Google Maps) — sesuaikan
+// bila titik usaha bergeser.
+const LOKASI_LAT = -2.5905603;
+const LOKASI_LNG = 115.361494;
 const ALAMAT =
     'Jl. Putera Harapan, Matang Ginalun, Barabai, Hulu Sungai Tengah, Kalimantan Selatan';
 const mapsEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${
-    LOKASI_LNG - 0.02
-}%2C${LOKASI_LAT - 0.02}%2C${LOKASI_LNG + 0.02}%2C${
-    LOKASI_LAT + 0.02
+    LOKASI_LNG - 0.006
+}%2C${LOKASI_LAT - 0.006}%2C${LOKASI_LNG + 0.006}%2C${
+    LOKASI_LAT + 0.006
 }&layer=mapnik&marker=${LOKASI_LAT}%2C${LOKASI_LNG}`;
 const mapsLinkUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     'Cemilan Mba Tutut ' + ALAMAT,
