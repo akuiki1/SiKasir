@@ -3,8 +3,8 @@ node_modules/
 
 # Build artifacts
 dist/
-build/
-public/build/
+/build/
+# public/build SENGAJA dilacak (di-commit) agar deploy cukup `git pull` tanpa Node di server.
 # Bundle SSR Inertia — artefak build, dihasilkan oleh `npm run build:ssr` saat deploy.
 bootstrap/ssr/
 
@@ -41,3 +41,9 @@ Thumbs.db
 
 # Testing artifacts
 .phpunit.result.cache
+
+# Arsip build untuk upload ke hosting (artefak, bukan sumber)
+build.zip
+
+# Buku panduan/manual + tooling capture (work-in-progress lokal, file besar .docx & screenshot)
+docs/manual/

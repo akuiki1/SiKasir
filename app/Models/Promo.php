@@ -27,6 +27,8 @@ class Promo extends Model
         'deskripsi',
         'tipe',
         'nilai',
+        'beli_qty',
+        'gratis_qty',
         'id_produk',
         'minimal_belanja',
         'tanggal_mulai',
@@ -41,6 +43,8 @@ class Promo extends Model
      */
     protected $casts = [
         'nilai' => 'float',
+        'beli_qty' => 'integer',
+        'gratis_qty' => 'integer',
         'minimal_belanja' => 'float',
         'tanggal_mulai' => 'datetime',
         'tanggal_selesai' => 'datetime',

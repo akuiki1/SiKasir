@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import {
     Search,
     Barcode,
@@ -23,12 +23,16 @@ import {
     Loader2,
     ClipboardList,
     Phone,
+    CheckCircle2,
+    Printer,
 } from 'lucide-vue-next';
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { toast } from 'vue-sonner';
 import Pagination from '@/components/Pagination.vue';
 import { usePagination } from '@/composables/usePagination';
 import { formatRupiah } from '@/lib/format';
+import { printReceipt } from '@/lib/struk';
+import type { StrukData } from '@/lib/struk';
 import { store as kasirTransaksiStore } from '@/routes/kasir/transaksi';
 
 defineOptions({
@@ -62,8 +66,10 @@ interface Promo {
     id_promo: number;
     nama: string;
     deskripsi: string | null;
-    tipe: 'persen' | 'nominal' | 'fix';
+    tipe: 'persen' | 'nominal' | 'bundling';
     nilai: number;
+    beli_qty?: number | null;
+    gratis_qty?: number | null;
     id_produk: number | null;
     minimal_belanja: number | null;
 }
@@ -727,7 +733,45 @@ function calculateItemPromoDiscount(item: CartItem): number {
         return Math.floor(item.subtotal * (promo.nilai / 100));
     }
 
+    if (promo.tipe === 'bundling') {
+        // Beli X gratis Y — hanya produk satuan. Mirror perhitungan backend.
+        const grup = Number(promo.beli_qty ?? 0) + Number(promo.gratis_qty ?? 0);
+
+        if (
+            item.tipe_jual !== 'satuan' ||
+            grup <= 0 ||
+            Number(promo.gratis_qty ?? 0) <= 0
+        ) {
+            return 0;
+        }
+
+        const hargaSatuan = item.qty > 0 ? item.subtotal / item.qty : 0;
+        const gratis =
+            Math.floor(Math.floor(item.qty) / grup) * Number(promo.gratis_qty);
+
+        return Math.floor(gratis * hargaSatuan);
+    }
+
     return Math.floor(promo.nilai * item.qty);
+}
+
+// Label badge promo pada kartu produk (persen / bundling / nominal).
+function productPromoLabel(idProduk: number): string {
+    const promo = activeProductPromos.value.get(idProduk);
+
+    if (!promo) {
+        return '';
+    }
+
+    if (promo.tipe === 'persen') {
+        return `${promo.nilai}%`;
+    }
+
+    if (promo.tipe === 'bundling') {
+        return `Beli ${promo.beli_qty} Gratis ${promo.gratis_qty}`;
+    }
+
+    return 'Promo';
 }
 
 const productPromoDiscount = computed(() => {
@@ -824,6 +868,24 @@ function handleScannerKeydown(event: KeyboardEvent) {
     }
 }
 
+// ===== Modal "Transaksi Selesai" (cetak struk / selesai) =====
+// Setelah transaksi tersimpan, server mengirim flash 'struk' berisi data transaksi
+// yang sudah final (total, diskon, kembalian). Tampilkan modal dengan opsi cetak.
+const showStrukSelesai = ref(false);
+const lastStruk = ref<StrukData | null>(null);
+let stopFlashListener: (() => void) | null = null;
+
+function cetakStruk(): void {
+    if (lastStruk.value) {
+        printReceipt(lastStruk.value);
+    }
+}
+
+function tutupStrukSelesai(): void {
+    showStrukSelesai.value = false;
+    lastStruk.value = null;
+}
+
 onMounted(() => {
     document.addEventListener('keydown', handleScannerKeydown);
     document.addEventListener('mousedown', handlePelangganOutside);
@@ -833,6 +895,16 @@ onMounted(() => {
 
     hid?.addEventListener('connect', handleScannerDeviceConnectionChange);
     hid?.addEventListener('disconnect', handleScannerDeviceConnectionChange);
+
+    stopFlashListener = router.on('flash', (event) => {
+        const flash = (event as CustomEvent).detail?.flash;
+        const struk = flash?.struk as StrukData | undefined;
+
+        if (struk) {
+            lastStruk.value = struk;
+            showStrukSelesai.value = true;
+        }
+    });
 
     // Pra-isi pencarian bila halaman dibuka dari dashboard (tap "Produk Terlaris": /kasir/transaksi?cari=...).
     const cari = new URLSearchParams(window.location.search).get('cari');
@@ -850,6 +922,8 @@ onBeforeUnmount(() => {
 
     hid?.removeEventListener('connect', handleScannerDeviceConnectionChange);
     hid?.removeEventListener('disconnect', handleScannerDeviceConnectionChange);
+
+    stopFlashListener?.();
 });
 
 function scanBarcode(barcode: string): void {
@@ -1135,10 +1209,10 @@ function submitTransaction() {
                             <!-- Badge promo -->
                             <span
                                 v-if="activeProductPromos.get(product.id_produk)"
-                                class="absolute left-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow @lg/cat:left-2 @lg/cat:top-2 @lg/cat:px-2 @lg/cat:text-[10px]"
+                                class="absolute left-1 top-1 inline-flex items-center gap-0.5 whitespace-nowrap rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow @lg/cat:left-2 @lg/cat:top-2 @lg/cat:px-2 @lg/cat:text-[10px]"
                             >
                                 <Percent class="h-2.5 w-2.5" />
-                                {{ activeProductPromos.get(product.id_produk)?.tipe === 'persen' ? `${activeProductPromos.get(product.id_produk)?.nilai}%` : 'Promo' }}
+                                {{ productPromoLabel(product.id_produk) }}
                             </span>
 
                             <!-- Badge qty di keranjang -->
@@ -1780,6 +1854,73 @@ function submitTransaction() {
                 </span>
             </button>
         </div>
+
+        <!-- ============ Modal "Transaksi Selesai" (cetak struk / selesai) ============ -->
+        <Teleport to="body">
+            <div
+                v-if="showStrukSelesai && lastStruk"
+                class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                @click.self="tutupStrukSelesai"
+            >
+                <div
+                    class="w-full max-w-sm rounded-2xl border border-sidebar-border/70 bg-card p-6 text-center shadow-2xl dark:border-sidebar-border"
+                >
+                    <div
+                        class="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    >
+                        <CheckCircle2 class="h-8 w-8" />
+                    </div>
+                    <h2 class="mt-4 text-lg font-bold">Transaksi Selesai</h2>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        {{ lastStruk.kode }} berhasil disimpan.
+                    </p>
+
+                    <div
+                        class="mt-4 space-y-1.5 rounded-xl border border-sidebar-border/70 bg-background p-3.5 text-sm dark:border-sidebar-border"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">Total</span>
+                            <span class="font-bold tabular-nums">{{
+                                formatRupiah(lastStruk.total_harga)
+                            }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">Bayar</span>
+                            <span class="font-medium tabular-nums">{{
+                                formatRupiah(lastStruk.bayar)
+                            }}</span>
+                        </div>
+                        <div
+                            class="flex items-center justify-between border-t border-dashed border-sidebar-border/70 pt-1.5 dark:border-sidebar-border"
+                        >
+                            <span class="font-semibold">Kembalian</span>
+                            <span
+                                class="font-bold tabular-nums text-emerald-600 dark:text-emerald-400"
+                                >{{ formatRupiah(lastStruk.kembalian) }}</span
+                            >
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex flex-col gap-2">
+                        <button
+                            type="button"
+                            class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500"
+                            @click="cetakStruk"
+                        >
+                            <Printer class="h-4 w-4" />
+                            Cetak Struk Belanja
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex w-full cursor-pointer items-center justify-center rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
+                            @click="tutupStrukSelesai"
+                        >
+                            Selesai
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
 

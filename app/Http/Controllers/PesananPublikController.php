@@ -15,7 +15,7 @@ class PesananPublikController extends Controller
      * Nomor WhatsApp toko (tujuan pesan konfirmasi pesanan dari pelanggan).
      * Selaras dengan WHATSAPP_NUMBER di resources/js/pages/Welcome.vue.
      */
-    private const WHATSAPP_TOKO = '6281254744177';
+    private const WHATSAPP_TOKO = '6283114827245';
 
     public function __construct(private readonly PesananService $service) {}
 

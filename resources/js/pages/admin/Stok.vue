@@ -470,10 +470,22 @@ function lihatKartu(produk: ProdukStok): void {
     mutasiSearch.value = produk.nama;
 }
 
-// Deep-link dari hub "Catat": /admin/stok?aksi=masuk langsung membuka form stok masuk.
+// Deep-link dari hub "Catat" / tombol "Tambah Stok" di Data Produk:
+// /admin/stok?aksi=masuk[&produk=ID] buka form stok masuk & (opsional) pilih produk.
 onMounted(() => {
-    if (new URLSearchParams(window.location.search).get('aksi') === 'masuk') {
-        openModal('masuk');
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('aksi') !== 'masuk') {
+        return;
+    }
+
+    openModal('masuk');
+
+    const produkId = Number(params.get('produk'));
+
+    if (produkId && props.produk_options.some((p) => p.id_produk === produkId)) {
+        form.id_produk = produkId;
+        form.clearErrors('id_produk');
     }
 });
 </script>

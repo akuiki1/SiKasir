@@ -27,7 +27,7 @@ test('selling a jasa records only the fee as revenue and stores nominal as pass-
         'items' => [
             ['id_produk' => $transfer->id_produk, 'jumlah' => 1, 'nominal' => 500000, 'fee' => 5000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     // Omzet (total_harga) = fee saja (5.000), BUKAN 505.000. Kembalian = 505.000 - 505.000 = 0.
     $this->assertDatabaseHas('transaksis', [
@@ -97,7 +97,7 @@ test('a mixed cart (product + jasa) totals product subtotal plus fee only', func
             ['id_produk' => $produk->id_produk, 'jumlah' => 2], // 20.000
             ['id_produk' => $transfer->id_produk, 'jumlah' => 1, 'nominal' => 1000000, 'fee' => 4000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     // omzet (total_harga) = 20.000 (produk) + 4.000 (fee) = 24.000 ; nominal 1.000.000 TIDAK dihitung.
     $this->assertDatabaseHas('transaksis', [
@@ -144,7 +144,7 @@ test('a single transaction can mix a regular product and a jasa fee', function (
             ['id_produk' => $produk->id_produk, 'jumlah' => 2],
             ['id_produk' => $transfer->id_produk, 'jumlah' => 1, 'nominal' => 500000, 'fee' => 5000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseCount('transaksis', 1);
     $this->assertDatabaseHas('transaksis', [
@@ -185,7 +185,7 @@ test('jasa change is computed from nominal plus fee, not the fee alone', functio
         'items' => [
             ['id_produk' => $transfer->id_produk, 'jumlah' => 1, 'nominal' => 65000, 'fee' => 3000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', [
         'total_harga' => 3000, // omzet = fee saja

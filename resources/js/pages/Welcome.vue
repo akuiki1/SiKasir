@@ -57,7 +57,7 @@ const toggleTheme = () => {
 };
 
 // Nomor WhatsApp tujuan (admin Cemilan Mba Tutut)
-const WHATSAPP_NUMBER = '6281254744177';
+const WHATSAPP_NUMBER = '6283114827245';
 
 const getWhatsAppLink = (productName: string) => {
     const message = encodeURIComponent(
@@ -153,6 +153,11 @@ const goToSlide = (i: number) => {
     heroSlide.value = i;
     startHeroTimer();
 };
+
+// Navigasi maju/mundur (tombol kiri/kanan). Melingkar & reset timer auto-slide.
+const nextSlide = () => goToSlide((heroSlide.value + 1) % heroSlideCount);
+const prevSlide = () =>
+    goToSlide((heroSlide.value - 1 + heroSlideCount) % heroSlideCount);
 
 // Promo unggulan untuk slide kedua (produk promo pertama dari data nyata).
 const promoOfDay = computed<Product | BestSeller | null>(() => {
@@ -467,7 +472,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
     <Head title="Cemilan Mba Tutut — Snack & Frozen Food Rumahan Barabai">
         <meta
             name="description"
-            content="Cemilan Mba Tutut: keripik, basreng, makaroni & frozen food rumahan khas Barabai. Mayoritas serba 10 ribuan, dibuat fresh tiap hari. Pesan mudah lewat WhatsApp."
+            content="Cemilan Mba Tutut: keripik, basreng, makaroni & frozen food rumahan khas Barabai. Mulai 5 ribuan, dibuat tiap hari. Pesan mudah lewat WhatsApp."
         />
         <meta property="og:type" content="website" />
         <meta
@@ -476,7 +481,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
         />
         <meta
             property="og:description"
-            content="Aneka cemilan serba 10 ribuan & frozen food rumahan khas Barabai. Pesan mudah lewat WhatsApp."
+            content="Aneka cemilan mulai 5 ribuan & frozen food rumahan khas Barabai. Pesan mudah lewat WhatsApp."
         />
         <meta property="og:image" content="/images/hero.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -637,17 +642,17 @@ const promoCountdown = (berakhirPada: string): string | null => {
                                 <h1
                                     class="font-display text-4xl leading-[1.02] font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl"
                                 >
-                                    Ngemil nagih,<br />harga
+                                    Ngemil nagih,<br />mulai
                                     <span class="text-[#ff8a4d] italic"
-                                        >10rb-an.</span
+                                        >5rb-an.</span
                                     >
                                 </h1>
                                 <p
                                     class="mt-5 max-w-md text-sm text-white/85 sm:text-base"
                                 >
                                     Keripik, basreng, makaroni & frozen food
-                                    rumahan. Dibuat fresh tiap hari di Barabai,
-                                    diantar atau ambil di tempat.
+                                    rumahan khas Barabai. Enak, terjangkau,
+                                    bikin nagih.
                                 </p>
                                 <div class="mt-7 flex flex-wrap gap-3">
                                     <a
@@ -763,7 +768,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                                     <h2
                                         class="font-display text-4xl leading-[1.02] font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl"
                                     >
-                                        Serba 10 ribuan,<br />bikin nagih.
+                                        Mulai 5 ribuan,<br />bikin nagih.
                                     </h2>
                                     <div class="mt-7">
                                         <a
@@ -785,7 +790,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                 >
                     <span
                         class="font-display text-2xl font-extrabold text-[#a73a00]"
-                        >10rb</span
+                        >5rb</span
                     >
                     <span
                         class="text-[10px] font-bold tracking-widest text-[#5d5e62] uppercase"
@@ -793,32 +798,42 @@ const promoCountdown = (berakhirPada: string): string | null => {
                     >
                 </div>
 
-                <!-- Dots -->
+                <!-- Kontrol slider: [‹] • • [›] dikelompokkan di tengah-bawah agar tidak
+                     menutupi teks hero, scroll cue (kiri), maupun tombol mengambang (kanan). -->
                 <div
-                    class="absolute bottom-8 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3"
+                    class="absolute bottom-7 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3"
                 >
                     <button
-                        v-for="i in heroSlideCount"
-                        :key="i"
-                        @click="goToSlide(i - 1)"
-                        :aria-label="`Slide ${i}`"
-                        class="h-2 rounded-full transition-all duration-300"
-                        :class="
-                            heroSlide === i - 1
-                                ? 'w-8 bg-white'
-                                : 'w-2 bg-white/50 hover:bg-white/80'
-                        "
-                    ></button>
-                </div>
+                        @click="prevSlide"
+                        aria-label="Slide sebelumnya"
+                        class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur transition-colors hover:bg-white/35 sm:h-10 sm:w-10"
+                    >
+                        <ChevronLeft class="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                    </button>
 
-                <!-- Next -->
-                <button
-                    @click="goToSlide((heroSlide + 1) % heroSlideCount)"
-                    aria-label="Slide berikutnya"
-                    class="absolute right-6 bottom-7 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur transition-colors hover:bg-white/35"
-                >
-                    <ChevronRight class="h-5 w-5" />
-                </button>
+                    <div class="flex items-center gap-2">
+                        <button
+                            v-for="i in heroSlideCount"
+                            :key="i"
+                            @click="goToSlide(i - 1)"
+                            :aria-label="`Slide ${i}`"
+                            class="h-2 rounded-full transition-all duration-300"
+                            :class="
+                                heroSlide === i - 1
+                                    ? 'w-8 bg-white'
+                                    : 'w-2 bg-white/50 hover:bg-white/80'
+                            "
+                        ></button>
+                    </div>
+
+                    <button
+                        @click="nextSlide"
+                        aria-label="Slide berikutnya"
+                        class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur transition-colors hover:bg-white/35 sm:h-10 sm:w-10"
+                    >
+                        <ChevronRight class="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                    </button>
+                </div>
 
                 <!-- Scroll cue -->
                 <a
@@ -875,7 +890,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                             <p
                                 class="mt-1 text-sm text-[var(--kg-sec)] md:mt-2 md:text-base"
                             >
-                                Resep keluarga, tanpa pengawet. Dibuat fresh dalam
+                                Resep keluarga, tanpa pengawet. Dibuat dalam
                                 jumlah terbatas tiap hari.
                             </p>
                         </div>
@@ -918,7 +933,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                             <h3
                                 class="font-display text-base leading-tight font-bold md:text-2xl"
                             >
-                                Serba 10 ribuan
+                                Mulai 5 ribuan
                             </h3>
                             <p
                                 class="mt-1 text-sm text-[var(--kg-sec)] md:mt-2 md:text-base"
@@ -1309,7 +1324,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                                 <div>
                                     <p class="font-bold">Kontak</p>
                                     <p class="text-sm text-[var(--kg-sec)]">
-                                        +62 812-5474-4177 (WhatsApp)
+                                        +62 831-1482-7245 (WhatsApp)
                                     </p>
                                 </div>
                             </li>
@@ -1480,8 +1495,8 @@ const promoCountdown = (berakhirPada: string): string | null => {
                             >
                         </div>
                         <p class="mt-4 max-w-sm text-sm text-[var(--kg-sec)]">
-                            UMKM asal Barabai yang menyajikan aneka cemilan serba
-                            10 ribuan, kue kering, dan frozen food rumahan. Enak,
+                            UMKM asal Barabai yang menyajikan aneka cemilan mulai 5
+                            ribuan, kue kering, dan frozen food rumahan. Enak,
                             terjangkau, dan bikin nagih.
                         </p>
                         <div class="mt-6 flex gap-3">
@@ -1555,7 +1570,7 @@ const promoCountdown = (berakhirPada: string): string | null => {
                                 <PhoneCall
                                     class="h-4 w-4 shrink-0 text-[var(--kg-primary)]"
                                 />
-                                <span>+62 812-5474-4177</span>
+                                <span>+62 831-1482-7245</span>
                             </li>
                             <li class="flex items-center gap-2">
                                 <Instagram

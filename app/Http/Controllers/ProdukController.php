@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Kategori;
 use App\Models\Produk;
+use App\Models\Promo;
 use App\Models\TarifJasa;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -43,7 +45,7 @@ class ProdukController extends Controller
             ->orderBy($sortColumn, $sortDir)
             ->paginate($this->resolvePerPage($request))
             ->withQueryString()
-            ->through(function (Produk $produk) {
+            ->through(function (Produk $produk) use ($view) {
                 return [
                     'id_produk' => $produk->id_produk,
                     'nama' => $produk->nama,
@@ -62,6 +64,9 @@ class ProdukController extends Controller
                     'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
                     'status_stok' => $produk->status_stok,
                     'archived_at' => $produk->deleted_at?->translatedFormat('d M Y'),
+                    // Hanya produk arsip TANPA riwayat (transaksi/produksi/pesanan) yang
+                    // boleh dihapus permanen. Untuk tampilan aktif tak relevan.
+                    'bisa_hapus' => $view === 'arsip' ? ! $this->produkPunyaRiwayat($produk) : false,
                     // Tarif fee bertingkat untuk produk jasa (kosong untuk produk lain).
                     'tarifs' => $produk->tarifJasas
                         ->map(fn (TarifJasa $tarif) => [
@@ -186,6 +191,16 @@ class ProdukController extends Controller
         if ((float) $produk->stok != 0.0) {
             $produk->catatMutasiStok(0, (float) $produk->stok, (float) $produk->stok, 'awal', [
                 'keterangan' => 'Stok awal saat produk dibuat',
+            ]);
+        }
+
+        // Produk "buatan sendiri" dibuat tanpa stok & modal (keduanya berasal dari
+        // catatan Produksi). Beritahu frontend agar menawarkan lanjut ke menu Produksi.
+        if ($produk->jenis === 'produksi') {
+            Inertia::flash('produk_baru', [
+                'id' => $produk->id_produk,
+                'nama' => $produk->nama,
+                'jenis' => $produk->jenis,
             ]);
         }
 
@@ -346,5 +361,49 @@ class ProdukController extends Controller
 
         return redirect()->route('admin.products', ['view' => 'arsip'])
             ->with('success', 'Produk berhasil dipulihkan.');
+    }
+
+    /**
+     * Apakah produk sudah pernah dipakai pada riwayat bisnis (transaksi/produksi/
+     * pesanan)? Ketiganya FK restrictOnDelete — produk seperti ini wajib tetap
+     * diarsipkan agar laporan & riwayat tidak rusak, tidak boleh dihapus permanen.
+     */
+    private function produkPunyaRiwayat(Produk $produk): bool
+    {
+        return $produk->detailTransaksis()->exists()
+            || $produk->produksis()->exists()
+            || DB::table('pesanan_items')->where('id_produk', $produk->id_produk)->exists();
+    }
+
+    /**
+     * Hapus PERMANEN produk yang diarsipkan. Hanya untuk produk salah input /
+     * duplikat yang BELUM pernah dipakai — produk dengan riwayat tetap diarsipkan
+     * (dijaga juga oleh FK restrictOnDelete di level DB).
+     */
+    public function hapusPermanen(int $produk): RedirectResponse
+    {
+        $produk = Produk::onlyTrashed()->findOrFail($produk);
+
+        if ($this->produkPunyaRiwayat($produk)) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'Produk ini sudah pernah dipakai di transaksi/produksi/pesanan, jadi tidak bisa dihapus permanen. Biarkan tetap diarsipkan agar laporan tidak rusak.',
+            ]);
+
+            return back();
+        }
+
+        DB::transaction(function () use ($produk): void {
+            // Bersihkan jejak yang TIDAK memblokir agar tak menyisakan data yatim:
+            // kartu stok (saldo awal) & promo khusus produk ini. Tarif jasa ikut
+            // terhapus otomatis (FK cascade).
+            $produk->stokMutasis()->delete();
+            Promo::where('id_produk', $produk->id_produk)->delete();
+
+            $produk->forceDelete();
+        });
+
+        return redirect()->route('admin.products', ['view' => 'arsip'])
+            ->with('success', 'Produk berhasil dihapus permanen.');
     }
 }

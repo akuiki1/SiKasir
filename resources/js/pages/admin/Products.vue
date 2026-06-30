@@ -36,6 +36,7 @@ import {
     ScanLine,
     Check,
     Upload,
+    Lock,
 } from 'lucide-vue-next';
 import {
     ref,
@@ -99,6 +100,8 @@ interface Produk {
     tarifs?: TarifJasa[];
     // Tanggal arsip (terisi hanya di tampilan Arsip).
     archived_at?: string | null;
+    // Boleh dihapus permanen? (true hanya di Arsip & tanpa riwayat transaksi/produksi/pesanan).
+    bisa_hapus?: boolean;
 }
 
 interface Stats {
@@ -194,8 +197,27 @@ function handleClickOutsideFilter(event: MouseEvent) {
     }
 }
 
+// Dengarkan flash 'produk_baru' (dikirim server saat produk produksi dibuat) untuk
+// memunculkan modal sukses + tawaran lanjut ke menu Produksi.
+let stopFlashListener: (() => void) | null = null;
+
 onMounted(() => {
     document.addEventListener('mousedown', handleClickOutsideFilter);
+
+    stopFlashListener = router.on('flash', (event) => {
+        const flash = (event as CustomEvent).detail?.flash;
+        const produkBaru = flash?.produk_baru as
+            | { id: number; nama: string; jenis: string }
+            | undefined;
+
+        if (produkBaru && produkBaru.jenis === 'produksi') {
+            newProduksiProduk.value = {
+                id: produkBaru.id,
+                nama: produkBaru.nama,
+            };
+            showProduksiSuccess.value = true;
+        }
+    });
 });
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -521,6 +543,25 @@ function closeModal() {
     form.clearErrors();
 }
 
+// Modal "Produk berhasil dibuat" untuk produk buatan sendiri (jenis produksi).
+// Stok & harga modal produk produksi tidak diisi di form ini — keduanya berasal
+// dari catatan Produksi (batch costing), jadi tawarkan lanjut ke menu Produksi.
+const showProduksiSuccess = ref(false);
+const newProduksiProduk = ref<{ id: number; nama: string } | null>(null);
+
+function lanjutKeProduksi() {
+    const id = newProduksiProduk.value?.id;
+    showProduksiSuccess.value = false;
+    router.visit(
+        `/admin/produksi?aksi=tambah${id ? `&produk=${id}` : ''}`,
+    );
+}
+
+function tutupProduksiSuccess() {
+    showProduksiSuccess.value = false;
+    newProduksiProduk.value = null;
+}
+
 function handleFileUpload(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0] ?? null;
@@ -666,6 +707,7 @@ onBeforeUnmount(() => {
     stopScannerListening();
     setFotoUploadPreview(null);
     document.removeEventListener('mousedown', handleClickOutsideFilter);
+    stopFlashListener?.();
 });
 
 const lastGeneratedSku = ref('');
@@ -851,6 +893,34 @@ function pulihkanProduk(produk: Produk) {
         {},
         { preserveScroll: true },
     );
+}
+
+// Hapus permanen (force delete) produk arsip yang belum pernah dipakai. Backend tetap
+// menolak bila ternyata ada riwayat (pertahanan berlapis).
+function hapusPermanenProduk(produk: Produk) {
+    if (
+        !confirm(
+            `Hapus PERMANEN produk "${produk.nama}"? Tindakan ini tidak bisa dibatalkan. Pakai hanya untuk produk salah input / duplikat yang belum pernah terjual atau diproduksi.`,
+        )
+    ) {
+        return;
+    }
+
+    router.delete(`/admin/products/${produk.id_produk}/force`, {
+        preserveScroll: true,
+    });
+}
+
+// Aksi kontekstual sesuai jenis produk: "Buatan Sendiri" → catat produksi,
+// "Beli Jadi" → tambah stok. Admin tak perlu paham menu Stok/Produksi.
+function aksiStokProduk(produk: Produk) {
+    if (produk.jenis === 'produksi') {
+        router.visit(`/admin/produksi?aksi=tambah&produk=${produk.id_produk}`);
+
+        return;
+    }
+
+    router.visit(`/admin/stok?aksi=masuk&produk=${produk.id_produk}`);
 }
 
 const statusLabel: Record<string, string> = {
@@ -1551,7 +1621,7 @@ const statusClass: Record<string, string> = {
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <!-- Tampilan Arsip: hanya tombol Pulihkan -->
+                                <!-- Tampilan Arsip: Pulihkan + Hapus Permanen -->
                                 <div
                                     v-if="isArsipView"
                                     class="inline-flex items-center justify-end gap-2"
@@ -1568,12 +1638,59 @@ const statusClass: Record<string, string> = {
                                         <ArchiveRestore class="h-3.5 w-3.5" />
                                         Pulihkan
                                     </button>
+                                    <!-- Hapus permanen: aktif hanya untuk produk tanpa riwayat -->
+                                    <button
+                                        v-if="produk.bisa_hapus"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-500/20 dark:text-rose-400"
+                                        @click="hapusPermanenProduk(produk)"
+                                    >
+                                        <Trash2 class="h-3.5 w-3.5" />
+                                        Hapus Permanen
+                                    </button>
+                                    <span
+                                        v-else
+                                        class="inline-flex cursor-help items-center gap-1.5 rounded-lg border border-sidebar-border/70 bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground dark:border-sidebar-border"
+                                        title="Tidak bisa dihapus permanen karena produk ini sudah pernah dipakai di transaksi, produksi, atau pesanan. Biarkan diarsipkan agar laporan tetap utuh."
+                                    >
+                                        <Lock class="h-3.5 w-3.5" />
+                                        Terkunci
+                                    </span>
                                 </div>
-                                <!-- Tampilan Aktif: cetak / edit / arsipkan -->
+                                <!-- Tampilan Aktif: aksi stok/produksi + cetak / edit / arsipkan -->
                                 <div
                                     v-else
-                                    class="inline-flex justify-end gap-2"
+                                    class="inline-flex items-center justify-end gap-2"
                                 >
+                                    <!-- Aksi kontekstual: ikut jenis produk (jasa tak punya stok) -->
+                                    <button
+                                        v-if="produk.tipe_jual !== 'jasa'"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors"
+                                        :class="
+                                            produk.jenis === 'produksi'
+                                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-400'
+                                                : 'border-sky-500/30 bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 dark:text-sky-400'
+                                        "
+                                        :title="
+                                            produk.jenis === 'produksi'
+                                                ? 'Catat batch produksi (stok & modal dihitung otomatis)'
+                                                : 'Tambah stok masuk (restock dari supplier)'
+                                        "
+                                        @click="aksiStokProduk(produk)"
+                                    >
+                                        <component
+                                            :is="
+                                                produk.jenis === 'produksi'
+                                                    ? ChefHat
+                                                    : PackagePlus
+                                            "
+                                            class="h-3.5 w-3.5"
+                                        />
+                                        {{
+                                            produk.jenis === 'produksi'
+                                                ? 'Catat Produksi'
+                                                : 'Tambah Stok'
+                                        }}
+                                    </button>
                                     <button
                                         v-if="produk.barcode"
                                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-zinc-800"
@@ -2289,7 +2406,7 @@ const statusClass: Record<string, string> = {
                                     </div>
                                 </div>
 
-                                <!-- Info modal produksi -->
+                                <!-- Info modal & stok produksi -->
                                 <div
                                     v-if="form.jenis !== 'beli'"
                                     class="flex items-start gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3.5 py-2.5 text-xs text-muted-foreground"
@@ -2298,15 +2415,16 @@ const statusClass: Record<string, string> = {
                                         class="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500"
                                     />
                                     <span
-                                        >Modal produk ini dihitung otomatis
-                                        lewat menu <strong>Produksi</strong>,
-                                        jadi tidak perlu diisi manual.</span
+                                        ><strong>Harga modal &amp; stok</strong>
+                                        produk buatan sendiri dihitung otomatis
+                                        lewat menu <strong>Produksi</strong> (catat
+                                        batch), jadi tidak perlu diisi di sini.</span
                                     >
                                 </div>
 
                                 <div class="grid gap-4 sm:grid-cols-2">
-                                    <!-- Stok -->
-                                    <div>
+                                    <!-- Stok (produk buatan sendiri: diisi lewat menu Produksi) -->
+                                    <div v-if="form.jenis === 'beli'">
                                         <label
                                             class="mb-1.5 block text-sm font-medium"
                                             for="prod-stok"
@@ -2727,5 +2845,51 @@ const statusClass: Record<string, string> = {
                 </div>
             </div>
         </Transition>
+    </BodyTeleport>
+
+    <!-- Modal sukses: produk buatan sendiri berhasil dibuat → tawaran isi modal & stok -->
+    <BodyTeleport>
+        <div
+            v-if="showProduksiSuccess"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            @click.self="tutupProduksiSuccess"
+        >
+            <div
+                class="w-full max-w-md rounded-2xl border border-sidebar-border/70 bg-card p-6 text-center shadow-2xl dark:border-sidebar-border"
+            >
+                <div
+                    class="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                >
+                    <Check class="h-7 w-7" />
+                </div>
+                <h2 class="mt-4 text-lg font-bold">Produk berhasil dibuat 🎉</h2>
+                <p class="mt-1.5 text-sm text-muted-foreground">
+                    <strong class="text-foreground">{{
+                        newProduksiProduk?.nama
+                    }}</strong>
+                    sudah tersimpan. Ingin menambahkan
+                    <strong class="text-foreground">harga modal &amp; stok</strong>
+                    sekarang lewat catatan Produksi?
+                </p>
+
+                <div class="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
+                    <button
+                        type="button"
+                        class="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500"
+                        @click="lanjutKeProduksi"
+                    >
+                        <ChefHat class="h-4 w-4" />
+                        Ya, catat produksi
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex flex-1 cursor-pointer items-center justify-center rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
+                        @click="tutupProduksiSuccess"
+                    >
+                        Nanti saja
+                    </button>
+                </div>
+            </div>
+        </div>
     </BodyTeleport>
 </template>

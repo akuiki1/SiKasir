@@ -39,7 +39,7 @@ test('fee jasa dihitung otomatis dari tarif sesuai nominal', function () {
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 75000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', ['total_harga' => 3000]);
     $this->assertDatabaseHas('detail_transaksis', [
@@ -61,7 +61,7 @@ test('fee dari client diabaikan, backend memakai tarif tabel', function () {
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 75000, 'fee' => 999],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     // Fee tersimpan = 3.000 (tarif), BUKAN 999 (kiriman client).
     $this->assertDatabaseHas('detail_transaksis', [
@@ -83,7 +83,7 @@ test('nominal tepat di batas bawah masuk ke tingkat yang lebih tinggi', function
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 50000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', ['total_harga' => 3000]);
 });
@@ -98,7 +98,7 @@ test('nominal besar memakai tarif tingkat tertinggi', function () {
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 1000000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', ['total_harga' => 5000]);
 });
@@ -118,7 +118,7 @@ test('nominal di bawah tarif terendah memakai tarif terendah', function () {
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 5000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', ['total_harga' => 1000]);
 });
@@ -133,7 +133,7 @@ test('jasa tanpa tarif tetap memakai fee manual', function () {
         'items' => [
             ['id_produk' => $jasa->id_produk, 'jumlah' => 1, 'nominal' => 200000, 'fee' => 7000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('detail_transaksis', [
         'id_produk' => $jasa->id_produk,

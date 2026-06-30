@@ -52,8 +52,11 @@ interface Promo {
     id_promo: number;
     nama: string;
     deskripsi: string | null;
-    tipe: 'persen' | 'nominal';
+    // 'persen' hanya untuk promo lama (tak bisa dibuat baru); 'bundling' = beli X gratis Y.
+    tipe: 'persen' | 'nominal' | 'bundling';
     nilai: number;
+    beli_qty: number | null;
+    gratis_qty: number | null;
     id_produk: number | null;
     produk_nama: string;
     minimal_belanja: number | null;
@@ -191,8 +194,10 @@ const editingPromo = ref<Promo | null>(null);
 const form = useForm({
     nama: '',
     deskripsi: '',
-    tipe: 'persen' as 'persen' | 'nominal',
+    tipe: 'nominal' as 'persen' | 'nominal' | 'bundling',
     nilai: '',
+    beli_qty: '',
+    gratis_qty: '',
     id_produk: '',
     minimal_belanja: '',
     tanggal_mulai: '',
@@ -263,8 +268,22 @@ const promoPreview = computed(() => {
     const modal = Number(produk.harga_modal) || 0;
     const nilai = Number(form.nilai) || 0;
 
-    let hargaSetelah = form.tipe === 'persen' ? hargaJual * (1 - nilai / 100) : hargaJual - nilai;
-    hargaSetelah = Math.max(0, Math.round(hargaSetelah));
+    // Bundling: harga efektif rata-rata per unit dalam 1 paket (beli + gratis).
+    const isBundling = form.tipe === 'bundling';
+    const beli = Number(form.beli_qty) || 0;
+    const gratis = Number(form.gratis_qty) || 0;
+    const grup = beli + gratis;
+    const diskonPersen = grup > 0 ? (gratis / grup) * 100 : 0;
+
+    let hargaSetelah: number;
+
+    if (isBundling) {
+        hargaSetelah = grup > 0 ? Math.round((hargaJual * beli) / grup) : hargaJual;
+    } else if (form.tipe === 'persen') {
+        hargaSetelah = Math.max(0, Math.round(hargaJual * (1 - nilai / 100)));
+    } else {
+        hargaSetelah = Math.max(0, Math.round(hargaJual - nilai));
+    }
 
     const labaSetelah = hargaSetelah - modal;
     const marginSetelah = hargaSetelah > 0 ? (labaSetelah / hargaSetelah) * 100 : -100;
@@ -297,6 +316,11 @@ const promoPreview = computed(() => {
         labaSetelah,
         marginSetelah,
         status,
+        isBundling,
+        beli,
+        gratis,
+        grup,
+        diskonPersen,
     };
 });
 
@@ -306,7 +330,7 @@ function openTambah() {
     pickingProduk.value = false;
     produkSearch.value = '';
     form.aktif = true;
-    form.tipe = 'persen';
+    form.tipe = 'nominal';
     // set default dates to now and next week
     const now = new Date();
     const nextWeek = new Date();
@@ -324,6 +348,8 @@ function openEdit(promo: Promo) {
     form.deskripsi = promo.deskripsi || '';
     form.tipe = promo.tipe;
     form.nilai = String(promo.nilai);
+    form.beli_qty = promo.beli_qty != null ? String(promo.beli_qty) : '';
+    form.gratis_qty = promo.gratis_qty != null ? String(promo.gratis_qty) : '';
     form.id_produk = promo.id_produk ? String(promo.id_produk) : '';
     form.minimal_belanja = promo.minimal_belanja ? String(promo.minimal_belanja) : '';
     form.tanggal_mulai = promo.tanggal_mulai.replace(' ', 'T').slice(0, 16);
@@ -341,9 +367,14 @@ function closeModal() {
 }
 
 function submitForm() {
+    const isBundling = form.tipe === 'bundling';
+
     const data = {
         ...form.data(),
-        nilai: Number(form.nilai),
+        // Bundling tak memakai nilai rupiah (diisi 0); nominal memakai nilai.
+        nilai: isBundling ? 0 : Number(form.nilai),
+        beli_qty: isBundling ? Number(form.beli_qty) : null,
+        gratis_qty: isBundling ? Number(form.gratis_qty) : null,
         id_produk: form.id_produk ? Number(form.id_produk) : null,
         minimal_belanja: form.minimal_belanja ? Number(form.minimal_belanja) : null,
         aktif: Boolean(form.aktif),
@@ -533,6 +564,9 @@ onMounted(() => {
                                 <span v-if="promo.tipe === 'persen'" class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                                     <Percent class="h-4 w-4" /> {{ promo.nilai }}%
                                 </span>
+                                <span v-else-if="promo.tipe === 'bundling'" class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                    <Boxes class="h-4 w-4" /> Beli {{ promo.beli_qty }} Gratis {{ promo.gratis_qty }}
+                                </span>
                                 <span v-else class="text-indigo-600 dark:text-indigo-400">
                                     {{ formatRupiah(promo.nilai) }}
                                 </span>
@@ -658,7 +692,7 @@ onMounted(() => {
                         </p>
                     </div>
 
-                    <!-- Tipe & Nilai -->
+                    <!-- Tipe & Nilai / Bundling -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="mb-1.5 block text-sm font-medium" for="promo-tipe">
@@ -670,14 +704,23 @@ onMounted(() => {
                                 class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                                 :class="{ 'border-rose-500': form.errors.tipe }"
                             >
-                                <option value="persen">Persentase (%)</option>
+                                <!-- Persen hanya tampil untuk promo lama; tidak bisa dipilih untuk promo baru. -->
+                                <option v-if="form.tipe === 'persen'" value="persen" disabled>
+                                    Persentase (lama)
+                                </option>
                                 <option value="nominal">Nominal (Rp)</option>
+                                <option value="bundling">Bundling (beli X gratis Y)</option>
                             </select>
-                            <p v-if="form.errors.tipe" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                            <p v-if="form.tipe === 'persen'" class="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                                <AlertCircle class="h-3 w-3" />Promo persen tidak lagi tersedia. Pilih Nominal atau Bundling untuk menyimpan.
+                            </p>
+                            <p v-else-if="form.errors.tipe" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
                                 <AlertCircle class="h-3 w-3" />{{ form.errors.tipe }}
                             </p>
                         </div>
-                        <div>
+
+                        <!-- Nilai diskon (nominal / persen lama) -->
+                        <div v-if="form.tipe !== 'bundling'">
                             <label class="mb-1.5 block text-sm font-medium" for="promo-nilai">
                                 Nilai Diskon
                             </label>
@@ -694,6 +737,57 @@ onMounted(() => {
                                 <AlertCircle class="h-3 w-3" />{{ form.errors.nilai }}
                             </p>
                         </div>
+
+                        <!-- Bundling: beli X gratis Y -->
+                        <div v-else class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="mb-1.5 block text-sm font-medium" for="promo-beli">
+                                    Beli
+                                </label>
+                                <input
+                                    id="promo-beli"
+                                    v-model="form.beli_qty"
+                                    type="number"
+                                    min="1"
+                                    placeholder="5"
+                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                    :class="{ 'border-rose-500': form.errors.beli_qty }"
+                                />
+                                <p v-if="form.errors.beli_qty" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                    <AlertCircle class="h-3 w-3" />{{ form.errors.beli_qty }}
+                                </p>
+                            </div>
+                            <div>
+                                <label class="mb-1.5 block text-sm font-medium" for="promo-gratis">
+                                    Gratis
+                                </label>
+                                <input
+                                    id="promo-gratis"
+                                    v-model="form.gratis_qty"
+                                    type="number"
+                                    min="1"
+                                    placeholder="1"
+                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                    :class="{ 'border-rose-500': form.errors.gratis_qty }"
+                                />
+                                <p v-if="form.errors.gratis_qty" class="mt-1 flex items-center gap-1 text-xs text-rose-600">
+                                    <AlertCircle class="h-3 w-3" />{{ form.errors.gratis_qty }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Catatan bundling: wajib produk spesifik -->
+                    <div
+                        v-if="form.tipe === 'bundling'"
+                        class="flex items-start gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3.5 py-2.5 text-xs text-muted-foreground"
+                    >
+                        <Info class="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                        <span>
+                            Promo bundling berlaku untuk <strong>satu produk tertentu</strong> (item
+                            gratis adalah produk yang sama). Pilih produknya di bawah —
+                            <strong>Semua Produk</strong> tidak berlaku untuk bundling.
+                        </span>
                     </div>
 
                     <!-- Berlaku Untuk Produk: pemilih dengan pencarian -->
@@ -742,8 +836,9 @@ onMounted(() => {
                                 />
                             </div>
 
-                            <!-- Opsi cepat: Semua Produk -->
+                            <!-- Opsi cepat: Semua Produk (tidak berlaku untuk bundling) -->
                             <button
+                                v-if="form.tipe !== 'bundling'"
                                 type="button"
                                 class="mt-2 flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-indigo-500/30 hover:bg-indigo-500/5"
                                 @click="pilihSemuaProduk"
@@ -793,6 +888,21 @@ onMounted(() => {
                         v-if="promoPreview"
                         class="rounded-lg border border-sidebar-border/70 bg-slate-50/50 p-4 text-sm dark:border-sidebar-border dark:bg-zinc-800/20"
                     >
+                        <!-- Ringkasan bundling (beli X gratis Y) -->
+                        <div
+                            v-if="promoPreview.isBundling && promoPreview.grup > 0"
+                            class="mb-3 flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-300"
+                        >
+                            <Boxes class="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>
+                                Tiap beli <strong>{{ promoPreview.grup }}</strong>
+                                ({{ promoPreview.beli }} + {{ promoPreview.gratis }} gratis),
+                                pelanggan hanya membayar <strong>{{ promoPreview.beli }}</strong> —
+                                setara diskon <strong>{{ promoPreview.diskonPersen.toFixed(0) }}%</strong>.
+                                Angka di bawah memakai harga rata-rata per unit dalam paket.
+                            </span>
+                        </div>
+
                         <!-- Produk jasa: tak punya modal barang -->
                         <div
                             v-if="promoPreview.kind === 'jasa'"

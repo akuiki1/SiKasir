@@ -164,7 +164,7 @@ test('kasir can store a new transaksi and decrement stock', function () {
         ],
     ]);
 
-    $response->assertRedirect(route('kasir.riwayat'));
+    $response->assertRedirect(route('kasir.transaksi'));
     $this->assertDatabaseHas('transaksis', [
         'id_user' => $kasir->id,
         'total_harga' => 20000,
@@ -200,13 +200,46 @@ test('kasir can apply a global promo when storing transaksi', function () {
         ],
     ]);
 
-    $response->assertRedirect(route('kasir.riwayat'));
+    $response->assertRedirect(route('kasir.transaksi'));
     $this->assertDatabaseHas('transaksis', [
         'id_user' => $kasir->id,
         'id_promo' => $promo->id_promo,
         'total_harga' => 16000,
         'diskon' => 4000,
         'kembalian' => 34000,
+    ]);
+});
+
+test('kasir bundling promo gives free items by multiple', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 12, 'tipe_jual' => 'satuan']);
+    // Beli 5 gratis 1 (kelipatan 6) untuk produk ini.
+    Promo::factory()->create([
+        'tipe' => 'bundling',
+        'nilai' => 0,
+        'beli_qty' => 5,
+        'gratis_qty' => 1,
+        'id_produk' => $produk->id_produk,
+        'aktif' => true,
+        'tanggal_mulai' => now()->subDay(),
+        'tanggal_selesai' => now()->addDay(),
+    ]);
+
+    // Beli 6 → 1 gratis → diskon 10.000; total = 50.000.
+    $response = $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
+        'metode_pembayaran' => 'cash',
+        'bayar' => 60000,
+        'items' => [
+            ['id_produk' => $produk->id_produk, 'jumlah' => 6],
+        ],
+    ]);
+
+    $response->assertRedirect(route('kasir.transaksi'));
+    $this->assertDatabaseHas('transaksis', [
+        'id_user' => $kasir->id,
+        'total_harga' => 50000,
+        'diskon' => 10000,
+        'kembalian' => 10000,
     ]);
 });
 

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\KasirController::cari
- * @see app/Http/Controllers/KasirController.php:294
+ * @see app/Http/Controllers/KasirController.php:298
  * @route '/kasir/pelanggan/cari'
  */
 export const cari = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ cari.definition = {
 
 /**
 * @see \App\Http\Controllers\KasirController::cari
- * @see app/Http/Controllers/KasirController.php:294
+ * @see app/Http/Controllers/KasirController.php:298
  * @route '/kasir/pelanggan/cari'
  */
 cari.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ cari.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\KasirController::cari
- * @see app/Http/Controllers/KasirController.php:294
+ * @see app/Http/Controllers/KasirController.php:298
  * @route '/kasir/pelanggan/cari'
  */
 cari.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ cari.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\KasirController::cari
- * @see app/Http/Controllers/KasirController.php:294
+ * @see app/Http/Controllers/KasirController.php:298
  * @route '/kasir/pelanggan/cari'
  */
 cari.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ cari.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\KasirController::cari
- * @see app/Http/Controllers/KasirController.php:294
+ * @see app/Http/Controllers/KasirController.php:298
  * @route '/kasir/pelanggan/cari'
  */
     const cariForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ cari.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\KasirController::cari
- * @see app/Http/Controllers/KasirController.php:294
+ * @see app/Http/Controllers/KasirController.php:298
  * @route '/kasir/pelanggan/cari'
  */
         cariForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ cari.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\KasirController::cari
- * @see app/Http/Controllers/KasirController.php:294
+ * @see app/Http/Controllers/KasirController.php:298
  * @route '/kasir/pelanggan/cari'
  */
         cariForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

@@ -22,15 +22,15 @@ test('admin can view promos page with data', function () {
     );
 });
 
-test('admin can create a new promo', function () {
+test('admin can create a new nominal promo', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $produk = Produk::factory()->create();
 
     $response = $this->actingAs($admin)->post(route('admin.promos.store'), [
         'nama' => 'Promo Weekend',
         'deskripsi' => 'Diskon akhir pekan',
-        'tipe' => 'persen',
-        'nilai' => 15,
+        'tipe' => 'nominal',
+        'nilai' => 15000,
         'id_produk' => $produk->id_produk,
         'minimal_belanja' => 50000,
         'tanggal_mulai' => now()->format('Y-m-d H:i'),
@@ -41,12 +41,76 @@ test('admin can create a new promo', function () {
     $response->assertRedirect(route('admin.promos'));
     $this->assertDatabaseHas('promos', [
         'nama' => 'Promo Weekend',
-        'tipe' => 'persen',
-        'nilai' => 15,
+        'tipe' => 'nominal',
+        'nilai' => 15000,
         'id_produk' => $produk->id_produk,
         'minimal_belanja' => 50000,
         'aktif' => true,
     ]);
+});
+
+test('admin can create a bundling promo', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $produk = Produk::factory()->create(['tipe_jual' => 'satuan']);
+
+    $response = $this->actingAs($admin)->post(route('admin.promos.store'), [
+        'nama' => 'Beli 5 Gratis 1',
+        'deskripsi' => 'Paket bundling',
+        'tipe' => 'bundling',
+        'beli_qty' => 5,
+        'gratis_qty' => 1,
+        'id_produk' => $produk->id_produk,
+        'tanggal_mulai' => now()->format('Y-m-d H:i'),
+        'tanggal_selesai' => now()->addDays(2)->format('Y-m-d H:i'),
+        'aktif' => true,
+    ]);
+
+    $response->assertRedirect(route('admin.promos'));
+    $this->assertDatabaseHas('promos', [
+        'nama' => 'Beli 5 Gratis 1',
+        'tipe' => 'bundling',
+        'beli_qty' => 5,
+        'gratis_qty' => 1,
+        'nilai' => 0,
+        'id_produk' => $produk->id_produk,
+    ]);
+});
+
+test('bundling promo requires a specific product', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)
+        ->from(route('admin.promos'))
+        ->post(route('admin.promos.store'), [
+            'nama' => 'Bundling Tanpa Produk',
+            'tipe' => 'bundling',
+            'beli_qty' => 5,
+            'gratis_qty' => 1,
+            'id_produk' => null,
+            'tanggal_mulai' => now()->format('Y-m-d H:i'),
+            'tanggal_selesai' => now()->addDays(2)->format('Y-m-d H:i'),
+            'aktif' => true,
+        ]);
+
+    $response->assertSessionHasErrors('id_produk');
+});
+
+test('percent promo can no longer be created', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)
+        ->from(route('admin.promos'))
+        ->post(route('admin.promos.store'), [
+            'nama' => 'Promo Persen',
+            'tipe' => 'persen',
+            'nilai' => 15,
+            'id_produk' => null,
+            'tanggal_mulai' => now()->format('Y-m-d H:i'),
+            'tanggal_selesai' => now()->addDays(2)->format('Y-m-d H:i'),
+            'aktif' => true,
+        ]);
+
+    $response->assertSessionHasErrors('tipe');
 });
 
 test('admin can update a promo', function () {

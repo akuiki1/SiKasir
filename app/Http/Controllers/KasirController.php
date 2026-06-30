@@ -141,9 +141,11 @@ class KasirController extends Controller
             ->map(function (Promo $promo) use ($now) {
                 $sisaHari = (int) ceil(($promo->tanggal_selesai->getTimestamp() - $now->getTimestamp()) / 86400);
 
-                $label = $promo->tipe === 'persen'
-                    ? 'Diskon '.rtrim(rtrim(number_format($promo->nilai, 2, ',', '.'), '0'), ',').'%'
-                    : 'Diskon Rp'.number_format($promo->nilai, 0, ',', '.');
+                $label = match ($promo->tipe) {
+                    'persen' => 'Diskon '.rtrim(rtrim(number_format($promo->nilai, 2, ',', '.'), '0'), ',').'%',
+                    'bundling' => 'Beli '.$promo->beli_qty.' Gratis '.$promo->gratis_qty,
+                    default => 'Diskon Rp'.number_format($promo->nilai, 0, ',', '.'),
+                };
 
                 return [
                     'id_promo' => $promo->id_promo,
@@ -273,6 +275,8 @@ class KasirController extends Controller
                 'deskripsi' => $promo->deskripsi,
                 'tipe' => $promo->tipe,
                 'nilai' => (float) $promo->nilai,
+                'beli_qty' => $promo->beli_qty,
+                'gratis_qty' => $promo->gratis_qty,
                 'id_produk' => $promo->id_produk,
                 'minimal_belanja' => $promo->minimal_belanja ? (float) $promo->minimal_belanja : null,
             ]);
@@ -364,7 +368,7 @@ class KasirController extends Controller
             'items.*.fee' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        DB::transaction(function () use ($validated): void {
+        $transaksi = DB::transaction(function () use ($validated): Transaksi {
             $subtotal = 0;
             $totalNominalJasa = 0; // titipan transfer/tarik tunai: bukan omzet, tapi dibayar tunai
             $details = [];
@@ -475,8 +479,19 @@ class KasirController extends Controller
                 $itemDiskon = 0;
                 if ($prodPromo) {
                     if ($prodPromo->tipe === 'persen') {
+                        // Diskon persen tidak lagi dibuat dari form, tapi promo lama
+                        // tetap dihormati agar data historis konsisten.
                         $itemDiskon = (int) ($itemSubtotal * ($prodPromo->nilai / 100));
+                    } elseif ($prodPromo->tipe === 'bundling') {
+                        // Beli X gratis Y — hanya untuk produk satuan (qty bilangan bulat).
+                        $grup = (int) $prodPromo->beli_qty + (int) $prodPromo->gratis_qty;
+
+                        if ($produk->tipe_jual === 'satuan' && $grup > 0 && $prodPromo->gratis_qty > 0) {
+                            $gratis = intdiv((int) floor($qty), $grup) * (int) $prodPromo->gratis_qty;
+                            $itemDiskon = (int) ($gratis * $harga);
+                        }
                     } else {
+                        // nominal
                         $itemDiskon = (int) ($prodPromo->nilai * $qty);
                     }
                 }
@@ -567,9 +582,17 @@ class KasirController extends Controller
                     ]
                 );
             }
+
+            return $transaksi;
         });
 
-        return redirect()->route('kasir.riwayat')->with('success', 'Transaksi berhasil disimpan.');
+        // Kirim data struk transaksi yang baru ke halaman kasir agar muncul modal
+        // "Transaksi Selesai" (opsi cetak struk / selesai). Kasir tetap di halaman
+        // kasir, siap melayani transaksi berikutnya.
+        $transaksi->load(['detailTransaksis.produk', 'promo']);
+        Inertia::flash('struk', $this->mapRiwayat($transaksi));
+
+        return redirect()->route('kasir.transaksi')->with('success', 'Transaksi berhasil disimpan.');
     }
 
     /**

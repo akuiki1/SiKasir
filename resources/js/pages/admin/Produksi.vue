@@ -252,10 +252,22 @@ function openTambah(): void {
     nextTick(() => produkSearchInput.value?.focus());
 }
 
-// Deep-link dari hub "Catat": /admin/produksi?aksi=tambah langsung membuka form batch.
+// Deep-link dari hub "Catat" / modal "produk berhasil dibuat":
+// /admin/produksi?aksi=tambah[&produk=ID] membuka form batch & (opsional) memilih produk.
 onMounted(() => {
-    if (new URLSearchParams(window.location.search).get('aksi') === 'tambah') {
-        openTambah();
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('aksi') !== 'tambah') {
+        return;
+    }
+
+    openTambah();
+
+    const produkId = Number(params.get('produk'));
+
+    if (produkId && props.produks.some((p) => p.id_produk === produkId)) {
+        form.id_produk = produkId;
+        form.clearErrors('id_produk');
     }
 });
 

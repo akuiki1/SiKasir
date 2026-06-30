@@ -27,7 +27,7 @@ test('a reseller customer gets the per-product rupiah discount', function () {
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     // harga reseller = 10.000 - 2.000 = 8.000 ; subtotal 2x = 16.000
     $this->assertDatabaseHas('transaksis', [
@@ -55,7 +55,7 @@ test('an umum customer pays full price even when potongan_reseller is set', func
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', ['total_harga' => 20000]);
     $this->assertDatabaseHas('detail_transaksis', ['harga' => 10000, 'subtotal' => 20000]);
@@ -73,7 +73,7 @@ test('reseller price never goes below zero', function () {
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 1],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('detail_transaksis', ['harga' => 0, 'subtotal' => 0]);
 });

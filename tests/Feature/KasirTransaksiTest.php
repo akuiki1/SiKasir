@@ -61,7 +61,7 @@ test('kasir can store a transaction, decrement stock and compute change', functi
         ],
     ]);
 
-    $response->assertRedirect(route('kasir.riwayat'));
+    $response->assertRedirect(route('kasir.transaksi'));
     $response->assertSessionHas('success');
 
     // total = (10000 * 2) + (5000 * 1) = 25000, tanpa promo
@@ -100,7 +100,7 @@ test('selling snapshots the product modal into the transaction detail', function
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     // modal/unit di-snapshot dari produk saat transaksi terjadi
     $this->assertDatabaseHas('detail_transaksis', [
@@ -187,7 +187,7 @@ test('per-product percentage promo is applied automatically', function () {
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2], // subtotal 20000, diskon 10% = 2000
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', [
         'total_harga' => 18000,
@@ -219,7 +219,7 @@ test('per-product nominal promo is applied per item', function () {
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 3], // subtotal 30000, diskon 1500*3 = 4500
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', [
         'total_harga' => 25500,
@@ -253,7 +253,7 @@ test('global promo is applied when minimal belanja is met', function () {
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2], // subtotal 20000 >= 15000
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', [
         'id_promo' => $promo->id_promo,
@@ -282,7 +282,7 @@ test('global promo is ignored when minimal belanja is not met', function () {
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2], // subtotal 20000 < 50000
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('transaksis', [
         'id_promo' => null,

@@ -35,6 +35,8 @@ class PromoController extends Controller
                 'deskripsi' => $promo->deskripsi,
                 'tipe' => $promo->tipe,
                 'nilai' => $promo->nilai,
+                'beli_qty' => $promo->beli_qty,
+                'gratis_qty' => $promo->gratis_qty,
                 'id_produk' => $promo->id_produk,
                 'produk_nama' => $promo->produk?->nama ?? 'Semua Produk',
                 'minimal_belanja' => $promo->minimal_belanja,
@@ -68,23 +70,53 @@ class PromoController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Validasi + normalisasi data promo. Tipe 'persen' tidak lagi bisa dibuat dari
+     * form (hanya 'nominal' & 'bundling'); promo persen lama tetap utuh di DB karena
+     * tidak disentuh kecuali admin mengeditnya.
+     *
+     * @return array<string, mixed>
      */
-    public function store(Request $request): RedirectResponse
+    private function validatePromo(Request $request): array
     {
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
             'deskripsi' => ['nullable', 'string'],
-            'tipe' => ['required', 'in:persen,nominal'],
-            'nilai' => ['required', 'numeric', 'min:0'],
-            'id_produk' => ['nullable', 'exists:produks,id_produk'],
+            'tipe' => ['required', 'in:nominal,bundling'],
+            // Nominal: wajib nilai rupiah. Bundling: nilai tidak dipakai (diisi 0).
+            'nilai' => ['required_if:tipe,nominal', 'nullable', 'numeric', 'min:0'],
+            // Bundling: beli X gratis Y.
+            'beli_qty' => ['required_if:tipe,bundling', 'nullable', 'integer', 'min:1'],
+            'gratis_qty' => ['required_if:tipe,bundling', 'nullable', 'integer', 'min:1'],
+            // Bundling butuh produk spesifik karena item gratis = produk yang sama.
+            'id_produk' => ['nullable', 'exists:produks,id_produk', 'required_if:tipe,bundling'],
             'minimal_belanja' => ['nullable', 'numeric', 'min:0'],
             'tanggal_mulai' => ['required', 'date'],
             'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai'],
             'aktif' => ['required', 'boolean'],
+        ], [
+            'id_produk.required_if' => 'Promo bundling harus berlaku untuk satu produk tertentu (bukan semua produk).',
+            'beli_qty.required_if' => 'Isi jumlah pembelian (beli) untuk promo bundling.',
+            'gratis_qty.required_if' => 'Isi jumlah gratis untuk promo bundling.',
+            'nilai.required_if' => 'Isi nilai potongan untuk promo nominal.',
         ]);
 
-        Promo::create($validated);
+        // Bersihkan kolom yang tak relevan agar tidak menyimpan nilai menyesatkan.
+        if ($validated['tipe'] === 'bundling') {
+            $validated['nilai'] = 0;
+        } else {
+            $validated['beli_qty'] = null;
+            $validated['gratis_qty'] = null;
+        }
+
+        return $validated;
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        Promo::create($this->validatePromo($request));
 
         return redirect()->route('admin.promos')->with('success', 'Promo berhasil ditambahkan.');
     }
@@ -94,19 +126,7 @@ class PromoController extends Controller
      */
     public function update(Request $request, Promo $promo): RedirectResponse
     {
-        $validated = $request->validate([
-            'nama' => ['required', 'string', 'max:255'],
-            'deskripsi' => ['nullable', 'string'],
-            'tipe' => ['required', 'in:persen,nominal'],
-            'nilai' => ['required', 'numeric', 'min:0'],
-            'id_produk' => ['nullable', 'exists:produks,id_produk'],
-            'minimal_belanja' => ['nullable', 'numeric', 'min:0'],
-            'tanggal_mulai' => ['required', 'date'],
-            'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai'],
-            'aktif' => ['required', 'boolean'],
-        ]);
-
-        $promo->update($validated);
+        $promo->update($this->validatePromo($request));
 
         return redirect()->route('admin.promos')->with('success', 'Promo berhasil diperbarui.');
     }

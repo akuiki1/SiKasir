@@ -20,7 +20,7 @@ test('a sale records a stok mutasi row with before/after on the kartu stok', fun
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     $this->assertDatabaseHas('stok_mutasis', [
         'id_produk' => $produk->id_produk,

@@ -27,7 +27,7 @@ test('selling a curah product by nominal charges the exact nominal and drops sto
             // Kasir input nominal 20.000; qty (client) hanya referensi, server hitung ulang.
             ['id_produk' => $bensin->id_produk, 'jumlah' => 1.429, 'nominal' => 20000],
         ],
-    ])->assertRedirect(route('kasir.riwayat'));
+    ])->assertRedirect(route('kasir.transaksi'));
 
     // subtotal/total = nominal persis (bukan qty × harga yang bisa meleset recehan).
     $this->assertDatabaseHas('transaksis', [
