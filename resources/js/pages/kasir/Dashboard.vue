@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import {
     PlusCircle,
-    Search,
     FileText,
     DollarSign,
     Clock,
@@ -114,14 +113,6 @@ const props = defineProps<{
 const form = useForm({
     start_date: props.date_range.start_date,
     end_date: props.date_range.end_date,
-});
-
-// Sapaan personal (nama depan kasir) untuk hero — menambah kehangatan ala app besar.
-const page = usePage();
-const firstName = computed(() => {
-    const name = page.props.auth.user?.name ?? '';
-
-    return name.trim().split(' ')[0] || 'Kasir';
 });
 
 // --- Filter periode (selaras dashboard & transaksi admin) ---
@@ -288,22 +279,6 @@ function applyRange(): void {
     <Head title="Kasir Dashboard" />
 
     <div class="flex h-full flex-1 flex-col gap-5 overflow-x-hidden rounded-xl p-4 md:gap-6 md:p-6">
-        <!-- Welcoming Section -->
-        <div class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-emerald-900 to-teal-950 p-5 text-white shadow-xl md:p-6 dark:from-zinc-950 dark:to-neutral-900">
-            <div class="relative z-10 flex flex-col gap-2">
-                <span class="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
-                    <CheckCircle class="h-3.5 w-3.5 animate-pulse" />
-                    Sesi Kasir Aktif
-                </span>
-                <h1 class="text-2xl font-extrabold tracking-tight md:text-3xl">Selamat Bekerja, {{ firstName }}!</h1>
-                <p class="hidden max-w-xl text-sm text-slate-300 sm:block">
-                    Sistem siap melayani. Mulai transaksi baru dengan cepat menggunakan tombol pintasan di bawah untuk mengoptimalkan pelayanan pelanggan.
-                </p>
-            </div>
-            <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl"></div>
-            <div class="absolute right-20 bottom-0 h-28 w-28 rounded-full bg-indigo-500/10 blur-2xl"></div>
-        </div>
-
         <!-- Action Grid - Highlighted for Cashiers -->
         <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
             <!-- Primary CTA: ditonjolkan (filled) & melebar penuh di mobile -->
@@ -338,18 +313,6 @@ function applyRange(): void {
                 </div>
             </Link>
             <Link
-                :href="transaksiRoute.url()"
-                class="flex flex-col items-start gap-2 rounded-2xl border border-sidebar-border/70 bg-card p-4 text-left transition-all hover:bg-slate-50 active:scale-[0.98] md:flex-row md:items-center md:gap-4 md:p-5 dark:border-sidebar-border dark:hover:bg-zinc-800/50"
-            >
-                <div class="shrink-0 rounded-xl bg-slate-100 p-2.5 text-foreground md:rounded-full md:p-3 dark:bg-zinc-800">
-                    <Search class="h-5 w-5 md:h-6 md:w-6" />
-                </div>
-                <div class="min-w-0">
-                    <h3 class="text-sm font-bold md:text-base">Cek Stok &amp; Harga</h3>
-                    <p class="hidden text-xs text-muted-foreground sm:block">Cari produk &amp; ketersediaan</p>
-                </div>
-            </Link>
-            <Link
                 :href="riwayatRoute.url()"
                 class="flex flex-col items-start gap-2 rounded-2xl border border-sidebar-border/70 bg-card p-4 text-left transition-all hover:bg-slate-50 active:scale-[0.98] md:flex-row md:items-center md:gap-4 md:p-5 dark:border-sidebar-border dark:hover:bg-zinc-800/50"
             >
@@ -361,6 +324,90 @@ function applyRange(): void {
                     <p class="hidden text-xs text-muted-foreground sm:block">Cetak ulang struk / penjualan</p>
                 </div>
             </Link>
+        </div>
+
+        <!-- Promo Hari Ini — dinaikkan ke atas agar langsung terlihat kasir -->
+        <div class="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 md:p-6 dark:border-indigo-500/20">
+            <div class="flex items-center justify-between gap-2 border-b border-indigo-500/20 pb-4 mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="rounded-lg bg-indigo-500/10 p-2 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                        <Tag class="h-5 w-5" />
+                    </div>
+                    <h2 class="text-base font-bold tracking-tight md:text-lg">Promo Hari Ini</h2>
+                </div>
+                <span
+                    v-if="props.active_promos.length"
+                    class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                >
+                    <span class="relative flex h-2 w-2">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                    </span>
+                    {{ props.active_promos.length }} berlaku
+                </span>
+            </div>
+
+            <div v-if="props.active_promos.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                    v-for="promo in props.active_promos"
+                    :key="promo.id_promo"
+                    :class="[
+                        'rounded-lg border bg-card p-3 transition',
+                        promo.berakhir_hari_ini
+                            ? 'border-rose-400/50'
+                            : 'border-indigo-500/20',
+                    ]"
+                >
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-bold text-indigo-700 dark:text-indigo-300">{{ promo.nama }}</p>
+                            <p v-if="promo.deskripsi" class="truncate text-xs text-muted-foreground">{{ promo.deskripsi }}</p>
+                        </div>
+                        <span class="shrink-0 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">{{ promo.label }}</span>
+                    </div>
+
+                    <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span class="inline-flex items-center gap-1 rounded-md border border-sidebar-border/50 bg-background/60 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            <ShoppingBag class="h-3 w-3" />
+                            {{ promo.target }}
+                        </span>
+                        <span
+                            v-if="promo.minimal_belanja"
+                            class="inline-flex items-center rounded-md border border-sidebar-border/50 bg-background/60 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                        >
+                            Min. {{ formatRupiah(promo.minimal_belanja) }}
+                        </span>
+                        <span
+                            v-if="promo.berakhir_hari_ini"
+                            class="inline-flex items-center gap-1 rounded-md bg-rose-100 px-1.5 py-0.5 text-[11px] font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                        >
+                            <Clock class="h-3 w-3" />
+                            Berakhir hari ini
+                        </span>
+                        <span
+                            v-else-if="promo.mulai_hari_ini"
+                            class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                        >
+                            Baru hari ini
+                        </span>
+                        <span
+                            v-else
+                            class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground dark:bg-zinc-800"
+                        >
+                            Sisa {{ promo.sisa_hari }} hari
+                        </span>
+                    </div>
+
+                    <p class="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <CalendarDays class="h-3 w-3" />
+                        {{ promo.periode }}
+                    </p>
+                </div>
+            </div>
+            <div v-else class="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                <Tag class="h-8 w-8 text-muted-foreground/40" />
+                <p class="text-sm text-muted-foreground">Tidak ada promo berlaku hari ini.</p>
+            </div>
         </div>
 
         <!-- Filter Periode (selaras dashboard & transaksi admin) -->
@@ -654,8 +701,8 @@ function applyRange(): void {
             </div>
         </div>
 
-        <!-- Operational Row: Stok, Promo, Terlaris -->
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+        <!-- Operational Row: Stok, Terlaris -->
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
             <!-- Stok menipis -->
             <div class="rounded-xl border border-sidebar-border/70 bg-card p-4 md:p-6 dark:border-sidebar-border">
                 <div class="flex items-center justify-between border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">
@@ -708,90 +755,6 @@ function applyRange(): void {
                 <div v-else class="flex flex-col items-center justify-center gap-2 py-8 text-center">
                     <CheckCircle class="h-8 w-8 text-emerald-500/50" />
                     <p class="text-sm text-muted-foreground">Semua stok aman 👍</p>
-                </div>
-            </div>
-
-            <!-- Promo hari ini -->
-            <div class="rounded-xl border border-sidebar-border/70 bg-card p-4 md:p-6 dark:border-sidebar-border">
-                <div class="flex items-center justify-between gap-2 border-b border-sidebar-border/70 pb-4 mb-4 dark:border-sidebar-border">
-                    <div class="flex items-center gap-2">
-                        <div class="rounded-lg bg-indigo-500/10 p-2 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                            <Tag class="h-5 w-5" />
-                        </div>
-                        <h2 class="text-base font-bold tracking-tight">Promo Hari Ini</h2>
-                    </div>
-                    <span
-                        v-if="props.active_promos.length"
-                        class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                    >
-                        <span class="relative flex h-2 w-2">
-                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                        </span>
-                        {{ props.active_promos.length }} berlaku
-                    </span>
-                </div>
-
-                <div v-if="props.active_promos.length" class="space-y-3">
-                    <div
-                        v-for="promo in props.active_promos"
-                        :key="promo.id_promo"
-                        :class="[
-                            'rounded-lg border p-3 transition',
-                            promo.berakhir_hari_ini
-                                ? 'border-rose-400/50 bg-rose-500/5'
-                                : 'border-indigo-500/20 bg-indigo-500/5',
-                        ]"
-                    >
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <p class="truncate text-sm font-bold text-indigo-700 dark:text-indigo-300">{{ promo.nama }}</p>
-                                <p v-if="promo.deskripsi" class="truncate text-xs text-muted-foreground">{{ promo.deskripsi }}</p>
-                            </div>
-                            <span class="shrink-0 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">{{ promo.label }}</span>
-                        </div>
-
-                        <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                            <span class="inline-flex items-center gap-1 rounded-md border border-sidebar-border/50 bg-background/60 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                                <ShoppingBag class="h-3 w-3" />
-                                {{ promo.target }}
-                            </span>
-                            <span
-                                v-if="promo.minimal_belanja"
-                                class="inline-flex items-center rounded-md border border-sidebar-border/50 bg-background/60 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
-                            >
-                                Min. {{ formatRupiah(promo.minimal_belanja) }}
-                            </span>
-                            <span
-                                v-if="promo.berakhir_hari_ini"
-                                class="inline-flex items-center gap-1 rounded-md bg-rose-100 px-1.5 py-0.5 text-[11px] font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                            >
-                                <Clock class="h-3 w-3" />
-                                Berakhir hari ini
-                            </span>
-                            <span
-                                v-else-if="promo.mulai_hari_ini"
-                                class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                            >
-                                Baru hari ini
-                            </span>
-                            <span
-                                v-else
-                                class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground dark:bg-zinc-800"
-                            >
-                                Sisa {{ promo.sisa_hari }} hari
-                            </span>
-                        </div>
-
-                        <p class="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <CalendarDays class="h-3 w-3" />
-                            {{ promo.periode }}
-                        </p>
-                    </div>
-                </div>
-                <div v-else class="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                    <Tag class="h-8 w-8 text-muted-foreground/40" />
-                    <p class="text-sm text-muted-foreground">Tidak ada promo berlaku hari ini.</p>
                 </div>
             </div>
 

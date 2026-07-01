@@ -9,7 +9,6 @@ import {
     CircleDollarSign,
     Clock,
     FileText,
-    LayoutDashboard,
     LineChart,
     Package,
     Percent,
@@ -246,35 +245,6 @@ function deltaTone(delta: number | null): string {
     <Head title="Admin Dashboard" />
 
     <div class="flex h-full flex-1 flex-col gap-6 bg-slate-50 p-6 text-slate-950 dark:bg-zinc-950 dark:text-slate-100">
-        <!-- Header banner (senada dashboard kasir, aksen biru terang translucent) -->
-        <div class="relative overflow-hidden rounded-2xl border border-sky-200/70 bg-gradient-to-br from-sky-100/80 via-white to-blue-50/50 p-5 shadow-sm md:p-6 dark:border-sky-500/20 dark:from-sky-500/10 dark:via-zinc-900 dark:to-blue-500/5">
-            <div class="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div class="flex flex-col gap-2">
-                    <span class="inline-flex w-fit items-center gap-1.5 rounded-full border border-sky-300/60 bg-sky-100/70 px-2.5 py-0.5 text-xs font-semibold text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300">
-                        <LayoutDashboard class="h-3.5 w-3.5" />
-                        Panel Admin
-                    </span>
-                    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl dark:text-white">{{ props.greeting }}, {{ props.admin_name }} 👋</h1>
-                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ props.today_label }}</p>
-                </div>
-
-                <div
-                    v-if="props.active_cashier"
-                    class="inline-flex w-fit shrink-0 items-center gap-2 rounded-lg border border-sky-200/70 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm backdrop-blur dark:border-sky-500/20 dark:bg-zinc-900/70 dark:text-slate-300"
-                >
-                    <span class="relative flex h-2.5 w-2.5">
-                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-                    </span>
-                    Kasir: {{ props.active_cashier }}
-                </div>
-            </div>
-
-            <!-- Aksen dekoratif blur -->
-            <div class="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-sky-400/20 blur-3xl"></div>
-            <div class="pointer-events-none absolute bottom-0 right-28 h-28 w-28 rounded-full bg-blue-400/10 blur-2xl"></div>
-        </div>
-
         <!-- Snapshot hari ini -->
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div
