@@ -139,7 +139,78 @@ class LaporanController extends Controller
         ];
 
         // ---------------------------------------------------------------
-        // 3. REKONSILIASI PEMBAYARAN
+        // 3. RINGKASAN "CERITA" — status kesehatan, verdict, insight, top produk
+        //    & kategori untuk laporan cetak (lebih mudah dibaca pemilik toko).
+        // ---------------------------------------------------------------
+        $previous2End = $previousStart->copy()->subDay()->endOfDay();
+        $previous2Start = $previous2End->copy()->subDays($periodDays - 1)->startOfDay();
+        $previous2 = $this->finansial->periodSummary($previous2Start, $previous2End);
+        $prevMargin = $previous['revenue'] > 0 ? ($previous['net_profit'] / $previous['revenue']) * 100 : 0.0;
+        $prev2Margin = $previous2['revenue'] > 0 ? ($previous2['net_profit'] / $previous2['revenue']) * 100 : 0.0;
+        $previousTransactionCount = (int) Transaksi::whereBetween('created_at', [$previousStart, $previousEnd])->count();
+
+        $previousExpenseBreakdown = $this->finansial->expenseBreakdown($previousStart, $previousEnd);
+        $expenseBreakdownWithDelta = $this->finansial->expenseDeltas($expenseBreakdown, $previousExpenseBreakdown);
+
+        $status = $this->finansial->healthStatus($netProfit, $margin);
+
+        // Top 5 produk penyumbang omzet terbesar (nama + kategori, withTrashed via relasi produk()).
+        $topProducts = DetailTransaksi::whereHas('transaksi', fn ($q) => $q->whereBetween('created_at', [$startDate, $endDate]))
+            ->selectRaw('id_produk, SUM(subtotal) as omzet')
+            ->groupBy('id_produk')
+            ->orderByDesc('omzet')
+            ->take(5)
+            ->with('produk.kategori')
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->produk->nama,
+                'kategori' => $row->produk->kategori->nama_kategori,
+                'revenue' => (int) $row->omzet,
+            ])
+            ->values();
+
+        // Omzet per kategori — top 4 + sisanya digabung "Lainnya" agar totalnya tetap 100%.
+        $categoryTotals = DetailTransaksi::query()
+            ->join('produks', 'detail_transaksis.id_produk', '=', 'produks.id_produk')
+            ->leftJoin('kategoris', 'produks.id_kategori', '=', 'kategoris.id_kategori')
+            ->join('transaksis', 'detail_transaksis.id_transaksi', '=', 'transaksis.id_transaksi')
+            ->whereBetween('transaksis.created_at', [$startDate, $endDate])
+            ->selectRaw("COALESCE(kategoris.nama_kategori, 'Kategori Terhapus') as nama_kategori, SUM(detail_transaksis.subtotal) as omzet")
+            ->groupBy('nama_kategori')
+            ->orderByDesc('omzet')
+            ->get();
+
+        $topCategoriesLimit = 4;
+        $topCategories = $categoryTotals->take($topCategoriesLimit)->map(fn ($row) => [
+            'name' => $row->nama_kategori,
+            'revenue' => (int) $row->omzet,
+        ])->values();
+
+        if ($categoryTotals->count() > $topCategoriesLimit) {
+            $topCategories->push([
+                'name' => 'Lainnya',
+                'revenue' => (int) $categoryTotals->slice($topCategoriesLimit)->sum('omzet'),
+            ]);
+        }
+
+        $revenueDeltaPct = $previous['revenue'] > 0 ? (($totalRevenue - $previous['revenue']) / $previous['revenue']) * 100 : 0.0;
+
+        $verdict = $this->finansial->buildVerdict($status, $netProfit, $previous['net_profit'], $revenueDeltaPct, $margin, $netCash);
+
+        $storyInsights = $this->finansial->buildStoryInsights(
+            $totalRevenue,
+            $previous['revenue'],
+            $netProfit,
+            $netCash,
+            $expenseBreakdownWithDelta,
+            $margin,
+            $prevMargin,
+            $prev2Margin,
+            $topCategories->first(),
+        );
+
+        // ---------------------------------------------------------------
+        // 4. REKONSILIASI PEMBAYARAN
         // ---------------------------------------------------------------
         $paymentAgg = $transactions
             ->groupBy('metode_pembayaran')
@@ -168,7 +239,7 @@ class LaporanController extends Controller
                 'total_diskon' => $totalDiskon,
                 'hpp' => $totalCogs,
                 'gross_profit' => $grossProfit,
-                'expense_breakdown' => $expenseBreakdown,
+                'expense_breakdown' => $expenseBreakdownWithDelta,
                 'operational_expenses' => $operationalExpenses,
                 'net_profit' => $netProfit,
                 'margin' => round($margin, 2),
@@ -182,6 +253,28 @@ class LaporanController extends Controller
             'reconciliation' => [
                 'methods' => $methods,
                 'total' => $totalRevenue,
+            ],
+            'story' => [
+                'status' => $status,
+                'verdict' => $verdict,
+                'insights' => $storyInsights,
+                'transaksi_count' => $transactions->count(),
+                'top_products' => $topProducts,
+                'top_categories' => $topCategories,
+                'previous_period' => [
+                    'start_date' => $previousStart->toDateString(),
+                    'end_date' => $previousEnd->toDateString(),
+                    'revenue' => $previous['revenue'],
+                    'net_profit' => $previous['net_profit'],
+                    'margin' => round($prevMargin, 2),
+                    'opex' => $previous['expenses'],
+                    'transaksi_count' => $previousTransactionCount,
+                ],
+                'previous2_period' => [
+                    'start_date' => $previous2Start->toDateString(),
+                    'end_date' => $previous2End->toDateString(),
+                    'margin' => round($prev2Margin, 2),
+                ],
             ],
         ]);
     }

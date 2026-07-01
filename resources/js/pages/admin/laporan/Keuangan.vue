@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     ArrowDownRight,
@@ -16,7 +16,8 @@ import {
 import { computed, ref } from 'vue';
 import PeriodFilter from '@/components/PeriodFilter.vue';
 import RevenueTrendChart from '@/components/RevenueTrendChart.vue';
-import { formatRupiah, formatCompact } from '@/lib/format';
+import { formatCompact, formatNumber, formatRupiah } from '@/lib/format';
+import { formatPeriodLabel } from '@/lib/period';
 
 defineOptions({
     layout: {
@@ -37,6 +38,9 @@ interface ExpenseRow {
     tipe: string;
     label: string;
     nominal: number;
+    delta_pct: number | null;
+    is_new: boolean;
+    flagged: boolean;
 }
 
 interface WaterfallStep {
@@ -60,6 +64,52 @@ interface PaymentMethod {
     label: string;
     total: number;
     jumlah: number;
+}
+
+type HealthStatus = 'sehat' | 'perhatian' | 'kritis';
+
+interface StoryInsight {
+    icon: string;
+    tone: 'good' | 'warn' | 'bad' | 'neutral';
+    text: string;
+}
+
+interface TopProduct {
+    name: string;
+    kategori: string;
+    revenue: number;
+}
+
+interface TopCategory {
+    name: string;
+    revenue: number;
+}
+
+interface PreviousPeriod {
+    start_date: string;
+    end_date: string;
+    revenue: number;
+    net_profit: number;
+    margin: number;
+    opex: number;
+    transaksi_count: number;
+}
+
+interface Previous2Period {
+    start_date: string;
+    end_date: string;
+    margin: number;
+}
+
+interface FinancialStory {
+    status: HealthStatus;
+    verdict: string;
+    insights: StoryInsight[];
+    transaksi_count: number;
+    top_products: TopProduct[];
+    top_categories: TopCategory[];
+    previous_period: PreviousPeriod;
+    previous2_period: Previous2Period;
 }
 
 const props = defineProps<{
@@ -99,6 +149,7 @@ const props = defineProps<{
         methods: PaymentMethod[];
         total: number;
     };
+    story: FinancialStory;
 }>();
 
 type TabKey = 'laba_rugi' | 'arus_kas' | 'rekonsiliasi';
@@ -353,37 +404,943 @@ function downloadCsv(): void {
     URL.revokeObjectURL(url);
 }
 
-function reportShell(body: string): string {
+function rp(value: number): string {
+    return formatRupiah(value);
+}
+
+// ---------------------------------------------------------------
+// Laporan cetak (A4) — desain "cerita" 4 babak: Kondisi Bisnis, Perubahan,
+// Penyebab, Bukti. Dibangun sebagai satu dokumen HTML mandiri (bukan Vue),
+// konsisten dengan pola window.open + document.write yang sudah dipakai di
+// struk.ts & laporan lain — hanya CSS/markup-nya yang jauh lebih kaya.
+// ---------------------------------------------------------------
+type Tone = 'good' | 'warn' | 'bad' | 'neutral';
+
+const PAL: Record<
+    Tone,
+    {
+        text: string;
+        deep: string;
+        bg: string;
+        border: string;
+        line: string;
+        ring: string;
+    }
+> = {
+    good: {
+        text: '#047857',
+        deep: '#065f46',
+        bg: '#ecfdf5',
+        border: '#a7f3d0',
+        line: '#10b981',
+        ring: '#d1fae5',
+    },
+    warn: {
+        text: '#b45309',
+        deep: '#92400e',
+        bg: '#fffbeb',
+        border: '#fde68a',
+        line: '#f59e0b',
+        ring: '#fef3c7',
+    },
+    bad: {
+        text: '#be123c',
+        deep: '#9f1239',
+        bg: '#fff1f2',
+        border: '#fecdd3',
+        line: '#f43f5e',
+        ring: '#ffe4e6',
+    },
+    neutral: {
+        text: '#334155',
+        deep: '#0f172a',
+        bg: '#f8fafc',
+        border: '#e2e8f0',
+        line: '#94a3b8',
+        ring: '#e2e8f0',
+    },
+};
+const ARROW: Record<'up' | 'down' | 'flat', string> = {
+    up: '▲',
+    down: '▼',
+    flat: '▬',
+};
+const STATUS_META: Record<
+    HealthStatus,
+    { word: string; sub: string; tone: Tone }
+> = {
+    sehat: { word: 'SEHAT', sub: 'Pertahankan momentum', tone: 'good' },
+    perhatian: {
+        word: 'PERLU PERHATIAN',
+        sub: 'Ada yang harus dibenahi',
+        tone: 'warn',
+    },
+    kritis: { word: 'KRITIS', sub: 'Perlu tindakan segera', tone: 'bad' },
+};
+
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function cpt(value: number): string {
+    const n = Number(value) || 0;
+
+    return `${n < 0 ? '−' : ''}Rp${formatCompact(Math.abs(n))}`;
+}
+
+function pct1(value: number): string {
+    return (Math.round(value * 10) / 10).toFixed(1).replace('.', ',');
+}
+
+function pct0(value: number): string {
+    return String(Math.round(value));
+}
+
+function spct0(value: number): string {
+    const r = Math.round(value);
+
+    return `${r > 0 ? '+' : r < 0 ? '−' : ''}${Math.abs(r)}%`;
+}
+
+function spctPoin(value: number): string {
+    const r = Math.round(value * 10) / 10;
+
+    return `${r > 0 ? '+' : r < 0 ? '−' : ''}${pct1(Math.abs(r))} poin`;
+}
+
+function dirOf(delta: number): 'up' | 'down' | 'flat' {
+    return delta > 0.05 ? 'up' : delta < -0.05 ? 'down' : 'flat';
+}
+
+// Periode sebelumnya cuma dapat label pendek ("Mei 2026") kalau kebetulan bulan
+// kalender penuh — kalau tidak, formatPeriodLabel mengembalikan rentang tanggal
+// mentah yang terlalu panjang untuk kolom label sempit di bar chart.
+function shortPeriodLabel(label: string): string {
+    return label.length > 10 ? 'Sebelumnya' : label;
+}
+
+interface PrintKpi {
+    label: string;
+    value: string;
+    arrow: string;
+    deltaText: string;
+    deltaColor: string;
+    compare: string;
+}
+
+function kpiCard(
+    label: string,
+    value: string,
+    deltaPct: number,
+    higherIsBetter: boolean,
+    compare: string,
+    unit: 'pct' | 'poin' = 'pct',
+): PrintKpi {
+    const dir = dirOf(deltaPct);
+    const tone: Tone =
+        dir === 'flat'
+            ? 'neutral'
+            : higherIsBetter
+              ? dir === 'up'
+                  ? 'good'
+                  : 'bad'
+              : dir === 'up'
+                ? 'warn'
+                : 'good';
+
+    return {
+        label,
+        value,
+        arrow: ARROW[dir],
+        deltaText: unit === 'poin' ? spctPoin(deltaPct) : spct0(deltaPct),
+        deltaColor: PAL[tone].text,
+        compare,
+    };
+}
+
+function deltaCard(
+    label: string,
+    valueText: string,
+    curVal: number,
+    prevVal: number,
+    higherIsBetter: boolean,
+    compare: string,
+): PrintKpi {
+    const flip = curVal < 0 !== prevVal < 0;
+
+    if (flip) {
+        return {
+            label,
+            value: valueText,
+            arrow: curVal < 0 ? '▼' : '▲',
+            deltaText: curVal < 0 ? 'jadi rugi' : 'jadi untung',
+            deltaColor: curVal < 0 ? PAL.bad.text : PAL.good.text,
+            compare,
+        };
+    }
+
+    if (prevVal === 0) {
+        return {
+            label,
+            value: valueText,
+            arrow: ARROW.flat,
+            deltaText: 'baru periode ini',
+            deltaColor: PAL.neutral.text,
+            compare,
+        };
+    }
+
+    return kpiCard(
+        label,
+        valueText,
+        ((curVal - prevVal) / Math.abs(prevVal)) * 100,
+        higherIsBetter,
+        compare,
+    );
+}
+
+function buildStoryKpis(prevLabel: string): PrintKpi[] {
+    const p = props.pnl;
+    const s = props.story;
+    const prev = s.previous_period;
+    const netCash = props.cashflow.net_cash;
+    const compare = `vs ${prevLabel}`;
+
+    return [
+        deltaCard(
+            'Omzet',
+            cpt(p.total_revenue),
+            p.total_revenue,
+            prev.revenue,
+            true,
+            compare,
+        ),
+        deltaCard(
+            'Laba Bersih',
+            cpt(p.net_profit),
+            p.net_profit,
+            prev.net_profit,
+            true,
+            compare,
+        ),
+        kpiCard(
+            'Margin Laba',
+            `${pct1(p.margin)}%`,
+            p.margin - prev.margin,
+            true,
+            compare,
+            'poin',
+        ),
+        deltaCard(
+            'Pengeluaran',
+            cpt(p.operational_expenses),
+            p.operational_expenses,
+            prev.opex,
+            false,
+            compare,
+        ),
+        {
+            label: 'Arus Kas',
+            value: cpt(netCash),
+            arrow: netCash >= 0 ? '▲' : '▼',
+            deltaText: netCash >= 0 ? 'Surplus' : 'Defisit',
+            deltaColor: netCash >= 0 ? PAL.good.text : PAL.bad.text,
+            compare: netCash >= 0 ? 'kas bertambah' : 'kas berkurang',
+        },
+        deltaCard(
+            'Jumlah Transaksi',
+            formatNumber(s.transaksi_count, 0),
+            s.transaksi_count,
+            prev.transaksi_count,
+            true,
+            compare,
+        ),
+    ];
+}
+
+const SCALE_LABELS: Record<HealthStatus, string> = {
+    sehat: 'Sehat',
+    perhatian: 'Perhatian',
+    kritis: 'Kritis',
+};
+
+function buildScaleSteps(status: HealthStatus) {
+    return (['sehat', 'perhatian', 'kritis'] as const).map((key) => {
+        const on = key === status;
+        const tone = STATUS_META[key].tone;
+
+        return {
+            label: SCALE_LABELS[key],
+            bar: on ? PAL[tone].line : '#e2e8f0',
+            labelColor: on ? PAL[tone].text : '#cbd5e1',
+        };
+    });
+}
+
+function buildTrend() {
+    const points = props.revenue_chart.points;
+
+    if (points.length === 0) {
+        return null;
+    }
+
+    const maxV = Math.max(...points.map((pt) => pt.value), 1);
+    const avg = points.reduce((sum, pt) => sum + pt.value, 0) / points.length;
+    const peakIdx = points.reduce(
+        (best, pt, i) => (pt.value > points[best].value ? i : best),
+        0,
+    );
+
+    return {
+        bars: points.map((pt, i) => ({
+            hStr: `${((pt.value / maxV) * 100).toFixed(1)}%`,
+            bg: i === peakIdx ? '#0f172a' : '#cbd5e1',
+        })),
+        avgTopStr: `${((1 - avg / maxV) * 100).toFixed(1)}%`,
+        avgText: cpt(avg),
+        peakLabel: points[peakIdx]?.label ?? '',
+        first: points[0]?.label ?? '',
+        mid: points[Math.floor(points.length / 2)]?.label ?? '',
+        last: points[points.length - 1]?.label ?? '',
+    };
+}
+
+function buildMonthCompare(prevLabel: string) {
+    const wanted = ['Omzet', 'Laba Bersih'];
+
+    return props.comparison
+        .filter((c) => wanted.includes(c.label))
+        .map((c) => {
+            const mx = Math.max(Math.abs(c.previous), Math.abs(c.current), 1);
+            const flip = c.current < 0 !== c.previous < 0;
+            const d =
+                c.previous !== 0
+                    ? ((c.current - c.previous) / Math.abs(c.previous)) * 100
+                    : 0;
+            const dir = dirOf(d);
+
+            return {
+                label: c.label,
+                prevText: cpt(c.previous),
+                curText: cpt(c.current),
+                prevW: `${((Math.abs(c.previous) / mx) * 100).toFixed(1)}%`,
+                curW: `${((Math.abs(c.current) / mx) * 100).toFixed(1)}%`,
+                curColor: c.current < 0 ? PAL.bad.text : '#0f172a',
+                deltaText: flip ? 'jadi rugi' : spct0(d),
+                arrow: ARROW[dir],
+                deltaColor: flip
+                    ? PAL.bad.text
+                    : dir === 'up'
+                      ? PAL.good.text
+                      : dir === 'down'
+                        ? PAL.bad.text
+                        : '#64748b',
+                prevLabel,
+            };
+        });
+}
+
+function buildMargin3() {
+    const p2 = props.story.previous2_period;
+    const p1 = props.story.previous_period;
+    const labels = [
+        formatPeriodLabel(p2.start_date, p2.end_date),
+        formatPeriodLabel(p1.start_date, p1.end_date),
+        formatPeriodLabel(
+            props.date_range.start_date,
+            props.date_range.end_date,
+        ),
+    ];
+    const values = [p2.margin, p1.margin, props.pnl.margin];
+
+    return values.map((v, i) => {
+        const prev = i > 0 ? values[i - 1] : null;
+        const dir = prev == null ? 'flat' : dirOf(v - prev);
+
+        return {
+            label: labels[i],
+            pctText: `${pct1(v)}%`,
+            color:
+                v < 0 ? PAL.bad.text : v >= 5 ? PAL.good.text : PAL.warn.text,
+            arrow: ARROW[dir],
+            showArrow: i > 0,
+        };
+    });
+}
+
+function buildTopProducts() {
+    const list = props.story.top_products;
+    const totalRevenue = Math.max(props.pnl.total_revenue, 1);
+    const maxRev = Math.max(...list.map((p) => p.revenue), 1);
+
+    return list.map((p, i) => ({
+        rank: i + 1,
+        name: escapeHtml(p.name),
+        cat: escapeHtml(p.kategori),
+        revText: cpt(p.revenue),
+        shareText: `${pct1((p.revenue / totalRevenue) * 100)}%`,
+        w: `${((p.revenue / maxRev) * 100).toFixed(1)}%`,
+    }));
+}
+
+function buildTopCats() {
+    const list = props.story.top_categories;
+    const totalRevenue = Math.max(props.pnl.total_revenue, 1);
+    const maxRev = Math.max(...list.map((c) => c.revenue), 1);
+
+    return list.map((c) => ({
+        name: escapeHtml(c.name),
+        pctText: `${Math.round((c.revenue / totalRevenue) * 100)}%`,
+        w: `${((c.revenue / maxRev) * 100).toFixed(1)}%`,
+    }));
+}
+
+function buildOpexView() {
+    const list = props.pnl.expense_breakdown;
+    const maxNom = Math.max(...list.map((o) => o.nominal), 1);
+
+    return list.map((o) => {
+        const dir = o.delta_pct == null ? 'flat' : dirOf(o.delta_pct);
+        const deltaText = o.is_new
+            ? 'Baru'
+            : o.delta_pct == null
+              ? '—'
+              : `${dir === 'up' ? '▲' : dir === 'down' ? '▼' : '▬'} ${pct0(Math.abs(o.delta_pct))}%`;
+
+        return {
+            label: escapeHtml(o.label),
+            nomText: rp(o.nominal),
+            w: `${((o.nominal / maxNom) * 100).toFixed(1)}%`,
+            deltaText,
+            deltaColor:
+                o.is_new || dir === 'up'
+                    ? PAL.warn.text
+                    : dir === 'down'
+                      ? PAL.good.text
+                      : '#94a3b8',
+            flag: o.flagged,
+            barBg: o.flagged ? PAL.warn.line : '#cbd5e1',
+        };
+    });
+}
+
+function printTimestamp(): { datePart: string; timePart: string } {
+    const now = new Date();
+    const datePart = new Intl.DateTimeFormat('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    }).format(now);
+    const timePart = new Intl.DateTimeFormat('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).format(now);
+
+    return { datePart, timePart };
+}
+
+const page = usePage();
+const printedByName = computed(() => page.props.auth.user?.name ?? 'Admin');
+
+function buildFinancialReportHtml(): string {
+    const p = props.pnl;
+    const c = props.cashflow;
+    const s = props.story;
+    const meta = STATUS_META[s.status];
+    const prevLabel = formatPeriodLabel(
+        s.previous_period.start_date,
+        s.previous_period.end_date,
+    );
+    const printPeriodLabel = formatPeriodLabel(
+        props.date_range.start_date,
+        props.date_range.end_date,
+    );
+    const { datePart, timePart } = printTimestamp();
+
+    const kpis = buildStoryKpis(prevLabel);
+    const scaleSteps = buildScaleSteps(s.status);
+    const trend = buildTrend();
+    const monthCompare = buildMonthCompare(prevLabel);
+    const margin3 = buildMargin3();
+    const topProducts = buildTopProducts();
+    const topCats = buildTopCats();
+    const opexView = buildOpexView();
+    const recon = reconciliationRows.value;
+    const reconTotal = reconciliationTotals.value;
+
+    const netTone: Tone = p.net_profit >= 0 ? 'good' : 'bad';
+    const cashTone: Tone = c.net_cash >= 0 ? 'good' : 'bad';
+
+    const insightsHtml = s.insights
+        .map((ins) => {
+            const tone = PAL[ins.tone] ?? PAL.neutral;
+
+            return `<div class="insight-row">
+                <span class="insight-icon" style="background:${tone.bg};color:${tone.text};">${ins.icon}</span>
+                <p class="insight-text">${escapeHtml(ins.text)}</p>
+            </div>`;
+        })
+        .join('');
+
+    const kpisHtml = kpis
+        .map(
+            (k) => `<div class="kpi-card">
+                <div class="kpi-label">${k.label}</div>
+                <div class="kpi-value">${k.value}</div>
+                <div class="kpi-delta-row">
+                    <span class="kpi-delta" style="color:${k.deltaColor};"><span class="kpi-arrow">${k.arrow}</span>${k.deltaText}</span>
+                    <span class="kpi-compare">${k.compare}</span>
+                </div>
+            </div>`,
+        )
+        .join('');
+
+    const scaleHtml = scaleSteps
+        .map(
+            (st) => `<div class="scale-step">
+                <div class="scale-bar" style="background:${st.bar};"></div>
+                <div class="scale-label" style="color:${st.labelColor};">${st.label}</div>
+            </div>`,
+        )
+        .join('');
+
+    const section1 = `
+    <section class="page-section">
+        <div class="section-head">
+            <div>
+                <div class="eyebrow">01 · KONDISI BISNIS</div>
+                <div class="section-title">Bagaimana kondisi bisnis Anda?</div>
+            </div>
+            <div class="meta-block">
+                <div><span class="meta-label">Periode</span>&nbsp;&nbsp;<span class="meta-value">${escapeHtml(printPeriodLabel)}</span></div>
+                <div><span class="meta-label">Dicetak</span>&nbsp;&nbsp;<span class="meta-value">${datePart}</span></div>
+                <div><span class="meta-label">Oleh</span>&nbsp;&nbsp;<span class="meta-value">${escapeHtml(printedByName.value)}</span></div>
+            </div>
+        </div>
+
+        <div class="status-card" style="border-color:${PAL[meta.tone].border};background:${PAL[meta.tone].bg};">
+            <div class="status-left" style="border-color:${PAL[meta.tone].border};">
+                <div class="status-badge-row">
+                    <span class="status-dot" style="background:${PAL[meta.tone].line};box-shadow:0 0 0 3.5px ${PAL[meta.tone].ring};"></span>
+                    <span class="status-caption" style="color:${PAL[meta.tone].text};">STATUS</span>
+                </div>
+                <div class="status-word" style="color:${PAL[meta.tone].text};">${meta.word}</div>
+                <div class="status-sub" style="color:${PAL[meta.tone].text};">${meta.sub}</div>
+            </div>
+            <div class="status-right">
+                <div class="status-right-caption">RINGKASAN 5 DETIK</div>
+                <p class="verdict-text">${escapeHtml(s.verdict)}</p>
+                <div class="scale-row">${scaleHtml}</div>
+            </div>
+        </div>
+
+        <div class="kpi-grid">${kpisHtml}</div>
+
+        <div class="insight-card">
+            <div class="insight-head">YANG PERLU ANDA TAHU</div>
+            <div class="insight-body">${insightsHtml}</div>
+        </div>
+
+        <div class="footnote-row">
+            <span class="footnote-dot">i</span>
+            <span>Laporan mencakup <strong>${formatNumber(s.transaksi_count, 0)} transaksi</strong> pada ${escapeHtml(printPeriodLabel)}.</span>
+        </div>
+    </section>`;
+
+    const section2 = trend
+        ? `
+    <section class="page-section page-break">
+        <div class="section-head">
+            <div>
+                <div class="eyebrow">02 · PERUBAHAN</div>
+                <div class="section-title">Apa yang berubah pada periode ini?</div>
+            </div>
+            <div class="section-head-note">Dibanding <strong>${escapeHtml(prevLabel)}</strong></div>
+        </div>
+
+        <div class="callout">${escapeHtml(s.insights[0]?.text ?? s.verdict)}</div>
+
+        <div class="subhead-row">
+            <div class="subhead">Tren omzet</div>
+            <div class="subhead-note">Rata-rata <strong>${trend.avgText}/hari</strong> · puncak ${escapeHtml(trend.peakLabel)}</div>
+        </div>
+        <div class="trend-wrap">
+            <div class="trend-avg-line" style="top:${trend.avgTopStr};"><span class="trend-avg-label">rata-rata</span></div>
+            <div class="trend-bars">
+                ${trend.bars.map((b) => `<div class="trend-bar" style="height:${b.hStr};background:${b.bg};"></div>`).join('')}
+            </div>
+        </div>
+        <div class="trend-axis"><span>${escapeHtml(trend.first)}</span><span>${escapeHtml(trend.mid)}</span><span>${escapeHtml(trend.last)}</span></div>
+
+        <div class="two-col mt-22">
+            <div>
+                <div class="subhead mb-12">Periode ini vs ${escapeHtml(prevLabel)}</div>
+                ${monthCompare
+                    .map(
+                        (m) => `<div class="mc-row">
+                        <div class="mc-top"><span class="mc-label">${m.label}</span><span class="mc-delta" style="color:${m.deltaColor};">${m.arrow} ${m.deltaText}</span></div>
+                        <div class="mc-bar-row"><span class="mc-bar-label">${escapeHtml(shortPeriodLabel(prevLabel))}</span><div class="mc-track"><div class="mc-fill mc-fill-prev" style="width:${m.prevW};"></div></div><span class="mc-value">${m.prevText}</span></div>
+                        <div class="mc-bar-row"><span class="mc-bar-label mc-bar-label-cur">Ini</span><div class="mc-track"><div class="mc-fill mc-fill-cur" style="width:${m.curW};"></div></div><span class="mc-value mc-value-cur" style="color:${m.curColor};">${m.curText}</span></div>
+                    </div>`,
+                    )
+                    .join('')}
+            </div>
+            <div>
+                <div class="subhead mb-12">Margin 3 periode</div>
+                <div class="margin3-card">
+                    ${margin3
+                        .map(
+                            (g) => `<div class="margin3-row">
+                            <span class="margin3-label">${escapeHtml(g.label)}</span>
+                            <span class="margin3-value" style="color:${g.color};">${g.showArrow ? `<span class="margin3-arrow">${g.arrow}</span>` : ''}${g.pctText}</span>
+                        </div>`,
+                        )
+                        .join('')}
+                </div>
+                <div class="hint-text">Margin = laba bersih dibagi omzet. Makin tinggi makin sehat.</div>
+            </div>
+        </div>
+    </section>`
+        : '';
+
+    const section3 = `
+    <section class="page-section page-break">
+        <div class="section-head">
+            <div>
+                <div class="eyebrow">0${trend ? '3' : '2'} · PENYEBAB</div>
+                <div class="section-title">Siapa penyebab utamanya?</div>
+            </div>
+            <div class="section-head-note">Produk, kategori &amp; biaya</div>
+        </div>
+
+        <div class="subhead mb-11">Produk penyumbang omzet terbesar</div>
+        <div class="table-card">
+            <div class="tp-row tp-head"><span>#</span><span>Produk</span><span>Kontribusi</span><span class="ta-right">Porsi</span></div>
+            ${
+                topProducts.length > 0
+                    ? topProducts
+                          .map(
+                              (p) => `<div class="tp-row">
+                            <span class="tp-rank">${p.rank}</span>
+                            <div><div class="tp-name">${p.name}</div><div class="tp-cat">${p.cat}</div></div>
+                            <div class="tp-bar-row"><div class="tp-track"><div class="tp-fill" style="width:${p.w};"></div></div><span class="tp-rev">${p.revText}</span></div>
+                            <span class="ta-right tp-share">${p.shareText}</span>
+                        </div>`,
+                          )
+                          .join('')
+                    : '<div class="tp-row tp-empty">Belum ada penjualan produk pada periode ini.</div>'
+            }
+        </div>
+
+        <div class="two-col mt-20">
+            <div>
+                <div class="subhead mb-11">Omzet per kategori</div>
+                ${
+                    topCats.length > 0
+                        ? topCats
+                              .map(
+                                  (c) => `<div class="cat-row">
+                                <div class="cat-top"><span class="cat-name">${c.name}</span><span class="cat-pct">${c.pctText}</span></div>
+                                <div class="cat-track"><div class="cat-fill" style="width:${c.w};"></div></div>
+                            </div>`,
+                              )
+                              .join('')
+                        : '<p class="hint-text">Belum ada data kategori.</p>'
+                }
+            </div>
+            <div>
+                <div class="subhead-row mb-11"><span class="subhead">Ke mana biaya pergi</span><span class="section-head-note">Total ${rp(p.operational_expenses)}</span></div>
+                <div class="table-card">
+                    ${
+                        opexView.length > 0
+                            ? opexView
+                                  .map(
+                                      (o) => `<div class="opex-row">
+                                <div class="opex-label-cell">${o.flag ? '<span class="opex-flag"></span>' : ''}<span class="opex-label">${o.label}</span></div>
+                                <div class="opex-track"><div class="opex-fill" style="width:${o.w};background:${o.barBg};"></div></div>
+                                <div class="opex-value"><div class="opex-nom">${o.nomText}</div><div class="opex-delta" style="color:${o.deltaColor};">${o.deltaText}</div></div>
+                            </div>`,
+                                  )
+                                  .join('')
+                            : '<div class="opex-row opex-empty">Belum ada biaya operasional pada periode ini.</div>'
+                    }
+                </div>
+                <div class="legend-row"><span class="opex-flag"></span> Titik kuning = biaya yang naik tajam, perlu dicek.</div>
+            </div>
+        </div>
+    </section>`;
+
+    const section4 = `
+    <section class="page-section page-break">
+        <div class="section-head">
+            <div>
+                <div class="eyebrow">0${trend ? '4' : '3'} · BUKTI</div>
+                <div class="section-title">Apa buktinya?</div>
+            </div>
+            <div class="section-head-note">Rincian angka</div>
+        </div>
+
+        <div class="two-col mt-18">
+            <div>
+                <div class="subhead mb-11">Laba rugi</div>
+                <div class="statement-card">
+                    <div class="stmt-row"><span>Penjualan produk</span><span class="stmt-val">${rp(p.product_revenue)}</span></div>
+                    <div class="stmt-row stmt-alt"><span>Pendapatan jasa</span><span class="stmt-val">${rp(p.jasa_revenue)}</span></div>
+                    <div class="stmt-row"><span>Diskon diberikan</span><span class="stmt-val stmt-muted">−${rp(p.total_diskon)}</span></div>
+                    <div class="stmt-row stmt-sub"><span>Total omzet</span><span class="stmt-val">${rp(p.total_revenue)}</span></div>
+                    <div class="stmt-row"><span>Harga pokok (HPP)</span><span class="stmt-val stmt-neg">−${rp(p.hpp)}</span></div>
+                    <div class="stmt-row stmt-alt"><span>Laba kotor</span><span class="stmt-val">${rp(p.gross_profit)}</span></div>
+                    <div class="stmt-row"><span>Total pengeluaran</span><span class="stmt-val stmt-neg">−${rp(p.operational_expenses)}</span></div>
+                    <div class="stmt-row stmt-net" style="background:${PAL[netTone].bg};border-color:${PAL[netTone].border};">
+                        <span style="color:${PAL[netTone].deep};">Laba bersih</span>
+                        <span class="stmt-net-val"><span style="color:${PAL[netTone].deep};">${rp(p.net_profit)}</span><span class="stmt-net-margin" style="color:${PAL[netTone].deep};">margin ${pct1(p.margin)}%</span></span>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="subhead mb-11">Arus kas</div>
+                <div class="statement-card">
+                    <div class="stmt-row"><span>Uang masuk (penjualan)</span><span class="stmt-val" style="color:${PAL.good.text};">${rp(c.kas_masuk)}</span></div>
+                    <div class="stmt-row stmt-alt"><span>Belanja stok</span><span class="stmt-val" style="color:${PAL.bad.text};">−${rp(c.pembelian_produksi)}</span></div>
+                    <div class="stmt-row"><span>Bayar biaya operasional</span><span class="stmt-val" style="color:${PAL.bad.text};">−${rp(c.biaya_operasional)}</span></div>
+                    <div class="stmt-row stmt-net" style="background:${PAL[cashTone].bg};border-color:${PAL[cashTone].border};">
+                        <span style="color:${PAL[cashTone].deep};">Arus kas bersih</span>
+                        <span class="stmt-net-val" style="color:${PAL[cashTone].deep};">${rp(c.net_cash)}</span>
+                    </div>
+                </div>
+                <div class="hint-text">Arus kas bisa beda dari laba karena belanja stok dibayar di muka, sebelum barang terjual habis.</div>
+            </div>
+        </div>
+
+        <div class="subhead mt-20 mb-11">Rekonsiliasi metode pembayaran</div>
+        <div class="table-card">
+            <div class="recon-row recon-head"><span>Metode</span><span class="ta-right">Trx</span><span class="ta-right">Bruto</span><span class="ta-right">Biaya</span><span class="ta-right">Bersih</span><span class="ta-right">Porsi</span></div>
+            ${recon
+                .map(
+                    (
+                        r,
+                        i,
+                    ) => `<div class="recon-row" style="background:${i % 2 === 1 ? '#f8fafc' : '#ffffff'};">
+                    <span class="recon-label">${escapeHtml(r.label)} <span class="recon-rate">fee ${pct1(r.rate)}%</span></span>
+                    <span class="ta-right recon-muted">${formatNumber(r.jumlah, 0)}</span>
+                    <span class="ta-right recon-muted">${rp(r.total)}</span>
+                    <span class="ta-right recon-faint">${r.fee > 0 ? `−${rp(r.fee)}` : '—'}</span>
+                    <span class="ta-right recon-bold">${rp(r.net)}</span>
+                    <span class="ta-right recon-share">${Math.round(r.share)}%</span>
+                </div>`,
+                )
+                .join('')}
+            <div class="recon-row recon-total">
+                <span>Total</span>
+                <span class="ta-right">${formatNumber(reconTotal.jumlah, 0)}</span>
+                <span class="ta-right">${rp(reconTotal.gross)}</span>
+                <span class="ta-right recon-total-fee">${reconTotal.fee > 0 ? `−${rp(reconTotal.fee)}` : '—'}</span>
+                <span class="ta-right">${rp(reconTotal.net)}</span>
+                <span class="ta-right">100%</span>
+            </div>
+        </div>
+    </section>`;
+
+    const header = `<div class="doc-header">
+        <div class="brand">
+            <div class="brand-mark">C</div>
+            <div class="brand-name">Cemilan Mba Tutut</div>
+        </div>
+        <div class="doc-title">
+            <div class="doc-title-word">LAPORAN KEUANGAN</div>
+            <div class="doc-title-period">${escapeHtml(printPeriodLabel)}</div>
+        </div>
+    </div>`;
+
+    const footer = `<div class="doc-footer">
+        <span>Dibuat otomatis oleh <strong>SiKasir</strong> · Sistem Kasir &amp; Laporan</span>
+        <span class="doc-footer-secret">RAHASIA — UNTUK INTERNAL</span>
+        <span>Dicetak ${datePart}, ${timePart} WITA</span>
+    </div>`;
+
     return `<!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8" />
 <title>Laporan Keuangan</title>
 <style>
-    body { color: #0f172a; font-family: Arial, sans-serif; margin: 0; padding: 28px; }
-    h1 { font-size: 22px; margin: 0 0 4px; }
-    h2 { font-size: 15px; margin: 24px 0 8px; border-bottom: 2px solid #0f172a; padding-bottom: 4px; }
-    p.period { color: #475569; margin: 0 0 8px; }
-    table { border-collapse: collapse; width: 100%; font-size: 13px; }
-    td { padding: 7px 8px; border-bottom: 1px solid #e2e8f0; }
-    td.num { text-align: right; font-variant-numeric: tabular-nums; }
-    tr.total td { font-weight: bold; border-top: 2px solid #0f172a; border-bottom: none; }
-    tr.sub td { font-weight: 600; background: #f8fafc; }
-    .neg { color: #be123c; }
-    th { background: #f1f5f9; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 8px; text-align: left; }
-    th.num { text-align: right; }
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #0f172a; }
+    body { font-family: Arial, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc-table { width: 100%; border-collapse: collapse; }
+    .doc-table td { padding: 0; }
+    .hdr-space, .ftr-space { height: 24mm; }
+    .doc-body { padding: 0 14mm; }
+    .doc-header, .doc-footer { padding: 0 14mm; }
+    .doc-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 10mm; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark { width: 26px; height: 26px; border-radius: 7px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; }
+    .brand-name { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; color: #0f172a; }
+    .doc-title { text-align: right; }
+    .doc-title-word { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; color: #334155; }
+    .doc-title-period { font-size: 9px; font-weight: 600; color: #94a3b8; margin-top: 3px; }
+    .doc-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 9px; padding-bottom: 10mm; border-top: 1px solid #e2e8f0; font-size: 9px; color: #94a3b8; }
+    .doc-footer-secret { font-weight: 600; color: #94a3b8; letter-spacing: 0.04em; }
+    .page-section { padding-top: 6px; }
+    .page-break { break-before: page; }
+    .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 2px solid #0f172a; padding-bottom: 11px; }
+    .eyebrow { font-size: 10.5px; font-weight: 800; letter-spacing: 0.16em; color: #94a3b8; }
+    .section-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-top: 5px; }
+    .section-head-note { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+    .meta-block { text-align: right; font-size: 11px; line-height: 1.6; color: #475569; white-space: nowrap; }
+    .meta-label { color: #94a3b8; }
+    .meta-value { font-weight: 700; color: #0f172a; }
+    .status-card { margin-top: 18px; display: grid; grid-template-columns: 212px 1fr; border: 1px solid; border-radius: 14px; overflow: hidden; }
+    .status-left { padding: 20px 22px; border-right: 1px solid; display: flex; flex-direction: column; justify-content: center; }
+    .status-badge-row { display: inline-flex; align-items: center; gap: 8px; }
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .status-caption { font-size: 10px; font-weight: 800; letter-spacing: 0.16em; }
+    .status-word { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; margin-top: 10px; }
+    .status-sub { font-size: 12px; font-weight: 600; opacity: 0.82; margin-top: 5px; }
+    .status-right { padding: 19px 22px; background: #fff; }
+    .status-right-caption { font-size: 10px; font-weight: 800; letter-spacing: 0.15em; color: #94a3b8; }
+    .verdict-text { font-size: 14px; line-height: 1.6; margin: 9px 0 0; color: #1e293b; }
+    .scale-row { display: flex; gap: 7px; margin-top: 16px; }
+    .scale-step { flex: 1; text-align: center; }
+    .scale-bar { height: 6px; border-radius: 3px; }
+    .scale-label { font-size: 9px; font-weight: 800; letter-spacing: 0.05em; margin-top: 6px; text-transform: uppercase; }
+    .kpi-grid { margin-top: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .kpi-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 13px 14px; background: #fff; break-inside: avoid; }
+    .kpi-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; }
+    .kpi-value { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-top: 7px; color: #0f172a; line-height: 1; }
+    .kpi-delta-row { display: flex; align-items: center; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+    .kpi-delta { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 800; }
+    .kpi-arrow { font-size: 9px; }
+    .kpi-compare { font-size: 10px; color: #94a3b8; font-weight: 500; }
+    .insight-card { margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; break-inside: avoid; }
+    .insight-head { padding: 11px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: #334155; }
+    .insight-body { padding: 4px 15px 6px; }
+    .insight-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; align-items: flex-start; }
+    .insight-row:last-child { border-bottom: none; }
+    .insight-icon { flex: none; width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; }
+    .insight-text { margin: 0; font-size: 12px; line-height: 1.55; color: #1e293b; }
+    .footnote-row { margin-top: 14px; display: flex; align-items: center; gap: 8px; font-size: 10px; color: #94a3b8; }
+    .footnote-dot { flex: none; width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid #cbd5e1; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; font-style: italic; }
+    .callout { margin-top: 16px; border-left: 3px solid #0f172a; background: #f8fafc; border-radius: 0 10px 10px 0; padding: 13px 16px; font-size: 13px; line-height: 1.6; color: #1e293b; }
+    .subhead-row { display: flex; align-items: baseline; justify-content: space-between; margin-top: 20px; }
+    .subhead { font-size: 13px; font-weight: 800; color: #0f172a; }
+    .subhead-note { font-size: 10.5px; color: #94a3b8; }
+    .mb-11 { margin-bottom: 11px; }
+    .mb-12 { margin-bottom: 12px; }
+    .mt-18 { margin-top: 18px; }
+    .mt-20 { margin-top: 20px; }
+    .mt-22 { margin-top: 22px; }
+    .trend-wrap { margin-top: 12px; position: relative; height: 120px; border-bottom: 1.5px solid #e2e8f0; }
+    .trend-avg-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #cbd5e1; }
+    .trend-avg-label { position: absolute; right: 0; top: -14px; font-size: 8.5px; font-weight: 700; color: #94a3b8; }
+    .trend-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 2px; }
+    .trend-bar { flex: 1; border-radius: 2px 2px 0 0; }
+    .trend-axis { display: flex; justify-content: space-between; font-size: 8.5px; color: #94a3b8; margin-top: 5px; }
+    .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; }
+    .mc-row { margin-bottom: 15px; break-inside: avoid; }
+    .mc-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+    .mc-label { font-size: 11.5px; font-weight: 700; color: #334155; }
+    .mc-delta { font-size: 11px; font-weight: 800; }
+    .mc-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .mc-bar-label { width: 58px; flex: none; font-size: 9px; font-weight: 700; color: #94a3b8; text-align: right; white-space: nowrap; }
+    .mc-bar-label-cur { font-weight: 800; color: #334155; }
+    .mc-track { flex: 1; height: 14px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
+    .mc-fill { height: 100%; border-radius: 3px; }
+    .mc-fill-prev { background: #cbd5e1; }
+    .mc-fill-cur { background: #0f172a; }
+    .mc-value { width: 78px; font-size: 10px; font-weight: 600; color: #94a3b8; }
+    .mc-value-cur { font-weight: 800; }
+    .margin3-card { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .margin3-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
+    .margin3-row:last-child { border-bottom: none; }
+    .margin3-label { font-size: 11.5px; font-weight: 700; color: #475569; }
+    .margin3-value { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; }
+    .margin3-arrow { font-size: 9px; }
+    .hint-text { font-size: 9.5px; color: #94a3b8; margin-top: 9px; line-height: 1.5; }
+    .table-card { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+    .tp-row { display: grid; grid-template-columns: 22px 1fr 140px 56px; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f1f5f9; align-items: center; break-inside: avoid; }
+    .tp-row:last-child { border-bottom: none; }
+    .tp-head { background: #f8fafc; font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; color: #94a3b8; text-transform: uppercase; padding: 9px 14px; }
+    .tp-rank { font-size: 12px; font-weight: 800; color: #cbd5e1; }
+    .tp-name { font-size: 12px; font-weight: 700; color: #0f172a; }
+    .tp-cat { font-size: 9.5px; color: #94a3b8; margin-top: 2px; }
+    .tp-bar-row { display: flex; align-items: center; gap: 8px; }
+    .tp-track { flex: 1; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+    .tp-fill { height: 100%; background: #0f172a; border-radius: 4px; }
+    .tp-rev { font-size: 9.5px; font-weight: 700; color: #475569; white-space: nowrap; }
+    .tp-share { font-size: 11px; font-weight: 800; color: #334155; }
+    .tp-empty, .opex-empty { padding: 14px; font-size: 11.5px; color: #94a3b8; }
+    .ta-right { text-align: right; }
+    .cat-row { margin-bottom: 10px; break-inside: avoid; }
+    .cat-top { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+    .cat-name { font-weight: 700; color: #334155; }
+    .cat-pct { font-weight: 800; color: #475569; }
+    .cat-track { height: 9px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+    .cat-fill { height: 100%; background: #64748b; border-radius: 4px; }
+    .opex-row { display: grid; grid-template-columns: 1fr 84px 56px; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; align-items: center; break-inside: avoid; }
+    .opex-row:last-child { border-bottom: none; }
+    .opex-label-cell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .opex-flag { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #f59e0b; display: inline-block; }
+    .opex-label { font-size: 10.5px; font-weight: 600; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .opex-track { height: 7px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+    .opex-fill { height: 100%; border-radius: 4px; }
+    .opex-value { text-align: right; }
+    .opex-nom { font-size: 10px; font-weight: 700; color: #334155; }
+    .opex-delta { font-size: 8.5px; font-weight: 700; }
+    .legend-row { display: flex; align-items: center; gap: 6px; font-size: 9.5px; color: #94a3b8; margin-top: 8px; }
+    .statement-card { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; font-size: 11.5px; }
+    .stmt-row { display: flex; justify-content: space-between; padding: 9px 14px; break-inside: avoid; }
+    .stmt-row span:first-child { color: #475569; }
+    .stmt-alt { background: #f8fafc; }
+    .stmt-sub { border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; background: #f8fafc; font-weight: 800; }
+    .stmt-sub span { color: #0f172a !important; font-weight: 800; }
+    .stmt-val { font-weight: 700; color: #0f172a; }
+    .stmt-neg { color: #be123c !important; }
+    .stmt-muted { color: #94a3b8 !important; }
+    .stmt-net { align-items: center; padding: 12px 14px; border-top: 1px solid; font-weight: 800; }
+    .stmt-net span:first-child { font-weight: 800; }
+    .stmt-net-val { text-align: right; }
+    .stmt-net-val span { display: block; font-weight: 800; font-size: 14px; }
+    .stmt-net-margin { font-size: 9px !important; font-weight: 700 !important; opacity: 0.75; }
+    .recon-row { display: grid; grid-template-columns: 1.1fr 56px 0.9fr 0.9fr 0.9fr 48px; gap: 8px; padding: 9px 14px; border-bottom: 1px solid #f1f5f9; align-items: center; font-size: 10.5px; break-inside: avoid; }
+    .recon-row:last-child { border-bottom: none; }
+    .recon-head { background: #f8fafc; font-size: 9px; font-weight: 800; letter-spacing: 0.05em; color: #94a3b8; text-transform: uppercase; }
+    .recon-label { font-weight: 700; color: #0f172a; }
+    .recon-rate { font-weight: 600; color: #94a3b8; font-size: 9px; }
+    .recon-muted { color: #475569; }
+    .recon-faint { color: #94a3b8; }
+    .recon-bold { font-weight: 800; color: #0f172a; }
+    .recon-share { font-weight: 700; color: #64748b; }
+    .recon-total { background: #0f172a; color: #fff; font-weight: 800; }
+    .recon-total-fee { opacity: 0.8; }
+    @media print {
+        .hdr-space, .ftr-space { height: max(24mm, 24mm); }
+        .doc-header { position: fixed; top: 0; left: 0; right: 0; margin: 0; }
+        .doc-footer { position: fixed; bottom: 0; left: 0; right: 0; margin: 0; }
+        tr, .kpi-card, .insight-row, .mc-row, .tp-row, .cat-row, .opex-row, .stmt-row, .recon-row, .margin3-row { break-inside: avoid; }
+        h1, h2, h3 { break-after: avoid; }
+    }
 </style>
 </head>
 <body>
-    <h1>Laporan Keuangan</h1>
-    <p class="period">Periode: ${periodLabel.value}</p>
-    ${body}
+    ${header}
+    <table class="doc-table">
+        <thead><tr><td><div class="hdr-space"></div></td></tr></thead>
+        <tbody><tr><td>
+            <div class="doc-body">${section1}${section2}${section3}${section4}</div>
+        </td></tr></tbody>
+        <tfoot><tr><td><div class="ftr-space"></div></td></tr></tfoot>
+    </table>
+    ${footer}
 </body>
 </html>`;
-}
-
-function rp(value: number): string {
-    return formatRupiah(value);
 }
 
 function printReport(): void {
@@ -391,49 +1348,7 @@ function printReport(): void {
         return;
     }
 
-    const p = props.pnl;
-    const c = props.cashflow;
-
-    const labaRugi = `
-        <h2>Laporan Laba Rugi</h2>
-        <table>
-            <tr><td>Penjualan Barang</td><td class="num">${rp(p.product_revenue)}</td></tr>
-            <tr><td>Pendapatan Jasa (fee)</td><td class="num">${rp(p.jasa_revenue)}</td></tr>
-            <tr class="sub"><td>Total Pendapatan (Omzet)</td><td class="num">${rp(p.total_revenue)}</td></tr>
-            <tr><td>Harga Pokok Penjualan (HPP)</td><td class="num neg">−${rp(p.hpp)}</td></tr>
-            <tr class="sub"><td>Laba Kotor</td><td class="num">${rp(p.gross_profit)}</td></tr>
-            ${p.expense_breakdown.map((e) => `<tr><td>${e.label}</td><td class="num neg">−${rp(e.nominal)}</td></tr>`).join('')}
-            <tr class="sub"><td>Total Biaya Operasional</td><td class="num neg">−${rp(p.operational_expenses)}</td></tr>
-            <tr class="total"><td>Laba Bersih (margin ${p.margin}%)</td><td class="num">${rp(p.net_profit)}</td></tr>
-        </table>`;
-
-    const arusKas = `
-        <h2>Laporan Arus Kas</h2>
-        <table>
-            <tr class="sub"><td>Kas Masuk</td><td class="num"></td></tr>
-            <tr><td>Penjualan (omzet)</td><td class="num">${rp(c.kas_masuk)}</td></tr>
-            <tr class="sub"><td>Kas Keluar</td><td class="num"></td></tr>
-            <tr><td>Pembelian Bahan & Produksi</td><td class="num neg">−${rp(c.pembelian_produksi)}</td></tr>
-            <tr><td>Biaya Operasional</td><td class="num neg">−${rp(c.biaya_operasional)}</td></tr>
-            <tr class="total"><td>Arus Kas Bersih</td><td class="num">${rp(c.net_cash)}</td></tr>
-        </table>`;
-
-    const rekon = `
-        <h2>Rekonsiliasi Pembayaran</h2>
-        <table>
-            <thead><tr><th>Metode</th><th class="num">Transaksi</th><th class="num">Bruto</th><th class="num">Biaya Admin</th><th class="num">Diterima Bersih</th></tr></thead>
-            <tbody>
-            ${reconciliationRows.value
-                .map(
-                    (r) =>
-                        `<tr><td>${r.label} (${r.rate}%)</td><td class="num">${r.jumlah}</td><td class="num">${rp(r.total)}</td><td class="num neg">−${rp(r.fee)}</td><td class="num">${rp(r.net)}</td></tr>`,
-                )
-                .join('')}
-            <tr class="total"><td>Total</td><td class="num">${reconciliationTotals.value.jumlah}</td><td class="num">${rp(reconciliationTotals.value.gross)}</td><td class="num neg">−${rp(reconciliationTotals.value.fee)}</td><td class="num">${rp(reconciliationTotals.value.net)}</td></tr>
-            </tbody>
-        </table>`;
-
-    const win = window.open('', '_blank', 'width=900,height=720');
+    const win = window.open('', '_blank', 'width=900,height=1120');
 
     if (!win) {
         window.alert(
@@ -443,7 +1358,7 @@ function printReport(): void {
         return;
     }
 
-    win.document.write(reportShell(labaRugi + arusKas + rekon));
+    win.document.write(buildFinancialReportHtml());
     win.document.close();
     win.focus();
     win.print();
