@@ -30,13 +30,13 @@ import {
     HandCoins,
     ShoppingBag,
     ChefHat,
-    Tag,
-    Wallet,
     Info,
     ScanLine,
     Check,
     Upload,
     Lock,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-vue-next';
 import {
     ref,
@@ -211,7 +211,7 @@ function handleClickOutsideFilter(event: MouseEvent) {
 }
 
 // Dengarkan flash 'produk_baru' (dikirim server saat produk produksi dibuat) untuk
-// memunculkan modal sukses + tawaran lanjut ke menu Produksi.
+// menyimpan id produk baru — dipakai tombol "Ya, catat produksi" di overlay sukses.
 let stopFlashListener: (() => void) | null = null;
 
 onMounted(() => {
@@ -228,7 +228,6 @@ onMounted(() => {
                 id: produkBaru.id,
                 nama: produkBaru.nama,
             };
-            showProduksiSuccess.value = true;
         }
     });
 });
@@ -387,6 +386,139 @@ const lastScannerTime = ref(0);
 const SCANNER_TIMEOUT_MS = 150;
 const SCANNER_MIN_LENGTH = 3;
 
+// ===== Wizard 3 langkah (Jenis → Detail → Harga/Tarif) =====
+type WizardStep = 1 | 2 | 3;
+const wizardStep = ref<WizardStep>(1);
+// Panel Barcode & SKU (opsional) dilipat secara default sesuai desain.
+const showBarcodeSection = ref(false);
+// Tooltip mini (i) yang sedang terbuka: asal produk / potongan reseller / tarif.
+const activeTip = ref<'asal' | 'reseller' | 'tarif' | null>(null);
+// Overlay sukses dalam modal (menggantikan penutupan langsung).
+const submitted = ref(false);
+const submitting = ref(false);
+const successMeta = ref<{ nama: string; isProd: boolean; editing: boolean }>({
+    nama: '',
+    isProd: false,
+    editing: false,
+});
+
+const isJasa = computed(() => form.tipe_jual === 'jasa');
+const step3Label = computed(() => (isJasa.value ? 'Tarif' : 'Harga'));
+const stepSubtitle = computed(() => {
+    if (wizardStep.value === 1) {
+        return 'Langkah 1 · Tentukan jenis jualan';
+    }
+
+    if (wizardStep.value === 2) {
+        return 'Langkah 2 · Detail & kategori';
+    }
+
+    return isJasa.value
+        ? 'Langkah 3 · Atur tarif fee'
+        : 'Langkah 3 · Harga & stok';
+});
+
+const footerNextLabel = computed(() => {
+    if (wizardStep.value < 3) {
+        return 'Lanjut';
+    }
+
+    if (submitting.value) {
+        return 'Menyimpan...';
+    }
+
+    return editingProduk.value ? 'Simpan Perubahan' : 'Tambah Produk';
+});
+
+const successTitle = computed(() =>
+    successMeta.value.editing
+        ? 'Produk berhasil diperbarui 🎉'
+        : 'Produk berhasil dibuat 🎉',
+);
+const successText = computed(() => {
+    const nama = successMeta.value.nama;
+
+    if (successMeta.value.isProd) {
+        return `${nama} tersimpan. Tambahkan harga modal & stok sekarang lewat catatan Produksi?`;
+    }
+
+    if (successMeta.value.editing) {
+        return `Perubahan pada ${nama} sudah tersimpan.`;
+    }
+
+    return `${nama} sudah tersimpan dan siap dijual.`;
+});
+const successSecondary = computed(() =>
+    successMeta.value.isProd ? 'Nanti saja' : 'Selesai',
+);
+
+function goToStep(n: WizardStep): void {
+    wizardStep.value = n;
+    activeTip.value = null;
+}
+
+function nextStep(): void {
+    if (wizardStep.value < 3) {
+        wizardStep.value = (wizardStep.value + 1) as WizardStep;
+        activeTip.value = null;
+
+        return;
+    }
+
+    submitForm();
+}
+
+function prevStep(): void {
+    if (wizardStep.value > 1) {
+        wizardStep.value = (wizardStep.value - 1) as WizardStep;
+        activeTip.value = null;
+    }
+}
+
+function toggleTip(key: 'asal' | 'reseller' | 'tarif'): void {
+    activeTip.value = activeTip.value === key ? null : key;
+}
+
+function resetWizardState(): void {
+    wizardStep.value = 1;
+    activeTip.value = null;
+    submitted.value = false;
+    submitting.value = false;
+    showBarcodeSection.value = false;
+}
+
+// Pilih tipe jual + samakan satuan default (kosong utk jasa, liter utk curah).
+function setTipeJual(value: TipeJual): void {
+    form.tipe_jual = value;
+
+    if (value === 'jasa') {
+        form.satuan = '';
+
+        return;
+    }
+
+    if (
+        !form.satuan ||
+        form.satuan === 'transaksi' ||
+        form.satuan === 'layanan'
+    ) {
+        form.satuan = value === 'curah' ? 'liter' : 'pcs';
+    }
+}
+
+// Loncat ke langkah yang memuat error validasi pertama (nama/kategori/satuan/foto
+// = langkah 2; sisanya = langkah 3) agar pesan error langsung terlihat.
+function jumpToErrorStep(errors: Record<string, string>): void {
+    const step2Fields = ['nama', 'id_kategori', 'satuan', 'foto'];
+    const keys = Object.keys(errors);
+
+    wizardStep.value = keys.some((k) => step2Fields.includes(k)) ? 2 : 3;
+
+    if (errors.barcode || errors.sku) {
+        showBarcodeSection.value = true;
+    }
+}
+
 interface HidDeviceInfo {
     productName?: string;
     collections?: Array<{
@@ -524,7 +656,9 @@ function openTambah() {
     editingProduk.value = null;
     form.reset();
     form.foto_upload = null;
+    form.clearErrors();
     setFotoUploadPreview(null);
+    resetWizardState();
     showModal.value = true;
     startScannerListening();
 }
@@ -548,7 +682,9 @@ function openEdit(produk: Produk) {
         min_nominal: t.min_nominal,
         fee: t.fee,
     }));
+    form.clearErrors();
     setFotoUploadPreview(null);
+    resetWizardState();
     showModal.value = true;
     startScannerListening();
 }
@@ -560,25 +696,17 @@ function closeModal() {
     form.foto_upload = null;
     setFotoUploadPreview(null);
     form.clearErrors();
+    resetWizardState();
+    newProduksiProduk.value = null;
 }
 
-// Modal "Produk berhasil dibuat" untuk produk buatan sendiri (jenis produksi).
-// Stok & harga modal produk produksi tidak diisi di form ini — keduanya berasal
-// dari catatan Produksi (batch costing), jadi tawarkan lanjut ke menu Produksi.
-const showProduksiSuccess = ref(false);
+// Id produk buatan sendiri yang baru dibuat (dari flash server) — dipakai tombol
+// "Ya, catat produksi" di overlay sukses untuk membuka menu Produksi produk tsb.
 const newProduksiProduk = ref<{ id: number; nama: string } | null>(null);
 
 function lanjutKeProduksi() {
     const id = newProduksiProduk.value?.id;
-    showProduksiSuccess.value = false;
-    router.visit(
-        `/admin/produksi?aksi=tambah${id ? `&produk=${id}` : ''}`,
-    );
-}
-
-function tutupProduksiSuccess() {
-    showProduksiSuccess.value = false;
-    newProduksiProduk.value = null;
+    router.visit(`/admin/produksi?aksi=tambah${id ? `&produk=${id}` : ''}`);
 }
 
 function handleFileUpload(event: Event) {
@@ -883,14 +1011,44 @@ function submitForm() {
                 : [],
     };
 
-    if (editingProduk.value) {
-        router.put(productUpdate(editingProduk.value.id_produk).url, data, {
-            onSuccess: () => closeModal(),
-        });
+    const isEditing = !!editingProduk.value;
+    const options = {
+        onStart: () => {
+            submitting.value = true;
+        },
+        onFinish: () => {
+            submitting.value = false;
+        },
+        onSuccess: () => {
+            // Tampilkan overlay sukses alih-alih menutup modal langsung.
+            successMeta.value = {
+                nama: form.nama || 'Produk',
+                // Tawaran "catat produksi" hanya untuk produk buatan sendiri baru.
+                isProd:
+                    !isEditing &&
+                    form.jenis === 'produksi' &&
+                    form.tipe_jual !== 'jasa',
+                editing: isEditing,
+            };
+            submitted.value = true;
+        },
+        onError: (errors: Record<string, string>) => {
+            // router.* tidak mengisi form.errors otomatis — sinkronkan manual
+            // agar pesan error tampil inline, lalu loncat ke langkah terkait.
+            form.clearErrors();
+            form.setError(errors);
+            jumpToErrorStep(errors);
+        },
+    };
+
+    if (isEditing) {
+        router.put(
+            productUpdate(editingProduk.value!.id_produk).url,
+            data,
+            options,
+        );
     } else {
-        router.post(productStore().url, data, {
-            onSuccess: () => closeModal(),
-        });
+        router.post(productStore().url, data, options);
     }
 }
 
@@ -1377,7 +1535,8 @@ const statusClass: Record<string, string> = {
                                                     :key="opt.value"
                                                     class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-100"
                                                     :class="
-                                                        filterJenis === opt.value
+                                                        filterJenis ===
+                                                        opt.value
                                                             ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
                                                             : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
                                                     "
@@ -1705,7 +1864,8 @@ const statusClass: Record<string, string> = {
                                     <span
                                         v-if="produk.archived_at"
                                         class="hidden text-xs text-muted-foreground sm:inline"
-                                        >Diarsipkan {{ produk.archived_at }}</span
+                                        >Diarsipkan
+                                        {{ produk.archived_at }}</span
                                     >
                                     <button
                                         class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400"
@@ -1978,7 +2138,7 @@ const statusClass: Record<string, string> = {
         </div>
     </BodyTeleport>
 
-    <!-- Modal Tambah / Edit Produk -->
+    <!-- Modal Tambah / Edit Produk (wizard 3 langkah) -->
     <BodyTeleport>
         <Transition
             enter-active-class="transition duration-200 ease-out"
@@ -1994,468 +2154,509 @@ const statusClass: Record<string, string> = {
                 @click.self="closeModal"
             >
                 <div
-                    class="flex h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-sidebar-border/70 bg-card shadow-2xl sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl dark:border-sidebar-border"
+                    class="relative flex h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-sidebar-border/70 bg-card shadow-2xl sm:h-auto sm:max-h-[90vh] sm:w-[560px] sm:max-w-[calc(100vw-2rem)] sm:rounded-2xl dark:border-sidebar-border"
                 >
-                    <form
-                        class="flex min-h-0 flex-1 flex-col"
-                        @submit.prevent="submitForm"
+                    <!-- Drag handle (mobile) -->
+                    <div
+                        class="flex shrink-0 justify-center pt-2.5 pb-0.5 sm:hidden"
                     >
-                        <!-- Header (tetap terlihat saat scroll) -->
                         <div
-                            class="shrink-0 border-b border-sidebar-border/70 bg-card px-5 pt-3 pb-4 dark:border-sidebar-border"
+                            class="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-zinc-700"
+                        ></div>
+                    </div>
+
+                    <!-- Header -->
+                    <div
+                        class="flex shrink-0 items-center gap-3 px-5 pt-3.5 pb-3.5"
+                    >
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
                         >
-                            <div
-                                class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-300 sm:hidden dark:bg-zinc-700"
-                            ></div>
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
-                                    >
-                                        <Package class="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h2
-                                            class="text-base leading-tight font-bold sm:text-lg"
-                                        >
-                                            {{
-                                                editingProduk
-                                                    ? 'Edit Produk'
-                                                    : 'Tambah Produk Baru'
-                                            }}
-                                        </h2>
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            Kolom bertanda
-                                            <span
-                                                class="font-semibold text-rose-500"
-                                                >*</span
-                                            >
-                                            wajib diisi
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    type="button"
-                                    class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                                    @click="closeModal"
-                                    aria-label="Tutup"
+                            <Package class="h-5 w-5" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h2
+                                class="text-base leading-tight font-bold sm:text-lg"
+                            >
+                                {{
+                                    editingProduk
+                                        ? 'Edit Produk'
+                                        : 'Tambah Produk Baru'
+                                }}
+                            </h2>
+                            <p
+                                class="mt-0.5 truncate text-xs text-muted-foreground"
+                            >
+                                {{ stepSubtitle }}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-muted-foreground transition-colors hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                            @click="closeModal"
+                            aria-label="Tutup"
+                        >
+                            <X class="h-[18px] w-[18px]" />
+                        </button>
+                    </div>
+
+                    <!-- Stepper -->
+                    <div class="shrink-0 px-6 pb-4">
+                        <div class="flex items-center">
+                            <button
+                                v-for="(stepDef, idx) in [
+                                    { n: 1, label: 'Jenis' },
+                                    { n: 2, label: 'Detail' },
+                                    { n: 3, label: step3Label },
+                                ]"
+                                :key="stepDef.n"
+                                type="button"
+                                class="contents"
+                                @click="goToStep(stepDef.n as 1 | 2 | 3)"
+                            >
+                                <span
+                                    v-if="idx > 0"
+                                    class="mx-1.5 mb-[22px] h-0.5 flex-1 rounded transition-colors"
+                                    :class="
+                                        wizardStep >= stepDef.n
+                                            ? 'bg-indigo-600'
+                                            : 'bg-slate-200 dark:bg-zinc-700'
+                                    "
+                                ></span>
+                                <span
+                                    class="flex cursor-pointer flex-col items-center gap-1.5"
                                 >
-                                    <X class="h-5 w-5" />
+                                    <span
+                                        class="flex h-8 w-8 items-center justify-center rounded-full border-2 text-[13px] font-bold transition-all"
+                                        :class="
+                                            wizardStep >= stepDef.n
+                                                ? 'border-indigo-600 bg-indigo-600 text-white'
+                                                : 'border-slate-300 bg-card text-muted-foreground dark:border-zinc-600'
+                                        "
+                                    >
+                                        <Check
+                                            v-if="wizardStep > stepDef.n"
+                                            class="h-4 w-4"
+                                        />
+                                        <span v-else>{{ stepDef.n }}</span>
+                                    </span>
+                                    <span
+                                        class="text-[11.5px] transition-colors"
+                                        :class="
+                                            wizardStep === stepDef.n
+                                                ? 'font-bold text-indigo-600 dark:text-indigo-400'
+                                                : 'font-medium text-muted-foreground'
+                                        "
+                                        >{{ stepDef.label }}</span
+                                    >
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Body (scroll) -->
+                    <div class="min-h-0 flex-1 overflow-y-auto px-5 pt-1 pb-5">
+                        <!-- ============ STEP 1: JENIS ============ -->
+                        <div v-if="wizardStep === 1">
+                            <h3 class="text-[15px] font-bold">
+                                Bagaimana produk ini dijual?
+                            </h3>
+                            <p
+                                class="mt-1 mb-3.5 text-xs text-muted-foreground"
+                            >
+                                Pilihan ini menentukan kolom yang muncul
+                                berikutnya.
+                            </p>
+
+                            <!-- Tipe jual -->
+                            <div class="grid grid-cols-3 gap-2.5">
+                                <button
+                                    v-for="opt in tipeJualOptions"
+                                    :key="opt.value"
+                                    type="button"
+                                    class="flex flex-col items-center gap-1.5 rounded-2xl border p-3.5 text-center transition-all"
+                                    :class="
+                                        form.tipe_jual === opt.value
+                                            ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/15 dark:bg-indigo-500/10'
+                                            : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'
+                                    "
+                                    @click="setTipeJual(opt.value)"
+                                >
+                                    <component
+                                        :is="opt.icon"
+                                        class="h-6 w-6"
+                                        :class="
+                                            form.tipe_jual === opt.value
+                                                ? 'text-indigo-600 dark:text-indigo-400'
+                                                : 'text-muted-foreground'
+                                        "
+                                    />
+                                    <span
+                                        class="text-[13px] leading-tight font-bold"
+                                        :class="
+                                            form.tipe_jual === opt.value
+                                                ? 'text-indigo-700 dark:text-indigo-300'
+                                                : ''
+                                        "
+                                        >{{ opt.label }}</span
+                                    >
+                                    <span
+                                        class="text-[10.5px] leading-tight text-muted-foreground"
+                                        >{{ opt.short }}</span
+                                    >
                                 </button>
+                            </div>
+
+                            <!-- Hint tipe jual -->
+                            <p
+                                class="mt-2.5 flex items-start gap-1.5 rounded-xl bg-slate-50 px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-foreground dark:bg-zinc-800/40"
+                            >
+                                <Info class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                <span>{{
+                                    tipeJualOptions.find(
+                                        (o) => o.value === form.tipe_jual,
+                                    )?.hint
+                                }}</span>
+                            </p>
+
+                            <!-- Asal produk (non-jasa) -->
+                            <div v-if="form.tipe_jual !== 'jasa'" class="mt-5">
+                                <div class="mb-2.5 flex items-center gap-1.5">
+                                    <span
+                                        class="text-[13px] font-semibold text-slate-700 dark:text-slate-200"
+                                        >Asal produk</span
+                                    >
+                                    <span class="relative inline-flex">
+                                        <button
+                                            type="button"
+                                            class="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                                            @click="toggleTip('asal')"
+                                            aria-label="Info asal produk"
+                                        >
+                                            <Info class="h-3 w-3" />
+                                        </button>
+                                        <span
+                                            v-if="activeTip === 'asal'"
+                                            class="absolute top-6 left-0 z-20 w-56 rounded-xl bg-slate-900 px-3 py-2.5 text-[11px] leading-relaxed font-normal text-slate-100 shadow-xl dark:bg-zinc-950"
+                                        >
+                                            Untuk produk
+                                            <b class="text-white"
+                                                >buatan sendiri</b
+                                            >, harga modal &amp; stok tidak
+                                            diisi di sini — dihitung otomatis
+                                            dari catatan
+                                            <b class="text-white">Produksi</b>.
+                                        </span>
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <button
+                                        v-for="opt in jenisOptions"
+                                        :key="opt.value"
+                                        type="button"
+                                        class="flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all"
+                                        :class="
+                                            form.jenis === opt.value
+                                                ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/15 dark:bg-indigo-500/10'
+                                                : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'
+                                        "
+                                        @click="form.jenis = opt.value"
+                                    >
+                                        <component
+                                            :is="opt.icon"
+                                            class="h-5 w-5 shrink-0"
+                                            :class="
+                                                form.jenis === opt.value
+                                                    ? 'text-indigo-600 dark:text-indigo-400'
+                                                    : 'text-muted-foreground'
+                                            "
+                                        />
+                                        <span class="min-w-0">
+                                            <span
+                                                class="block text-[13px] leading-tight font-bold"
+                                                :class="
+                                                    form.jenis === opt.value
+                                                        ? 'text-indigo-700 dark:text-indigo-300'
+                                                        : ''
+                                                "
+                                                >{{ opt.label }}</span
+                                            >
+                                            <span
+                                                class="mt-0.5 block text-[11px] leading-tight text-muted-foreground"
+                                                >{{ opt.hint }}</span
+                                            >
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Isi form (area yang bisa di-scroll) -->
-                        <div
-                            class="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-5"
-                        >
-                            <!-- ====== Bagian 1: Informasi Produk ====== -->
-                            <section class="space-y-4">
-                                <div class="flex items-center gap-2">
-                                    <Package
-                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                    />
-                                    <h3 class="text-sm font-bold">
-                                        Informasi Produk
-                                    </h3>
-                                </div>
+                        <!-- ============ STEP 2: DETAIL ============ -->
+                        <div v-else-if="wizardStep === 2" class="space-y-5">
+                            <!-- Nama -->
+                            <div>
+                                <label
+                                    class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
+                                    for="prod-nama"
+                                >
+                                    Nama produk
+                                    <span class="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    id="prod-nama"
+                                    v-model="form.nama"
+                                    type="text"
+                                    placeholder="mis. Kopi Sachet, Bensin Eceran…"
+                                    class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3.5 py-3 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-sidebar-border"
+                                    :class="{
+                                        'border-rose-500': form.errors.nama,
+                                    }"
+                                />
+                                <p
+                                    v-if="form.errors.nama"
+                                    class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                >
+                                    <AlertCircle class="h-3 w-3" />{{
+                                        form.errors.nama
+                                    }}
+                                </p>
+                            </div>
 
-                                <!-- Nama -->
-                                <div>
-                                    <label
-                                        class="mb-1.5 block text-sm font-medium"
-                                        for="prod-nama"
+                            <!-- Kategori -->
+                            <div>
+                                <label
+                                    class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
+                                    for="prod-kategori"
+                                >
+                                    Kategori
+                                    <span class="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    id="prod-kategori"
+                                    v-model="form.id_kategori"
+                                    class="w-full appearance-none rounded-xl border border-sidebar-border/70 bg-background px-3.5 py-3 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-sidebar-border"
+                                    :class="{
+                                        'border-rose-500':
+                                            form.errors.id_kategori,
+                                    }"
+                                >
+                                    <option value="">Pilih kategori</option>
+                                    <option
+                                        v-for="kat in kategoris"
+                                        :key="kat.id_kategori"
+                                        :value="String(kat.id_kategori)"
                                     >
-                                        Nama Produk
-                                        <span class="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        id="prod-nama"
-                                        v-model="form.nama"
-                                        type="text"
-                                        placeholder="mis. Kopi Sachet, Bensin Eceran…"
-                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                        :class="{
-                                            'border-rose-500': form.errors.nama,
-                                        }"
-                                    />
-                                    <p
-                                        v-if="form.errors.nama"
-                                        class="mt-1 flex items-center gap-1 text-xs text-rose-600"
-                                    >
-                                        <AlertCircle class="h-3 w-3" />{{
-                                            form.errors.nama
-                                        }}
-                                    </p>
-                                </div>
+                                        {{ kat.nama_kategori }}
+                                    </option>
+                                </select>
+                                <p
+                                    v-if="form.errors.id_kategori"
+                                    class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                >
+                                    <AlertCircle class="h-3 w-3" />{{
+                                        form.errors.id_kategori
+                                    }}
+                                </p>
+                            </div>
 
-                                <!-- Foto + preview -->
-                                <div>
+                            <!-- Satuan (non-jasa) -->
+                            <div v-if="form.tipe_jual !== 'jasa'">
+                                <label
+                                    class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
+                                    for="prod-satuan"
+                                >
+                                    Satuan
+                                </label>
+                                <input
+                                    id="prod-satuan"
+                                    v-model="form.satuan"
+                                    type="text"
+                                    list="satuan-suggestions"
+                                    placeholder="pcs / liter / kg"
+                                    class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3.5 py-3 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-sidebar-border"
+                                    :class="{
+                                        'border-rose-500': form.errors.satuan,
+                                    }"
+                                />
+                                <datalist id="satuan-suggestions">
+                                    <option
+                                        v-for="s in satuanSuggestions"
+                                        :key="s"
+                                        :value="s"
+                                    />
+                                </datalist>
+                                <div class="mt-2 flex flex-wrap gap-1.5">
+                                    <button
+                                        v-for="s in satuanSuggestions"
+                                        :key="s"
+                                        type="button"
+                                        class="rounded-full border px-3 py-1 text-xs font-semibold transition-colors"
+                                        :class="
+                                            form.satuan === s
+                                                ? 'border-indigo-600 bg-indigo-600 text-white'
+                                                : 'border-sidebar-border/70 text-muted-foreground hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border'
+                                        "
+                                        @click="form.satuan = s"
+                                    >
+                                        {{ s }}
+                                    </button>
+                                </div>
+                                <p
+                                    v-if="form.errors.satuan"
+                                    class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                >
+                                    <AlertCircle class="h-3 w-3" />{{
+                                        form.errors.satuan
+                                    }}
+                                </p>
+                            </div>
+
+                            <!-- Foto -->
+                            <div>
+                                <label
+                                    class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
+                                >
+                                    Foto produk
                                     <span
-                                        class="mb-1.5 block text-sm font-medium"
-                                        >Foto Produk</span
+                                        class="font-normal text-muted-foreground"
+                                        >(opsional)</span
                                     >
-                                    <div class="flex items-start gap-3">
+                                </label>
+                                <div class="flex items-start gap-3">
+                                    <div
+                                        class="relative h-[82px] w-[82px] shrink-0 overflow-hidden rounded-2xl border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-800"
+                                    >
+                                        <img
+                                            v-if="fotoPreviewUrl"
+                                            :src="fotoPreviewUrl"
+                                            alt="Pratinjau foto produk"
+                                            class="h-full w-full object-cover"
+                                        />
                                         <div
-                                            class="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-sidebar-border/70 bg-slate-100 dark:border-sidebar-border dark:bg-zinc-800"
+                                            v-else
+                                            class="flex h-full w-full items-center justify-center text-muted-foreground"
                                         >
-                                            <img
-                                                v-if="fotoPreviewUrl"
-                                                :src="fotoPreviewUrl"
-                                                alt="Pratinjau foto produk"
-                                                class="h-full w-full object-cover"
-                                            />
-                                            <div
-                                                v-else
-                                                class="flex h-full w-full items-center justify-center text-muted-foreground"
-                                            >
-                                                <ImageIcon class="h-7 w-7" />
-                                            </div>
-                                            <button
-                                                v-if="fotoPreviewUrl"
-                                                type="button"
-                                                class="absolute top-1 right-1 rounded-full bg-black/60 p-0.5 text-white transition-colors hover:bg-black/80"
-                                                aria-label="Hapus foto"
-                                                @click="clearFoto"
-                                            >
-                                                <X class="h-3.5 w-3.5" />
-                                            </button>
+                                            <ImageIcon class="h-6 w-6" />
                                         </div>
-                                        <div
-                                            class="flex min-w-0 flex-1 flex-col gap-2"
+                                        <button
+                                            v-if="fotoPreviewUrl"
+                                            type="button"
+                                            class="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
+                                            aria-label="Hapus foto"
+                                            @click="clearFoto"
                                         >
-                                            <label
-                                                class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-sidebar-border/70 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900 dark:text-slate-200 dark:hover:bg-zinc-800"
-                                            >
-                                                <Upload class="h-4 w-4" />
-                                                {{
-                                                    fotoUploadName
-                                                        ? 'Ganti Foto'
-                                                        : 'Upload dari Galeri'
-                                                }}
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    class="hidden"
-                                                    @change="handleFileUpload"
-                                                />
-                                            </label>
-                                            <input
-                                                id="prod-foto"
-                                                v-model="form.foto"
-                                                type="text"
-                                                placeholder="atau tempel URL gambar…"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{
-                                                    'border-rose-500':
-                                                        form.errors.foto,
-                                                }"
-                                            />
-                                        </div>
+                                            <X class="h-3 w-3" />
+                                        </button>
                                     </div>
-                                    <p
-                                        v-if="fotoUploadName"
-                                        class="mt-1.5 truncate text-xs text-muted-foreground"
+                                    <div
+                                        class="flex min-w-0 flex-1 flex-col gap-2"
                                     >
-                                        File dipilih: {{ fotoUploadName }}
-                                    </p>
-                                    <p
-                                        v-if="form.errors.foto"
-                                        class="mt-1 flex items-center gap-1 text-xs text-rose-600"
-                                    >
-                                        <AlertCircle class="h-3 w-3" />{{
-                                            form.errors.foto
-                                        }}
-                                    </p>
+                                        <label
+                                            class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-sidebar-border/70 bg-slate-50 px-4 py-2.5 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:border-sidebar-border dark:bg-zinc-900 dark:text-slate-200 dark:hover:bg-zinc-800"
+                                        >
+                                            <Upload class="h-4 w-4" />
+                                            {{
+                                                fotoUploadName
+                                                    ? 'Ganti Foto'
+                                                    : 'Upload dari Galeri'
+                                            }}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                class="hidden"
+                                                @change="handleFileUpload"
+                                            />
+                                        </label>
+                                        <input
+                                            id="prod-foto"
+                                            v-model="form.foto"
+                                            type="text"
+                                            placeholder="atau tempel URL gambar…"
+                                            class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3 py-2 text-[13px] text-foreground focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                            :class="{
+                                                'border-rose-500':
+                                                    form.errors.foto,
+                                            }"
+                                        />
+                                    </div>
                                 </div>
+                                <p
+                                    v-if="fotoUploadName"
+                                    class="mt-1.5 truncate text-xs text-muted-foreground"
+                                >
+                                    File dipilih: {{ fotoUploadName }}
+                                </p>
+                                <p
+                                    v-if="form.errors.foto"
+                                    class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                >
+                                    <AlertCircle class="h-3 w-3" />{{
+                                        form.errors.foto
+                                    }}
+                                </p>
+                            </div>
+                        </div>
 
-                                <!-- Kategori -->
+                        <!-- ============ STEP 3: HARGA / TARIF ============ -->
+                        <div v-else class="space-y-5">
+                            <!-- Pricing (non-jasa) -->
+                            <template v-if="form.tipe_jual !== 'jasa'">
+                                <!-- Harga Jual -->
                                 <div>
                                     <label
-                                        class="mb-1.5 block text-sm font-medium"
-                                        for="prod-kategori"
+                                        class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
+                                        for="prod-harga-jual"
                                     >
-                                        Kategori
+                                        {{
+                                            form.tipe_jual === 'curah'
+                                                ? `Harga per ${form.satuan || 'satuan'}`
+                                                : 'Harga Jual'
+                                        }}
                                         <span class="text-rose-500">*</span>
                                     </label>
-                                    <select
-                                        id="prod-kategori"
-                                        v-model="form.id_kategori"
-                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                        :class="{
-                                            'border-rose-500':
-                                                form.errors.id_kategori,
-                                        }"
-                                    >
-                                        <option value="">Pilih kategori</option>
-                                        <option
-                                            v-for="kat in kategoris"
-                                            :key="kat.id_kategori"
-                                            :value="String(kat.id_kategori)"
+                                    <div class="relative">
+                                        <span
+                                            class="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-medium text-muted-foreground"
+                                            >Rp</span
                                         >
-                                            {{ kat.nama_kategori }}
-                                        </option>
-                                    </select>
+                                        <input
+                                            id="prod-harga-jual"
+                                            v-model="form.harga_jual"
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            class="w-full rounded-xl border border-sidebar-border/70 bg-background py-3 pr-4 pl-9 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-sidebar-border"
+                                            :class="{
+                                                'border-rose-500':
+                                                    form.errors.harga_jual,
+                                            }"
+                                        />
+                                    </div>
                                     <p
-                                        v-if="form.errors.id_kategori"
+                                        v-if="form.errors.harga_jual"
                                         class="mt-1 flex items-center gap-1 text-xs text-rose-600"
                                     >
                                         <AlertCircle class="h-3 w-3" />{{
-                                            form.errors.id_kategori
+                                            form.errors.harga_jual
                                         }}
                                     </p>
                                 </div>
-                            </section>
 
-                            <!-- ====== Bagian 2: Jenis & Cara Jual ====== -->
-                            <section class="space-y-4">
-                                <div class="flex items-center gap-2">
-                                    <Tag
-                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                    />
-                                    <h3 class="text-sm font-bold">
-                                        Jenis &amp; Cara Jual
-                                    </h3>
-                                </div>
-
-                                <!-- Asal produk (kartu pilihan) — tak relevan untuk jasa (tanpa modal). -->
-                                <div v-if="form.tipe_jual !== 'jasa'">
-                                    <span class="mb-2 block text-sm font-medium"
-                                        >Asal Produk</span
-                                    >
-                                    <div class="grid grid-cols-2 gap-2.5">
-                                        <button
-                                            v-for="opt in jenisOptions"
-                                            :key="opt.value"
-                                            type="button"
-                                            class="flex items-center gap-2.5 rounded-xl border p-3 text-left transition-all"
-                                            :class="
-                                                form.jenis === opt.value
-                                                    ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:bg-indigo-500/10'
-                                                    : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'
-                                            "
-                                            @click="form.jenis = opt.value"
-                                        >
-                                            <component
-                                                :is="opt.icon"
-                                                class="h-5 w-5 shrink-0"
-                                                :class="
-                                                    form.jenis === opt.value
-                                                        ? 'text-indigo-600 dark:text-indigo-400'
-                                                        : 'text-muted-foreground'
-                                                "
-                                            />
-                                            <div class="min-w-0">
-                                                <p
-                                                    class="text-sm leading-tight font-semibold"
-                                                    :class="{
-                                                        'text-indigo-700 dark:text-indigo-300':
-                                                            form.jenis ===
-                                                            opt.value,
-                                                    }"
-                                                >
-                                                    {{ opt.label }}
-                                                </p>
-                                                <p
-                                                    class="mt-0.5 text-[11px] leading-tight text-muted-foreground"
-                                                >
-                                                    {{ opt.hint }}
-                                                </p>
-                                            </div>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Tipe jual (kartu pilihan) -->
-                                <div>
-                                    <span class="mb-2 block text-sm font-medium"
-                                        >Tipe Jual</span
-                                    >
-                                    <div class="grid grid-cols-3 gap-2.5">
-                                        <button
-                                            v-for="opt in tipeJualOptions"
-                                            :key="opt.value"
-                                            type="button"
-                                            class="relative flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all"
-                                            :class="
-                                                form.tipe_jual === opt.value
-                                                    ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:bg-indigo-500/10'
-                                                    : 'border-sidebar-border/70 hover:border-indigo-300 dark:border-sidebar-border dark:hover:border-indigo-500/50'
-                                            "
-                                            @click="form.tipe_jual = opt.value"
-                                        >
-                                            <Check
-                                                v-if="
-                                                    form.tipe_jual === opt.value
-                                                "
-                                                class="absolute top-1.5 right-1.5 h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
-                                            />
-                                            <component
-                                                :is="opt.icon"
-                                                class="h-6 w-6"
-                                                :class="
-                                                    form.tipe_jual === opt.value
-                                                        ? 'text-indigo-600 dark:text-indigo-400'
-                                                        : 'text-muted-foreground'
-                                                "
-                                            />
-                                            <div>
-                                                <p
-                                                    class="text-xs leading-tight font-semibold"
-                                                    :class="{
-                                                        'text-indigo-700 dark:text-indigo-300':
-                                                            form.tipe_jual ===
-                                                            opt.value,
-                                                    }"
-                                                >
-                                                    {{ opt.label }}
-                                                </p>
-                                                <p
-                                                    class="text-[10px] leading-tight text-muted-foreground"
-                                                >
-                                                    {{ opt.short }}
-                                                </p>
-                                            </div>
-                                        </button>
-                                    </div>
-                                    <p
-                                        class="mt-2 flex items-start gap-1.5 rounded-lg bg-indigo-50/70 px-3 py-2 text-xs text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
-                                    >
-                                        <Info
-                                            class="mt-0.5 h-3.5 w-3.5 shrink-0"
-                                        />
-                                        <span>{{
-                                            tipeJualOptions.find(
-                                                (o) =>
-                                                    o.value === form.tipe_jual,
-                                            )?.hint
-                                        }}</span>
-                                    </p>
-                                </div>
-
-                                <!-- Satuan -->
-                                <div v-if="form.tipe_jual !== 'jasa'">
-                                    <label
-                                        class="mb-1.5 block text-sm font-medium"
-                                        for="prod-satuan"
-                                    >
-                                        Satuan
-                                    </label>
-                                    <input
-                                        id="prod-satuan"
-                                        v-model="form.satuan"
-                                        type="text"
-                                        list="satuan-suggestions"
-                                        placeholder="pcs / liter / kg"
-                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                        :class="{
-                                            'border-rose-500':
-                                                form.errors.satuan,
-                                        }"
-                                    />
-                                    <datalist id="satuan-suggestions">
-                                        <option
-                                            v-for="s in satuanSuggestions"
-                                            :key="s"
-                                            :value="s"
-                                        />
-                                    </datalist>
-                                    <div class="mt-2 flex flex-wrap gap-1.5">
-                                        <button
-                                            v-for="s in satuanSuggestions"
-                                            :key="s"
-                                            type="button"
-                                            class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
-                                            :class="
-                                                form.satuan === s
-                                                    ? 'border-indigo-500 bg-indigo-600 text-white'
-                                                    : 'border-sidebar-border/70 text-muted-foreground hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border'
-                                            "
-                                            @click="form.satuan = s"
-                                        >
-                                            {{ s }}
-                                        </button>
-                                    </div>
-                                    <p
-                                        v-if="form.errors.satuan"
-                                        class="mt-1 flex items-center gap-1 text-xs text-rose-600"
-                                    >
-                                        <AlertCircle class="h-3 w-3" />{{
-                                            form.errors.satuan
-                                        }}
-                                    </p>
-                                </div>
-                            </section>
-
-                            <!-- ====== Bagian 3: Harga & Stok (jasa tak punya harga/stok — diatur via Tarif Fee) ====== -->
-                            <section
-                                v-if="form.tipe_jual !== 'jasa'"
-                                class="space-y-4"
-                            >
-                                <div class="flex items-center gap-2">
-                                    <Wallet
-                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                    />
-                                    <h3 class="text-sm font-bold">
-                                        Harga &amp; Stok
-                                    </h3>
-                                </div>
-
-                                <div class="grid gap-4 sm:grid-cols-2">
-                                    <!-- Harga Jual -->
+                                <!-- Beli jadi: Modal + Stok -->
+                                <div
+                                    v-if="form.jenis === 'beli'"
+                                    class="grid grid-cols-2 gap-3"
+                                >
                                     <div>
                                         <label
-                                            class="mb-1.5 block text-sm font-medium"
-                                            for="prod-harga-jual"
-                                        >
-                                            {{
-                                                form.tipe_jual === 'curah'
-                                                    ? `Harga per ${form.satuan || 'satuan'}`
-                                                    : 'Harga Jual'
-                                            }}
-                                            <span class="text-rose-500">*</span>
-                                        </label>
-                                        <div class="relative">
-                                            <span
-                                                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-muted-foreground"
-                                                >Rp</span
-                                            >
-                                            <input
-                                                id="prod-harga-jual"
-                                                v-model="form.harga_jual"
-                                                type="number"
-                                                min="0"
-                                                placeholder="0"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pr-4 pl-9 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{
-                                                    'border-rose-500':
-                                                        form.errors.harga_jual,
-                                                }"
-                                            />
-                                        </div>
-                                        <p
-                                            v-if="form.errors.harga_jual"
-                                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
-                                        >
-                                            <AlertCircle class="h-3 w-3" />{{
-                                                form.errors.harga_jual
-                                            }}
-                                        </p>
-                                    </div>
-
-                                    <!-- Harga Modal (hanya produk beli-jadi) -->
-                                    <div v-if="form.jenis === 'beli'">
-                                        <label
-                                            class="mb-1.5 block text-sm font-medium"
+                                            class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
                                             for="prod-harga-modal"
                                         >
-                                            Harga Modal / Beli
+                                            Harga Modal
                                         </label>
                                         <div class="relative">
                                             <span
-                                                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-muted-foreground"
+                                                class="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-medium text-muted-foreground"
                                                 >Rp</span
                                             >
                                             <input
@@ -2464,7 +2665,7 @@ const statusClass: Record<string, string> = {
                                                 type="number"
                                                 min="0"
                                                 placeholder="0"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pr-4 pl-9 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                class="w-full rounded-xl border border-sidebar-border/70 bg-background py-3 pr-3 pl-9 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-sidebar-border"
                                                 :class="{
                                                     'border-rose-500':
                                                         form.errors.harga_modal,
@@ -2480,29 +2681,9 @@ const statusClass: Record<string, string> = {
                                             }}
                                         </p>
                                     </div>
-                                </div>
-
-                                <!-- Info modal & stok produksi -->
-                                <div
-                                    v-if="form.jenis !== 'beli'"
-                                    class="flex items-start gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3.5 py-2.5 text-xs text-muted-foreground"
-                                >
-                                    <Info
-                                        class="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500"
-                                    />
-                                    <span
-                                        ><strong>Harga modal &amp; stok</strong>
-                                        produk buatan sendiri dihitung otomatis
-                                        lewat menu <strong>Produksi</strong> (catat
-                                        batch), jadi tidak perlu diisi di sini.</span
-                                    >
-                                </div>
-
-                                <div class="grid gap-4 sm:grid-cols-2">
-                                    <!-- Stok (produk buatan sendiri: diisi lewat menu Produksi) -->
-                                    <div v-if="form.jenis === 'beli'">
+                                    <div>
                                         <label
-                                            class="mb-1.5 block text-sm font-medium"
+                                            class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
                                             for="prod-stok"
                                         >
                                             Stok{{
@@ -2522,19 +2703,12 @@ const statusClass: Record<string, string> = {
                                                     : '1'
                                             "
                                             placeholder="0"
-                                            class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                            class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3.5 py-3 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-sidebar-border"
                                             :class="{
                                                 'border-rose-500':
                                                     form.errors.stok,
                                             }"
                                         />
-                                        <p
-                                            v-if="form.tipe_jual === 'curah'"
-                                            class="mt-1 text-xs text-muted-foreground"
-                                        >
-                                            Boleh pecahan, mis. 12.5
-                                            {{ form.satuan || 'satuan' }}.
-                                        </p>
                                         <p
                                             v-if="form.errors.stok"
                                             class="mt-1 flex items-center gap-1 text-xs text-rose-600"
@@ -2544,246 +2718,279 @@ const statusClass: Record<string, string> = {
                                             }}
                                         </p>
                                     </div>
-
-                                    <!-- Potongan reseller -->
-                                    <div>
-                                        <label
-                                            class="mb-1.5 block text-sm font-medium"
-                                            for="prod-potongan"
-                                        >
-                                            Potongan Reseller
-                                        </label>
-                                        <div class="relative">
-                                            <span
-                                                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-medium text-muted-foreground"
-                                                >Rp</span
-                                            >
-                                            <input
-                                                id="prod-potongan"
-                                                v-model="form.potongan_reseller"
-                                                type="number"
-                                                min="0"
-                                                placeholder="0"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background py-3 pr-4 pl-9 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                :class="{
-                                                    'border-rose-500':
-                                                        form.errors
-                                                            .potongan_reseller,
-                                                }"
-                                            />
-                                        </div>
-                                        <p
-                                            v-if="form.errors.potongan_reseller"
-                                            class="mt-1 flex items-center gap-1 text-xs text-rose-600"
-                                        >
-                                            <AlertCircle class="h-3 w-3" />{{
-                                                form.errors.potongan_reseller
-                                            }}
-                                        </p>
-                                    </div>
                                 </div>
 
-                                <!-- Pratinjau harga reseller / peringatan rugi -->
+                                <!-- Produksi: catatan otomatis -->
                                 <div
-                                    v-if="Number(form.potongan_reseller) > 0"
-                                    class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2.5 text-xs"
+                                    v-else
+                                    class="flex items-start gap-2 rounded-xl bg-slate-50 px-3.5 py-3 text-[11.5px] leading-relaxed text-muted-foreground dark:bg-zinc-800/40"
                                 >
-                                    <span class="text-muted-foreground"
-                                        >Harga untuk reseller:
-                                    </span>
-                                    <strong
-                                        class="text-emerald-700 dark:text-emerald-400"
-                                        >{{
-                                            formatRupiah(hargaReseller)
-                                        }}</strong
-                                    >
-                                    <span class="text-muted-foreground">
-                                        (dari
-                                        {{
-                                            formatRupiah(
-                                                Number(form.harga_jual || 0),
-                                            )
-                                        }})</span
-                                    >
-                                </div>
-                                <p v-else class="text-xs text-muted-foreground">
-                                    Kosongkan / 0 bila produk ini tidak diberi
-                                    potongan untuk reseller.
-                                </p>
-                                <p
-                                    v-if="resellerBelowModal"
-                                    class="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"
-                                >
-                                    <AlertCircle class="h-3.5 w-3.5 shrink-0" />
-                                    Harga reseller di bawah modal ({{
-                                        formatRupiah(
-                                            Number(form.harga_modal || 0),
-                                        )
-                                    }}) — berisiko rugi.
-                                </p>
-                            </section>
-
-                            <!-- ====== Tarif Fee Bertingkat (khusus jasa) ====== -->
-                            <section
-                                v-if="form.tipe_jual === 'jasa'"
-                                class="space-y-3"
-                            >
-                                <div class="flex items-center gap-2">
-                                    <HandCoins
-                                        class="h-4 w-4 text-violet-600 dark:text-violet-400"
+                                    <ChefHat
+                                        class="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-400"
                                     />
-                                    <h3 class="text-sm font-bold">
-                                        Tarif Fee Bertingkat
-                                    </h3>
                                     <span
-                                        class="text-xs font-normal text-muted-foreground"
-                                        >(opsional)</span
-                                    >
-                                </div>
-
-                                <!-- Catatan akunting jasa (dipindah dari section Harga & Stok) -->
-                                <div
-                                    class="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5 text-xs text-muted-foreground"
-                                >
-                                    <Info
-                                        class="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500"
-                                    />
-                                    <span>
-                                        Produk <strong>jasa</strong> tidak
-                                        menyimpan stok. Pendapatan toko =
-                                        <strong>fee (biaya admin)</strong>,
-                                        bukan nominal transfer/tarik. Atur
-                                        fee-nya di sini.
-                                    </span>
-                                </div>
-
-                                <div
-                                    class="flex items-start gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3.5 py-2.5 text-xs text-muted-foreground"
-                                >
-                                    <Info
-                                        class="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500"
-                                    />
-                                    <span>
-                                        Atur fee sesuai
-                                        <strong>range nominal</strong>. Saat
-                                        transaksi, kasir cukup mengisi nominal
-                                        lalu fee terisi otomatis. Untuk
-                                        <strong>fee tetap</strong> (sama berapa
-                                        pun nominal), cukup buat satu range
-                                        mulai Rp0.
-                                        <strong>Kosongkan</strong> bila fee
-                                        ingin diketik manual tiap transaksi.
-                                    </span>
-                                </div>
-
-                                <div
-                                    v-if="form.tarifs.length > 0"
-                                    class="space-y-2.5"
-                                >
-                                    <div
-                                        class="grid grid-cols-[1fr_1fr_auto] gap-2 px-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase"
-                                    >
-                                        <span>Mulai dari</span>
-                                        <span>Fee</span>
-                                        <span class="w-8"></span>
-                                    </div>
-                                    <div
-                                        v-for="(tarif, index) in form.tarifs"
-                                        :key="index"
-                                        class="space-y-1"
-                                    >
-                                        <div
-                                            class="grid grid-cols-[1fr_1fr_auto] items-center gap-2"
+                                        ><b
+                                            class="text-slate-600 dark:text-slate-300"
+                                            >Harga modal &amp; stok</b
                                         >
-                                            <div class="relative">
-                                                <span
-                                                    class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
-                                                    >Rp</span
-                                                >
-                                                <input
-                                                    v-model.number="
-                                                        tarif.min_nominal
-                                                    "
-                                                    type="number"
-                                                    min="0"
-                                                    inputmode="numeric"
-                                                    placeholder="0"
-                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pr-2 pl-7 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                />
-                                            </div>
-                                            <div class="relative">
-                                                <span
-                                                    class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
-                                                    >Rp</span
-                                                >
-                                                <input
-                                                    v-model.number="tarif.fee"
-                                                    type="number"
-                                                    min="0"
-                                                    inputmode="numeric"
-                                                    placeholder="0"
-                                                    class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pr-2 pl-7 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                                />
-                                            </div>
+                                        produk buatan sendiri terisi otomatis
+                                        dari menu
+                                        <b
+                                            class="text-slate-600 dark:text-slate-300"
+                                            >Produksi</b
+                                        >
+                                        — lewati saja di sini.</span
+                                    >
+                                </div>
+
+                                <!-- Potongan reseller -->
+                                <div>
+                                    <div
+                                        class="mb-1.5 flex items-center gap-1.5"
+                                    >
+                                        <label
+                                            class="text-[13px] font-semibold text-slate-700 dark:text-slate-200"
+                                            for="prod-potongan"
+                                            >Potongan Reseller</label
+                                        >
+                                        <span class="relative inline-flex">
                                             <button
                                                 type="button"
-                                                class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
-                                                aria-label="Hapus range"
-                                                @click="removeTarif(index)"
+                                                class="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                                                @click="toggleTip('reseller')"
+                                                aria-label="Info potongan reseller"
                                             >
-                                                <Trash2 class="h-4 w-4" />
+                                                <Info class="h-3 w-3" />
                                             </button>
-                                        </div>
-                                        <p
-                                            class="px-1 text-[11px] text-muted-foreground"
-                                        >
-                                            Berlaku untuk
-                                            <strong
-                                                class="font-semibold text-foreground"
-                                                >{{
-                                                    tarifRangeLabel(index)
-                                                }}</strong
+                                            <span
+                                                v-if="activeTip === 'reseller'"
+                                                class="absolute top-6 left-0 z-20 w-56 rounded-xl bg-slate-900 px-3 py-2.5 text-[11px] leading-relaxed font-normal text-slate-100 shadow-xl dark:bg-zinc-950"
                                             >
-                                        </p>
+                                                Potongan harga khusus reseller.
+                                                Kosongkan / 0 bila produk ini
+                                                tidak diberi potongan.
+                                            </span>
+                                        </span>
                                     </div>
+                                    <div class="relative">
+                                        <span
+                                            class="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-sm font-medium text-muted-foreground"
+                                            >Rp</span
+                                        >
+                                        <input
+                                            id="prod-potongan"
+                                            v-model="form.potongan_reseller"
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            class="w-full rounded-xl border border-sidebar-border/70 bg-background py-3 pr-4 pl-9 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-sidebar-border"
+                                            :class="{
+                                                'border-rose-500':
+                                                    form.errors
+                                                        .potongan_reseller,
+                                            }"
+                                        />
+                                    </div>
+                                    <div
+                                        v-if="
+                                            Number(form.potongan_reseller) > 0
+                                        "
+                                        class="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                    >
+                                        Harga untuk reseller:
+                                        <b>{{ formatRupiah(hargaReseller) }}</b>
+                                        <span class="opacity-70"
+                                            >(dari
+                                            {{
+                                                formatRupiah(
+                                                    Number(
+                                                        form.harga_jual || 0,
+                                                    ),
+                                                )
+                                            }})</span
+                                        >
+                                    </div>
+                                    <p
+                                        v-if="resellerBelowModal"
+                                        class="mt-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"
+                                    >
+                                        <AlertCircle
+                                            class="h-3.5 w-3.5 shrink-0"
+                                        />
+                                        Harga reseller di bawah modal — berisiko
+                                        rugi.
+                                    </p>
+                                    <p
+                                        v-if="form.errors.potongan_reseller"
+                                        class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                    >
+                                        <AlertCircle class="h-3 w-3" />{{
+                                            form.errors.potongan_reseller
+                                        }}
+                                    </p>
                                 </div>
+                            </template>
 
+                            <!-- Tarif fee (jasa) -->
+                            <template v-else>
+                                <div>
+                                    <div class="mb-1 flex items-center gap-1.5">
+                                        <span class="text-[15px] font-bold"
+                                            >Tarif Fee Bertingkat</span
+                                        >
+                                        <span
+                                            class="text-[11.5px] font-normal text-muted-foreground"
+                                            >(opsional)</span
+                                        >
+                                        <span class="relative inline-flex">
+                                            <button
+                                                type="button"
+                                                class="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                                                @click="toggleTip('tarif')"
+                                                aria-label="Info tarif fee"
+                                            >
+                                                <Info class="h-3 w-3" />
+                                            </button>
+                                            <span
+                                                v-if="activeTip === 'tarif'"
+                                                class="absolute top-6 -left-28 z-20 w-64 rounded-xl bg-slate-900 px-3 py-2.5 text-[11px] leading-relaxed font-normal text-slate-100 shadow-xl dark:bg-zinc-950"
+                                            >
+                                                Fee = pendapatan toko (biaya
+                                                admin), bukan nominal
+                                                transfer/tarik. Atur fee per
+                                                <b class="text-white"
+                                                    >range nominal</b
+                                                >; saat transaksi fee terisi
+                                                otomatis. Kosongkan bila ingin
+                                                diketik manual tiap transaksi.
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <p
+                                        class="mb-3.5 text-xs text-muted-foreground"
+                                    >
+                                        Fee terisi otomatis saat kasir mengetik
+                                        nominal.
+                                    </p>
+
+                                    <div
+                                        v-if="form.tarifs.length > 0"
+                                        class="mb-3 space-y-2.5"
+                                    >
+                                        <div
+                                            class="grid grid-cols-[1fr_1fr_34px] gap-2 px-0.5 text-[10px] font-bold tracking-wide text-muted-foreground uppercase"
+                                        >
+                                            <span>Mulai dari</span>
+                                            <span>Fee</span>
+                                            <span></span>
+                                        </div>
+                                        <div
+                                            v-for="(
+                                                tarif, index
+                                            ) in form.tarifs"
+                                            :key="index"
+                                        >
+                                            <div
+                                                class="grid grid-cols-[1fr_1fr_34px] items-center gap-2"
+                                            >
+                                                <div class="relative">
+                                                    <span
+                                                        class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+                                                        >Rp</span
+                                                    >
+                                                    <input
+                                                        v-model.number="
+                                                            tarif.min_nominal
+                                                        "
+                                                        type="number"
+                                                        min="0"
+                                                        inputmode="numeric"
+                                                        placeholder="0"
+                                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pr-2 pl-7 text-sm text-foreground focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                    />
+                                                </div>
+                                                <div class="relative">
+                                                    <span
+                                                        class="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+                                                        >Rp</span
+                                                    >
+                                                    <input
+                                                        v-model.number="
+                                                            tarif.fee
+                                                        "
+                                                        type="number"
+                                                        min="0"
+                                                        inputmode="numeric"
+                                                        placeholder="0"
+                                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2.5 pr-2 pl-7 text-sm text-foreground focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    class="flex h-[34px] w-[34px] items-center justify-center rounded-lg bg-slate-100 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:bg-zinc-800 dark:hover:bg-rose-500/10"
+                                                    aria-label="Hapus range"
+                                                    @click="removeTarif(index)"
+                                                >
+                                                    <Trash2 class="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                            <p
+                                                class="px-0.5 pt-1 text-[11px] text-muted-foreground"
+                                            >
+                                                Berlaku untuk
+                                                <b class="text-foreground">{{
+                                                    tarifRangeLabel(index)
+                                                }}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-indigo-300 bg-indigo-50 px-3.5 py-2.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 dark:border-indigo-500/40 dark:bg-indigo-500/10 dark:text-indigo-400"
+                                        @click="addTarif"
+                                    >
+                                        <Plus class="h-3.5 w-3.5" />
+                                        Tambah Range
+                                    </button>
+                                </div>
+                            </template>
+
+                            <!-- Barcode & SKU (opsional, collapsible) -->
+                            <div
+                                class="border-t border-sidebar-border/60 pt-4 dark:border-sidebar-border"
+                            >
                                 <button
                                     type="button"
-                                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/5 px-3 py-2 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-500/10 dark:text-indigo-400"
-                                    @click="addTarif"
+                                    class="flex w-full items-center gap-2.5"
+                                    @click="
+                                        showBarcodeSection = !showBarcodeSection
+                                    "
                                 >
-                                    <Plus class="h-3.5 w-3.5" />
-                                    Tambah Range
+                                    <span
+                                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-muted-foreground dark:bg-zinc-800"
+                                    >
+                                        <ScanLine class="h-4 w-4" />
+                                    </span>
+                                    <span class="min-w-0 flex-1 text-left">
+                                        <span
+                                            class="block text-[13.5px] leading-tight font-bold"
+                                            >Barcode &amp; SKU</span
+                                        >
+                                        <span
+                                            class="block text-[11.5px] leading-tight text-muted-foreground"
+                                            >Opsional — bisa diisi nanti</span
+                                        >
+                                    </span>
+                                    <ChevronDown
+                                        class="h-[18px] w-[18px] text-muted-foreground transition-transform"
+                                        :class="{
+                                            'rotate-180': showBarcodeSection,
+                                        }"
+                                    />
                                 </button>
 
-                                <p
-                                    v-if="form.tarifs.length > 0"
-                                    class="text-[11px] text-muted-foreground"
-                                >
-                                    Nominal di bawah range terendah otomatis
-                                    ikut fee range terendah.
-                                </p>
-                            </section>
-
-                            <!-- ====== Bagian 4: Barcode & SKU ====== -->
-                            <section class="space-y-3">
-                                <div class="flex items-center gap-2">
-                                    <ScanLine
-                                        class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
-                                    />
-                                    <h3 class="text-sm font-bold">
-                                        Barcode &amp; SKU
-                                    </h3>
-                                    <span
-                                        class="text-xs font-normal text-muted-foreground"
-                                        >(opsional)</span
-                                    >
-                                </div>
-
-                                <div
-                                    class="rounded-xl border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20"
-                                >
+                                <div v-if="showBarcodeSection" class="mt-3.5">
                                     <div
                                         class="mb-3 flex flex-wrap items-center justify-between gap-2"
                                     >
@@ -2818,21 +3025,10 @@ const statusClass: Record<string, string> = {
                                             Generate Otomatis
                                         </button>
                                     </div>
-                                    <p
-                                        class="mb-3 text-xs text-muted-foreground"
-                                    >
-                                        Boleh dikosongkan dulu jika produk belum
-                                        punya barcode. Klik
-                                        <strong>Generate Otomatis</strong> untuk
-                                        membuat barcode &amp; SKU sekaligus,
-                                        atau scan / isi manual.
-                                    </p>
-                                    <div
-                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
-                                    >
+                                    <div class="grid grid-cols-2 gap-3">
                                         <div>
                                             <label
-                                                class="mb-1.5 block text-sm font-medium"
+                                                class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
                                                 for="prod-barcode"
                                             >
                                                 Barcode
@@ -2842,7 +3038,7 @@ const statusClass: Record<string, string> = {
                                                 v-model="form.barcode"
                                                 type="text"
                                                 placeholder="Barcode unik"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3.5 py-3 text-sm text-foreground focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                                                 :class="{
                                                     'border-rose-500':
                                                         form.errors.barcode,
@@ -2859,7 +3055,7 @@ const statusClass: Record<string, string> = {
                                         </div>
                                         <div>
                                             <label
-                                                class="mb-1.5 block text-sm font-medium"
+                                                class="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200"
                                                 for="prod-sku"
                                             >
                                                 SKU
@@ -2869,7 +3065,7 @@ const statusClass: Record<string, string> = {
                                                 v-model="form.sku"
                                                 type="text"
                                                 placeholder="SKU unik"
-                                                class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                                class="w-full rounded-xl border border-sidebar-border/70 bg-background px-3.5 py-3 text-sm text-foreground focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                                                 :class="{
                                                     'border-rose-500':
                                                         form.errors.sku,
@@ -2886,86 +3082,83 @@ const statusClass: Record<string, string> = {
                                         </div>
                                     </div>
                                 </div>
-                            </section>
+                            </div>
                         </div>
+                    </div>
 
-                        <!-- Footer (tombol aksi selalu terlihat) -->
-                        <div
-                            class="shrink-0 border-t border-sidebar-border/70 bg-card px-5 py-3.5 dark:border-sidebar-border"
+                    <!-- Footer -->
+                    <div
+                        class="flex shrink-0 items-center gap-3 border-t border-sidebar-border/70 bg-card px-5 py-3.5 dark:border-sidebar-border"
+                    >
+                        <button
+                            v-if="wizardStep > 1"
+                            type="button"
+                            class="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-sidebar-border/70 bg-background px-4 py-3 text-[13.5px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40"
+                            @click="prevStep"
                         >
-                            <div class="flex gap-3">
+                            <ChevronLeft class="h-4 w-4" />
+                            Kembali
+                        </button>
+                        <span
+                            class="flex-1 text-xs font-semibold text-muted-foreground/70"
+                            >Langkah {{ wizardStep }} dari 3</span
+                        >
+                        <button
+                            type="button"
+                            class="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-3 text-[13.5px] font-bold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-60"
+                            :disabled="submitting"
+                            @click="nextStep"
+                        >
+                            {{ footerNextLabel }}
+                            <ChevronRight
+                                v-if="wizardStep < 3"
+                                class="h-4 w-4"
+                            />
+                            <Save v-else class="h-4 w-4" />
+                        </button>
+                    </div>
+
+                    <!-- Overlay sukses -->
+                    <div
+                        v-if="submitted"
+                        class="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/55 p-6 backdrop-blur-sm"
+                    >
+                        <div
+                            class="w-full max-w-sm rounded-2xl border border-sidebar-border/70 bg-card p-7 text-center shadow-2xl dark:border-sidebar-border"
+                        >
+                            <div
+                                class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            >
+                                <Check class="h-7 w-7" />
+                            </div>
+                            <h3 class="mt-4 text-lg font-bold">
+                                {{ successTitle }}
+                            </h3>
+                            <p class="mt-1.5 text-sm text-muted-foreground">
+                                {{ successText }}
+                            </p>
+                            <div class="mt-6 flex flex-col gap-2.5">
                                 <button
+                                    v-if="successMeta.isProd"
                                     type="button"
-                                    class="rounded-lg border border-sidebar-border/70 bg-background px-5 py-3 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
-                                    @click="closeModal"
+                                    class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-indigo-500"
+                                    @click="lanjutKeProduksi"
                                 >
-                                    Batal
+                                    <ChefHat class="h-4 w-4" />
+                                    Ya, catat produksi
                                 </button>
                                 <button
-                                    type="submit"
-                                    class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-60"
-                                    :disabled="form.processing"
+                                    type="button"
+                                    class="inline-flex cursor-pointer items-center justify-center rounded-xl bg-slate-100 px-4 py-3 text-[13.5px] font-semibold text-slate-600 transition-colors hover:bg-slate-200 dark:bg-zinc-800 dark:text-slate-200 dark:hover:bg-zinc-700"
+                                    @click="closeModal"
                                 >
-                                    <Save class="h-4 w-4" />
-                                    {{
-                                        form.processing
-                                            ? 'Menyimpan...'
-                                            : editingProduk
-                                              ? 'Simpan Perubahan'
-                                              : 'Tambah Produk'
-                                    }}
+                                    {{ successSecondary }}
                                 </button>
                             </div>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </Transition>
-    </BodyTeleport>
-
-    <!-- Modal sukses: produk buatan sendiri berhasil dibuat → tawaran isi modal & stok -->
-    <BodyTeleport>
-        <div
-            v-if="showProduksiSuccess"
-            class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-            @click.self="tutupProduksiSuccess"
-        >
-            <div
-                class="w-full max-w-md rounded-2xl border border-sidebar-border/70 bg-card p-6 text-center shadow-2xl dark:border-sidebar-border"
-            >
-                <div
-                    class="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                >
-                    <Check class="h-7 w-7" />
-                </div>
-                <h2 class="mt-4 text-lg font-bold">Produk berhasil dibuat 🎉</h2>
-                <p class="mt-1.5 text-sm text-muted-foreground">
-                    <strong class="text-foreground">{{
-                        newProduksiProduk?.nama
-                    }}</strong>
-                    sudah tersimpan. Ingin menambahkan
-                    <strong class="text-foreground">harga modal &amp; stok</strong>
-                    sekarang lewat catatan Produksi?
-                </p>
-
-                <div class="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
-                    <button
-                        type="button"
-                        class="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500"
-                        @click="lanjutKeProduksi"
-                    >
-                        <ChefHat class="h-4 w-4" />
-                        Ya, catat produksi
-                    </button>
-                    <button
-                        type="button"
-                        class="inline-flex flex-1 cursor-pointer items-center justify-center rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 dark:border-sidebar-border dark:hover:bg-zinc-800/40"
-                        @click="tutupProduksiSuccess"
-                    >
-                        Nanti saja
-                    </button>
-                </div>
-            </div>
-        </div>
     </BodyTeleport>
 </template>
