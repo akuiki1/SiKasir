@@ -1,4 +1,4 @@
-import { formatRupiah } from '@/lib/format';
+import { formatNumber, formatRupiah } from '@/lib/format';
 
 // Util struk belanja bersama (dipakai di kasir/Riwayat.vue & kasir/Transaksi.vue).
 // Dibangun dari data transaksi yang sudah difinalkan server (total, diskon, kembalian).
@@ -29,16 +29,28 @@ export interface StrukData {
 
 export function buildReceiptHtml(trx: StrukData): string {
     const rows = trx.details
-        .map(
-            (detail) => `
+        .map((detail) => {
+            // Harga asal baris ini sebelum diskon promo (harga satuan tak berubah,
+            // hanya subtotal yang dipotong) — dipakai untuk catatan "Hemat" di bawah baris.
+            const totalAsal = detail.harga * detail.jumlah;
+            const hematItem = totalAsal - detail.subtotal;
+
+            return `
                 <tr>
-                    <td>${detail.foto ? '[FOTO] ' : ''}${detail.nama_produk}</td>
-                    <td class="text-right">${detail.jumlah}</td>
+                    <td>${detail.nama_produk}</td>
+                    <td class="text-right">${formatNumber(detail.jumlah)}</td>
                     <td class="text-right">${formatRupiah(detail.harga)}</td>
                     <td class="text-right">${formatRupiah(detail.subtotal)}</td>
                 </tr>
-            `,
-        )
+                ${
+                    hematItem >= 1
+                        ? `<tr>
+                    <td colspan="4" class="small diskon-note">Hemat ${formatRupiah(hematItem)}</td>
+                </tr>`
+                        : ''
+                }
+            `;
+        })
         .join('');
 
     // Titipan jasa (nominal transfer/tarik) ikut dibayar tunai walau bukan omzet → tampil di struk.
@@ -66,18 +78,30 @@ export function buildReceiptHtml(trx: StrukData): string {
     .receipt .text-right { text-align: right; }
     .receipt .totals td { padding: 4px 0; }
     .receipt .small { font-size: 11px; }
+    .receipt thead td { font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 4px; }
+    .receipt .diskon-note { padding: 0 0 4px; font-style: italic; }
 </style>
 </head>
 <body>
 <div class="receipt">
-    <h1 class="center">Toko SiKasir</h1>
+    <h1 class="center">Cemilan Mba Tutut</h1>
     <p class="center small">Struk Transaksi</p>
     <div class="separator"></div>
     <p>Kode: ${trx.kode}</p>
     <p>${trx.tanggal} ${trx.waktu}</p>
     <div class="separator"></div>
     <table>
-        ${rows}
+        <thead>
+            <tr>
+                <td>Produk</td>
+                <td class="text-right">Qty</td>
+                <td class="text-right">Harga Asal</td>
+                <td class="text-right">Subtotal</td>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows}
+        </tbody>
     </table>
     <div class="separator"></div>
     <table class="totals">
