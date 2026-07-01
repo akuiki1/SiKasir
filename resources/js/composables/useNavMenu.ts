@@ -110,13 +110,20 @@ export function useNavMenu() {
                     ],
                 },
                 {
-                    label: 'Keuangan & Laporan',
+                    // Pencatatan uang keluar — fungsinya "input", bukan "laporan",
+                    // jadi dipisah dari grup analisis di bawah.
+                    label: 'Keuangan',
                     items: [
                         {
                             title: 'Pengeluaran',
                             href: '/admin/pengeluarans',
                             icon: CircleDollarSign,
                         },
+                    ],
+                },
+                {
+                    label: 'Laporan & Analisis',
+                    items: [
                         {
                             title: 'Analisis Penjualan',
                             href: '/admin/laporan/penjualan',

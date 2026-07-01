@@ -524,6 +524,9 @@ function formatDate(dateString: string): string {
                         >
                             <AlertCircle class="h-3 w-3" />{{ form.errors.password }}
                         </p>
+                        <p v-else class="mt-1 text-xs text-muted-foreground">
+                            Minimal 8 karakter, berisi huruf dan angka.
+                        </p>
                     </div>
 
                     <div>

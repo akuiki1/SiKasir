@@ -43,14 +43,14 @@ class AppServiceProvider extends ServiceProvider
             app()->isProduction(),
         );
 
-        Password::defaults(fn (): ?Password => app()->isProduction()
-            ? Password::min(12)
-                ->mixedCase()
-                ->letters()
-                ->numbers()
-                ->symbols()
-                ->uncompromised()
-            : null,
+        // Aturan sandi disederhanakan sesuai kebutuhan toko: cukup minimal 8
+        // karakter dan wajib memuat huruf + angka (huruf besar & simbol tidak
+        // diwajibkan) agar mudah dibuatkan admin untuk staf kasir. Lingkungan
+        // testing dilonggarkan (null) agar kredensial fixtur yang sederhana
+        // tetap lolos dan suite tidak perlu diubah.
+        Password::defaults(fn (): ?Password => app()->environment('testing')
+            ? null
+            : Password::min(8)->letters()->numbers(),
         );
     }
 }

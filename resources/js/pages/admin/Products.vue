@@ -125,6 +125,7 @@ interface Paginator<T> {
 interface Filters {
     search: string;
     kategori: string;
+    jenis: '' | 'beli' | 'produksi';
     sort: string;
     view: 'aktif' | 'arsip';
     per_page: number;
@@ -149,7 +150,14 @@ const props = defineProps<{
 // Search & filter — semua dikirim ke server (search di-debounce).
 const searchQuery = ref(props.filters.search ?? '');
 const filterKategori = ref(props.filters.kategori ?? '');
+const filterJenis = ref<'' | 'beli' | 'produksi'>(props.filters.jenis ?? '');
 const sortBy = ref(props.filters.sort ?? '');
+
+// Opsi filter asal produk (kolom `jenis`): buatan sendiri vs beli jadi/agen.
+const jenisFilterOptions = [
+    { value: 'produksi', label: 'Buatan Sendiri', icon: ChefHat },
+    { value: 'beli', label: 'Beli Jadi / Agen', icon: PackagePlus },
+] as const;
 const showFilterPanel = ref(false);
 const filterPanelRef = ref<HTMLDivElement | null>(null);
 
@@ -175,6 +183,10 @@ const activeFilterCount = computed(() => {
         count++;
     }
 
+    if (filterJenis.value) {
+        count++;
+    }
+
     if (sortBy.value) {
         count++;
     }
@@ -184,6 +196,7 @@ const activeFilterCount = computed(() => {
 
 function clearFilters() {
     filterKategori.value = '';
+    filterJenis.value = '';
     sortBy.value = '';
     reload({ page: 1 });
 }
@@ -237,6 +250,7 @@ function buildParams(
     const params: Record<string, QueryValue | undefined> = {
         search: searchQuery.value || undefined,
         kategori: filterKategori.value || undefined,
+        jenis: filterJenis.value || undefined,
         sort: sortBy.value || undefined,
         view: currentView.value !== 'aktif' ? currentView.value : undefined,
         per_page: props.filters.per_page,
@@ -274,6 +288,11 @@ function setView(value: 'aktif' | 'arsip'): void {
 function setKategori(value: string): void {
     filterKategori.value = value;
     reload({ kategori: value, page: 1 });
+}
+
+function setJenis(value: '' | 'beli' | 'produksi'): void {
+    filterJenis.value = value;
+    reload({ jenis: value, page: 1 });
 }
 
 function setSort(value: string): void {
@@ -1334,6 +1353,45 @@ const statusClass: Record<string, string> = {
                                             </div>
                                         </div>
 
+                                        <!-- Asal Produk -->
+                                        <div class="mb-5">
+                                            <p
+                                                class="mb-2.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase"
+                                            >
+                                                Asal Produk
+                                            </p>
+                                            <div class="flex flex-wrap gap-1.5">
+                                                <button
+                                                    class="rounded-full border px-3 py-1 text-xs font-medium transition-all duration-100"
+                                                    :class="
+                                                        filterJenis === ''
+                                                            ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                            : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
+                                                    "
+                                                    @click="setJenis('')"
+                                                >
+                                                    Semua
+                                                </button>
+                                                <button
+                                                    v-for="opt in jenisFilterOptions"
+                                                    :key="opt.value"
+                                                    class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-100"
+                                                    :class="
+                                                        filterJenis === opt.value
+                                                            ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                            : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
+                                                    "
+                                                    @click="setJenis(opt.value)"
+                                                >
+                                                    <component
+                                                        :is="opt.icon"
+                                                        class="h-3.5 w-3.5"
+                                                    />
+                                                    {{ opt.label }}
+                                                </button>
+                                            </div>
+                                        </div>
+
                                         <!-- Urutkan -->
                                         <div>
                                             <p
@@ -1442,6 +1500,24 @@ const statusClass: Record<string, string> = {
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
                             @click="setKategori('')"
                             aria-label="Hapus filter kategori"
+                        >
+                            <X class="h-2.5 w-2.5" />
+                        </button>
+                    </span>
+
+                    <span
+                        v-if="filterJenis"
+                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pr-1.5 pl-2.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                    >
+                        {{
+                            jenisFilterOptions.find(
+                                (o) => o.value === filterJenis,
+                            )?.label
+                        }}
+                        <button
+                            class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
+                            @click="setJenis('')"
+                            aria-label="Hapus filter asal produk"
                         >
                             <X class="h-2.5 w-2.5" />
                         </button>

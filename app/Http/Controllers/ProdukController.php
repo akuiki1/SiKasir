@@ -25,6 +25,10 @@ class ProdukController extends Controller
         $search = trim((string) $request->query('search', ''));
         $kategori = $request->query('kategori', '');
         $kategori = is_numeric($kategori) ? (int) $kategori : null;
+        // Filter asal produk: 'produksi' (buatan sendiri) atau 'beli' (beli jadi/agen).
+        $jenis = in_array($request->query('jenis'), ['beli', 'produksi'], true)
+            ? $request->query('jenis')
+            : null;
         $sort = (string) $request->query('sort', '');
         // Tampilan: produk aktif (default) atau arsip (yang sudah diarsipkan).
         $view = $request->query('view') === 'arsip' ? 'arsip' : 'aktif';
@@ -42,6 +46,7 @@ class ProdukController extends Controller
             ->when($view === 'arsip', fn ($query) => $query->onlyTrashed())
             ->when($search !== '', fn ($query) => $query->where('nama', 'like', '%'.$search.'%'))
             ->when($kategori !== null, fn ($query) => $query->where('id_kategori', $kategori))
+            ->when($jenis !== null, fn ($query) => $query->where('jenis', $jenis))
             ->orderBy($sortColumn, $sortDir)
             ->paginate($this->resolvePerPage($request))
             ->withQueryString()
@@ -87,6 +92,7 @@ class ProdukController extends Controller
             ->where('barcode', '!=', '')
             ->when($search !== '', fn ($query) => $query->where('nama', 'like', '%'.$search.'%'))
             ->when($kategori !== null, fn ($query) => $query->where('id_kategori', $kategori))
+            ->when($jenis !== null, fn ($query) => $query->where('jenis', $jenis))
             ->orderBy('nama')
             ->get(['id_produk', 'nama', 'harga_jual', 'barcode'])
             ->map(fn (Produk $produk) => [
@@ -117,6 +123,7 @@ class ProdukController extends Controller
             'filters' => [
                 'search' => $search,
                 'kategori' => $kategori === null ? '' : (string) $kategori,
+                'jenis' => $jenis ?? '',
                 'sort' => $sort,
                 'view' => $view,
                 'per_page' => $this->resolvePerPage($request),
