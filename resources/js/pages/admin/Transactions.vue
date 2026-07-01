@@ -26,9 +26,14 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import BodyTeleport from '@/components/BodyTeleport.vue';
 import Pagination from '@/components/Pagination.vue';
 import PeriodFilter from '@/components/PeriodFilter.vue';
+import ProductPicker from '@/components/ProductPicker.vue';
 import { formatRupiah } from '@/lib/format';
 import { formatPeriodLabel } from '@/lib/period';
-import { store as transaksiStore, update as transaksiUpdate, destroy as transaksiDestroy } from '@/routes/admin/transactions';
+import {
+    store as transaksiStore,
+    update as transaksiUpdate,
+    destroy as transaksiDestroy,
+} from '@/routes/admin/transactions';
 
 defineOptions({
     layout: {
@@ -120,7 +125,6 @@ const props = defineProps<{
     filters: Filters;
 }>();
 
-
 function formatMetode(metode: string): string {
     const labels: Record<string, string> = {
         cash: 'Tunai',
@@ -151,24 +155,24 @@ watch(sortBy, (value) => reload({ sort: value, page: 1 }));
 const filterPanelRef = ref<HTMLDivElement | null>(null);
 
 const sortOptions = [
-    { value: 'date_asc',   label: 'Terlama – Terbaru',  icon: Clock },
-    { value: 'date_desc',  label: 'Terbaru – Terlama',  icon: History },
-    { value: 'total_desc', label: 'Belanja Terbesar',   icon: TrendingDown },
-    { value: 'total_asc',  label: 'Belanja Terkecil',   icon: TrendingUp },
-    { value: 'item_desc',  label: 'Barang Terbanyak',   icon: PackageMinus },
-    { value: 'item_asc',   label: 'Barang Tersedikit',  icon: PackagePlus },
+    { value: 'date_asc', label: 'Terlama – Terbaru', icon: Clock },
+    { value: 'date_desc', label: 'Terbaru – Terlama', icon: History },
+    { value: 'total_desc', label: 'Belanja Terbesar', icon: TrendingDown },
+    { value: 'total_asc', label: 'Belanja Terkecil', icon: TrendingUp },
+    { value: 'item_desc', label: 'Barang Terbanyak', icon: PackageMinus },
+    { value: 'item_asc', label: 'Barang Tersedikit', icon: PackagePlus },
 ];
 
 const activeFilterCount = computed(() => {
     let count = 0;
 
     if (filterKasir.value) {
-count++;
-}
+        count++;
+    }
 
     if (sortBy.value) {
-count++;
-}
+        count++;
+    }
 
     return count;
 });
@@ -179,15 +183,24 @@ function clearFilters() {
 }
 
 function handleClickOutsideFilter(event: MouseEvent) {
-    if (filterPanelRef.value && !filterPanelRef.value.contains(event.target as Node)) {
+    if (
+        filterPanelRef.value &&
+        !filterPanelRef.value.contains(event.target as Node)
+    ) {
         showFilterPanel.value = false;
     }
 }
 
-onMounted(() => document.addEventListener('mousedown', handleClickOutsideFilter));
-onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsideFilter));
+onMounted(() =>
+    document.addEventListener('mousedown', handleClickOutsideFilter),
+);
+onBeforeUnmount(() =>
+    document.removeEventListener('mousedown', handleClickOutsideFilter),
+);
 
-const periodLabel = computed(() => formatPeriodLabel(props.date_range.start_date, props.date_range.end_date));
+const periodLabel = computed(() =>
+    formatPeriodLabel(props.date_range.start_date, props.date_range.end_date),
+);
 
 function onPeriod(range: { start_date: string; end_date: string }): void {
     reload({ start_date: range.start_date, end_date: range.end_date, page: 1 });
@@ -195,7 +208,9 @@ function onPeriod(range: { start_date: string; end_date: string }): void {
 
 type QueryValue = string | number;
 
-function buildParams(overrides: Record<string, QueryValue> = {}): Record<string, QueryValue> {
+function buildParams(
+    overrides: Record<string, QueryValue> = {},
+): Record<string, QueryValue> {
     const params: Record<string, QueryValue | undefined> = {
         search: searchQuery.value || undefined,
         kasir: filterKasir.value || undefined,
@@ -250,7 +265,11 @@ const visiblePages = computed(() => {
             pages.push(-1);
         }
 
-        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+        for (
+            let i = Math.max(2, current - 1);
+            i <= Math.min(total - 1, current + 1);
+            i++
+        ) {
             pages.push(i);
         }
 
@@ -293,7 +312,9 @@ const computedTotal = computed(() => {
             return total;
         }
 
-        const produk = props.produks.find((p) => p.id_produk === Number(item.id_produk));
+        const produk = props.produks.find(
+            (p) => p.id_produk === Number(item.id_produk),
+        );
 
         if (!produk) {
             return total;
@@ -320,7 +341,10 @@ function openTambah() {
 function openEdit(trx: Transaksi) {
     editingTransaksi.value = trx;
     form.id_user = String(trx.id_user);
-    form.metode_pembayaran = trx.metode_pembayaran as 'cash' | 'qris' | 'transfer';
+    form.metode_pembayaran = trx.metode_pembayaran as
+        | 'cash'
+        | 'qris'
+        | 'transfer';
     form.bayar = String(trx.bayar);
     form.items = trx.details.map((d) => ({
         id_produk: String(d.id_produk),
@@ -370,9 +394,13 @@ function submitForm() {
     };
 
     if (editingTransaksi.value) {
-        router.put(transaksiUpdate(editingTransaksi.value.id_transaksi).url, data, {
-            onSuccess: () => closeFormModal(),
-        });
+        router.put(
+            transaksiUpdate(editingTransaksi.value.id_transaksi).url,
+            data,
+            {
+                onSuccess: () => closeFormModal(),
+            },
+        );
     } else {
         router.post(transaksiStore().url, data, {
             onSuccess: () => closeFormModal(),
@@ -381,7 +409,9 @@ function submitForm() {
 }
 
 function hapusTransaksi(trx: Transaksi) {
-    if (confirm(`Hapus transaksi "${trx.kode}"? Stok produk akan dikembalikan.`)) {
+    if (
+        confirm(`Hapus transaksi "${trx.kode}"? Stok produk akan dikembalikan.`)
+    ) {
         router.delete(transaksiDestroy(trx.id_transaksi).url);
     }
 }
@@ -391,12 +421,16 @@ function hapusTransaksi(trx: Transaksi) {
     <Head title="Data Transaksi - Admin" />
 
     <div class="flex h-full flex-1 flex-col gap-6 p-6">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div
+            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        >
             <div>
-                <h1 class="text-3xl font-extrabold tracking-tight">Manajemen Transaksi</h1>
+                <h1 class="text-3xl font-extrabold tracking-tight">
+                    Manajemen Transaksi
+                </h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Pantau riwayat seluruh transaksi penjualan, status pembayaran, serta metode
-                    pembayaran kasir.
+                    Pantau riwayat seluruh transaksi penjualan, status
+                    pembayaran, serta metode pembayaran kasir.
                 </p>
             </div>
 
@@ -462,8 +496,12 @@ function hapusTransaksi(trx: Transaksi) {
                     <ArrowUpRight class="h-6 w-6" />
                 </div>
                 <div>
-                    <span class="text-xs font-medium text-muted-foreground">Rata-rata Pembelian</span>
-                    <h3 class="mt-0.5 text-xl font-bold">{{ formatRupiah(stats.rata_rata) }}</h3>
+                    <span class="text-xs font-medium text-muted-foreground"
+                        >Rata-rata Pembelian</span
+                    >
+                    <h3 class="mt-0.5 text-xl font-bold">
+                        {{ formatRupiah(stats.rata_rata) }}
+                    </h3>
                 </div>
             </div>
         </div>
@@ -472,16 +510,22 @@ function hapusTransaksi(trx: Transaksi) {
             class="overflow-hidden rounded-xl border border-sidebar-border/70 bg-card shadow-sm dark:border-sidebar-border"
         >
             <!-- Action Bar -->
-            <div class="border-b border-sidebar-border/70 dark:border-sidebar-border">
-                <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div
+                class="border-b border-sidebar-border/70 dark:border-sidebar-border"
+            >
+                <div
+                    class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
                     <!-- Search -->
-                    <div class="relative flex-1 max-w-sm">
-                        <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <div class="relative max-w-sm flex-1">
+                        <Search
+                            class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                        />
                         <input
                             v-model="searchQuery"
                             type="text"
                             placeholder="Cari berdasarkan ID atau nama kasir..."
-                            class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pl-9 pr-4 text-sm transition-colors focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                            class="w-full rounded-lg border border-sidebar-border/70 bg-background py-2 pr-4 pl-9 text-sm transition-colors focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                         />
                     </div>
 
@@ -489,9 +533,11 @@ function hapusTransaksi(trx: Transaksi) {
                     <div ref="filterPanelRef" class="relative shrink-0">
                         <button
                             class="inline-flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-150"
-                            :class="activeFilterCount > 0
-                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 hover:bg-indigo-500'
-                                : 'border border-sidebar-border/70 bg-background text-slate-700 hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40'"
+                            :class="
+                                activeFilterCount > 0
+                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 hover:bg-indigo-500'
+                                    : 'border border-sidebar-border/70 bg-background text-slate-700 hover:bg-slate-50 dark:border-sidebar-border dark:text-slate-200 dark:hover:bg-zinc-800/40'
+                            "
                             @click="showFilterPanel = !showFilterPanel"
                         >
                             <SlidersHorizontal class="h-4 w-4" />
@@ -499,7 +545,8 @@ function hapusTransaksi(trx: Transaksi) {
                             <span
                                 v-if="activeFilterCount > 0"
                                 class="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white/25 px-1 text-[10px] font-bold"
-                            >{{ activeFilterCount }}</span>
+                                >{{ activeFilterCount }}</span
+                            >
                             <ChevronDown
                                 class="h-3.5 w-3.5 transition-transform duration-200"
                                 :class="{ 'rotate-180': showFilterPanel }"
@@ -517,17 +564,25 @@ function hapusTransaksi(trx: Transaksi) {
                         >
                             <div
                                 v-if="showFilterPanel"
-                                class="absolute right-0 top-full z-30 mt-2 w-80 origin-top-right overflow-hidden rounded-2xl border border-sidebar-border/70 bg-card shadow-2xl dark:border-sidebar-border"
+                                class="absolute top-full right-0 z-30 mt-2 w-80 origin-top-right overflow-hidden rounded-2xl border border-sidebar-border/70 bg-card shadow-2xl dark:border-sidebar-border"
                             >
                                 <!-- Panel Header -->
-                                <div class="flex items-center justify-between border-b border-sidebar-border/70 px-4 py-3 dark:border-sidebar-border">
+                                <div
+                                    class="flex items-center justify-between border-b border-sidebar-border/70 px-4 py-3 dark:border-sidebar-border"
+                                >
                                     <div class="flex items-center gap-2">
-                                        <SlidersHorizontal class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                                        <span class="text-sm font-semibold">Filter & Urutkan</span>
+                                        <SlidersHorizontal
+                                            class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
+                                        />
+                                        <span class="text-sm font-semibold"
+                                            >Filter & Urutkan</span
+                                        >
                                     </div>
                                     <button
                                         class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-zinc-800"
-                                        @click="showFilterPanel = false" aria-label="Tutup">
+                                        @click="showFilterPanel = false"
+                                        aria-label="Tutup"
+                                    >
                                         <X class="h-3.5 w-3.5" />
                                     </button>
                                 </div>
@@ -535,13 +590,19 @@ function hapusTransaksi(trx: Transaksi) {
                                 <div class="p-4">
                                     <!-- Kasir -->
                                     <div class="mb-5">
-                                        <p class="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Kasir</p>
+                                        <p
+                                            class="mb-2.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase"
+                                        >
+                                            Kasir
+                                        </p>
                                         <div class="flex flex-wrap gap-1.5">
                                             <button
                                                 class="rounded-full border px-3 py-1 text-xs font-medium transition-all duration-100"
-                                                :class="filterKasir === ''
-                                                    ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
-                                                    : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'"
+                                                :class="
+                                                    filterKasir === ''
+                                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                        : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
+                                                "
                                                 @click="filterKasir = ''"
                                             >
                                                 Semua
@@ -550,10 +611,17 @@ function hapusTransaksi(trx: Transaksi) {
                                                 v-for="kasir in kasirs"
                                                 :key="kasir.id"
                                                 class="rounded-full border px-3 py-1 text-xs font-medium transition-all duration-100"
-                                                :class="filterKasir === String(kasir.id)
-                                                    ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
-                                                    : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'"
-                                                @click="filterKasir = String(kasir.id)"
+                                                :class="
+                                                    filterKasir ===
+                                                    String(kasir.id)
+                                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                        : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-sidebar-border dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
+                                                "
+                                                @click="
+                                                    filterKasir = String(
+                                                        kasir.id,
+                                                    )
+                                                "
                                             >
                                                 {{ kasir.name }}
                                             </button>
@@ -562,19 +630,35 @@ function hapusTransaksi(trx: Transaksi) {
 
                                     <!-- Urutkan -->
                                     <div>
-                                        <p class="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Urutkan Berdasarkan</p>
+                                        <p
+                                            class="mb-2.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase"
+                                        >
+                                            Urutkan Berdasarkan
+                                        </p>
                                         <div class="grid grid-cols-2 gap-1.5">
                                             <button
                                                 v-for="opt in sortOptions"
                                                 :key="opt.value"
                                                 class="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-all duration-100"
-                                                :class="sortBy === opt.value
-                                                    ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
-                                                    : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:bg-slate-50 dark:border-sidebar-border dark:bg-zinc-900/30 dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:bg-zinc-800'"
-                                                @click="sortBy = sortBy === opt.value ? '' : opt.value"
+                                                :class="
+                                                    sortBy === opt.value
+                                                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                                        : 'border-sidebar-border/70 bg-background text-slate-600 hover:border-indigo-400 hover:bg-slate-50 dark:border-sidebar-border dark:bg-zinc-900/30 dark:text-slate-300 dark:hover:border-indigo-500/60 dark:hover:bg-zinc-800'
+                                                "
+                                                @click="
+                                                    sortBy =
+                                                        sortBy === opt.value
+                                                            ? ''
+                                                            : opt.value
+                                                "
                                             >
-                                                <component :is="opt.icon" class="h-3.5 w-3.5 shrink-0" />
-                                                <span class="leading-tight">{{ opt.label }}</span>
+                                                <component
+                                                    :is="opt.icon"
+                                                    class="h-3.5 w-3.5 shrink-0"
+                                                />
+                                                <span class="leading-tight">{{
+                                                    opt.label
+                                                }}</span>
                                             </button>
                                         </div>
                                     </div>
@@ -603,29 +687,44 @@ function hapusTransaksi(trx: Transaksi) {
                     v-if="activeFilterCount > 0"
                     class="flex flex-wrap items-center gap-2 border-t border-indigo-100 bg-indigo-50/60 px-4 py-2.5 dark:border-indigo-500/10 dark:bg-indigo-500/5"
                 >
-                    <span class="text-xs font-medium text-muted-foreground">Filter aktif:</span>
+                    <span class="text-xs font-medium text-muted-foreground"
+                        >Filter aktif:</span
+                    >
 
                     <span
                         v-if="filterKasir"
-                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pl-2.5 pr-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pr-1.5 pl-2.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
                     >
-                        {{ kasirs.find(k => String(k.id) === filterKasir)?.name }}
+                        {{
+                            kasirs.find((k) => String(k.id) === filterKasir)
+                                ?.name
+                        }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="filterKasir = ''" aria-label="Hapus filter kasir">
+                            @click="filterKasir = ''"
+                            aria-label="Hapus filter kasir"
+                        >
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
 
                     <span
                         v-if="sortBy"
-                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pl-2.5 pr-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                        class="inline-flex items-center gap-1 rounded-full bg-indigo-100 py-0.5 pr-1.5 pl-2.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
                     >
-                        <component :is="sortOptions.find(s => s.value === sortBy)?.icon" class="h-3 w-3" />
-                        {{ sortOptions.find(s => s.value === sortBy)?.label }}
+                        <component
+                            :is="
+                                sortOptions.find((s) => s.value === sortBy)
+                                    ?.icon
+                            "
+                            class="h-3 w-3"
+                        />
+                        {{ sortOptions.find((s) => s.value === sortBy)?.label }}
                         <button
                             class="rounded-full p-0.5 transition-colors hover:bg-indigo-200 dark:hover:bg-indigo-500/30"
-                            @click="sortBy = ''" aria-label="Hapus urutan">
+                            @click="sortBy = ''"
+                            aria-label="Hapus urutan"
+                        >
                             <X class="h-2.5 w-2.5" />
                         </button>
                     </span>
@@ -638,27 +737,54 @@ function hapusTransaksi(trx: Transaksi) {
                         <tr
                             class="border-b border-sidebar-border/70 bg-slate-50/50 dark:border-sidebar-border dark:bg-zinc-800/20"
                         >
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
                                 ID Transaksi
                             </th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">Kasir</th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
+                                Kasir
+                            </th>
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
                                 Jumlah Barang
                             </th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
                                 Total Belanja
                             </th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">Metode</th>
-                            <th class="px-6 py-4 font-semibold text-muted-foreground">Waktu</th>
-                            <th class="px-6 py-4 text-right font-semibold text-muted-foreground">
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
+                                Metode
+                            </th>
+                            <th
+                                class="px-6 py-4 font-semibold text-muted-foreground"
+                            >
+                                Waktu
+                            </th>
+                            <th
+                                class="px-6 py-4 text-right font-semibold text-muted-foreground"
+                            >
                                 Aksi
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
+                    <tbody
+                        class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border"
+                    >
                         <tr v-if="props.transaksis.data.length === 0">
-                            <td colspan="7" class="px-6 py-12 text-center text-muted-foreground">
-                                <ShoppingCart class="mx-auto mb-3 h-10 w-10 opacity-30" />
+                            <td
+                                colspan="7"
+                                class="px-6 py-12 text-center text-muted-foreground"
+                            >
+                                <ShoppingCart
+                                    class="mx-auto mb-3 h-10 w-10 opacity-30"
+                                />
                                 <p class="font-medium">
                                     {{
                                         searchQuery
@@ -684,7 +810,9 @@ function hapusTransaksi(trx: Transaksi) {
                             <td class="px-6 py-4 text-muted-foreground">
                                 {{ trx.jumlah_item }} item
                             </td>
-                            <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200">
+                            <td
+                                class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200"
+                            >
                                 {{ formatRupiah(trx.total_harga) }}
                             </td>
                             <td class="px-6 py-4">
@@ -758,7 +886,9 @@ function hapusTransaksi(trx: Transaksi) {
                     <h2 class="text-lg font-bold">Detail Transaksi</h2>
                     <button
                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeDetail" aria-label="Tutup">
+                        @click="closeDetail"
+                        aria-label="Tutup"
+                    >
                         <X class="h-5 w-5" />
                     </button>
                 </div>
@@ -766,32 +896,59 @@ function hapusTransaksi(trx: Transaksi) {
                 <div class="mb-4 flex flex-col gap-3 text-sm">
                     <div class="flex justify-between">
                         <span class="text-muted-foreground">ID Transaksi</span>
-                        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{
-                            selectedTrx.kode
-                        }}</span>
+                        <span
+                            class="font-mono font-bold text-indigo-600 dark:text-indigo-400"
+                            >{{ selectedTrx.kode }}</span
+                        >
                     </div>
                     <div class="flex justify-between">
                         <span class="text-muted-foreground">Kasir</span>
-                        <span class="font-semibold">{{ selectedTrx.kasir }}</span>
+                        <span class="font-semibold">{{
+                            selectedTrx.kasir
+                        }}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-muted-foreground">Waktu</span>
-                        <span>{{ selectedTrx.waktu }}, {{ selectedTrx.tanggal }}</span>
+                        <span
+                            >{{ selectedTrx.waktu }},
+                            {{ selectedTrx.tanggal }}</span
+                        >
                     </div>
                 </div>
 
-                <div class="mb-4 overflow-hidden rounded-lg border border-sidebar-border/70 dark:border-sidebar-border">
+                <div
+                    class="mb-4 overflow-hidden rounded-lg border border-sidebar-border/70 dark:border-sidebar-border"
+                >
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="border-b border-sidebar-border/70 bg-slate-50/50 dark:border-sidebar-border dark:bg-zinc-800/20">
-                                <th class="px-4 py-2 text-left font-semibold text-muted-foreground">Produk</th>
-                                <th class="px-4 py-2 text-right font-semibold text-muted-foreground">Qty</th>
-                                <th class="px-4 py-2 text-right font-semibold text-muted-foreground">Subtotal</th>
+                            <tr
+                                class="border-b border-sidebar-border/70 bg-slate-50/50 dark:border-sidebar-border dark:bg-zinc-800/20"
+                            >
+                                <th
+                                    class="px-4 py-2 text-left font-semibold text-muted-foreground"
+                                >
+                                    Produk
+                                </th>
+                                <th
+                                    class="px-4 py-2 text-right font-semibold text-muted-foreground"
+                                >
+                                    Qty
+                                </th>
+                                <th
+                                    class="px-4 py-2 text-right font-semibold text-muted-foreground"
+                                >
+                                    Subtotal
+                                </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border">
-                            <tr v-for="(detail, idx) in selectedTrx.details" :key="idx">
-                                <td class="px-4 py-2 flex items-center gap-3">
+                        <tbody
+                            class="divide-y divide-sidebar-border/70 dark:divide-sidebar-border"
+                        >
+                            <tr
+                                v-for="(detail, idx) in selectedTrx.details"
+                                :key="idx"
+                            >
+                                <td class="flex items-center gap-3 px-4 py-2">
                                     <img
                                         v-if="detail.foto_url"
                                         :src="detail.foto_url"
@@ -806,7 +963,9 @@ function hapusTransaksi(trx: Transaksi) {
                                     </div>
                                     <span>{{ detail.nama_produk }}</span>
                                 </td>
-                                <td class="px-4 py-2 text-right">{{ detail.jumlah }}</td>
+                                <td class="px-4 py-2 text-right">
+                                    {{ detail.jumlah }}
+                                </td>
                                 <td class="px-4 py-2 text-right font-medium">
                                     {{ formatRupiah(detail.subtotal) }}
                                 </td>
@@ -817,7 +976,9 @@ function hapusTransaksi(trx: Transaksi) {
 
                 <div class="flex flex-col gap-2 text-sm">
                     <div class="flex justify-between">
-                        <span class="text-muted-foreground">Metode Pembayaran</span>
+                        <span class="text-muted-foreground"
+                            >Metode Pembayaran</span
+                        >
                         <span class="font-semibold">{{
                             formatMetode(selectedTrx.metode_pembayaran)
                         }}</span>
@@ -850,7 +1011,10 @@ function hapusTransaksi(trx: Transaksi) {
                     </button>
                     <button
                         class="inline-flex items-center gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-500/20"
-                        @click="hapusTransaksi(selectedTrx); closeDetail()"
+                        @click="
+                            hapusTransaksi(selectedTrx);
+                            closeDetail();
+                        "
                     >
                         <Trash2 class="h-4 w-4" />
                         Hapus
@@ -873,11 +1037,17 @@ function hapusTransaksi(trx: Transaksi) {
             >
                 <div class="mb-5 flex items-center justify-between">
                     <h2 class="text-lg font-bold">
-                        {{ editingTransaksi ? 'Edit Transaksi' : 'Tambah Transaksi Baru' }}
+                        {{
+                            editingTransaksi
+                                ? 'Edit Transaksi'
+                                : 'Tambah Transaksi Baru'
+                        }}
                     </h2>
                     <button
                         class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
-                        @click="closeFormModal" aria-label="Tutup">
+                        @click="closeFormModal"
+                        aria-label="Tutup"
+                    >
                         <X class="h-5 w-5" />
                     </button>
                 </div>
@@ -885,17 +1055,26 @@ function hapusTransaksi(trx: Transaksi) {
                 <form class="flex flex-col gap-4" @submit.prevent="submitForm">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="mb-1.5 block text-sm font-medium" for="trx-kasir">
+                            <label
+                                class="mb-1.5 block text-sm font-medium"
+                                for="trx-kasir"
+                            >
                                 Kasir
                             </label>
                             <select
                                 id="trx-kasir"
                                 v-model="form.id_user"
                                 class="w-full rounded-lg border border-sidebar-border/70 bg-background px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                :class="{ 'border-rose-500': form.errors.id_user }"
+                                :class="{
+                                    'border-rose-500': form.errors.id_user,
+                                }"
                             >
                                 <option value="">Pilih kasir</option>
-                                <option v-for="kasir in kasirs" :key="kasir.id" :value="String(kasir.id)">
+                                <option
+                                    v-for="kasir in kasirs"
+                                    :key="kasir.id"
+                                    :value="String(kasir.id)"
+                                >
                                     {{ kasir.name }} ({{ kasir.role }})
                                 </option>
                             </select>
@@ -903,11 +1082,16 @@ function hapusTransaksi(trx: Transaksi) {
                                 v-if="form.errors.id_user"
                                 class="mt-1 flex items-center gap-1 text-xs text-rose-600"
                             >
-                                <AlertCircle class="h-3 w-3" />{{ form.errors.id_user }}
+                                <AlertCircle class="h-3 w-3" />{{
+                                    form.errors.id_user
+                                }}
                             </p>
                         </div>
                         <div>
-                            <label class="mb-1.5 block text-sm font-medium" for="trx-metode">
+                            <label
+                                class="mb-1.5 block text-sm font-medium"
+                                for="trx-metode"
+                            >
                                 Metode Pembayaran
                             </label>
                             <select
@@ -923,83 +1107,91 @@ function hapusTransaksi(trx: Transaksi) {
                     </div>
 
                     <div>
-                        <div class="mb-2 flex items-center justify-between">
-                            <label class="text-sm font-medium">Item Produk</label>
-                            <button
-                                type="button"
-                                class="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-500"
-                                @click="addItem"
-                            >
-                                <Plus class="h-3 w-3" />
-                                Tambah Item
-                            </button>
-                        </div>
+                        <label class="mb-2 block text-sm font-medium"
+                            >Item Produk</label
+                        >
 
                         <div
                             v-if="form.errors.items"
                             class="mb-2 flex items-center gap-1 text-xs text-rose-600"
                         >
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.items }}
+                            <AlertCircle class="h-3 w-3" />{{
+                                form.errors.items
+                            }}
                         </div>
 
                         <div class="flex flex-col gap-2">
                             <div
                                 v-for="(item, index) in form.items"
                                 :key="index"
-                                class="flex items-start gap-2 rounded-lg border border-sidebar-border/70 p-3 dark:border-sidebar-border"
+                                class="flex flex-col gap-2 rounded-lg border border-sidebar-border/70 p-3 sm:flex-row sm:items-start dark:border-sidebar-border"
                             >
-                                <div class="flex-1">
-                                    <select
+                                <div class="min-w-0 flex-1">
+                                    <ProductPicker
                                         v-model="item.id_produk"
-                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                    >
-                                        <option value="">Pilih produk</option>
-                                        <option
-                                            v-for="produk in produks"
-                                            :key="produk.id_produk"
-                                            :value="String(produk.id_produk)"
-                                        >
-                                            {{ produk.nama }} — {{ formatRupiah(produk.harga_jual) }}
-                                            (stok: {{ produk.stok }})
-                                        </option>
-                                    </select>
+                                        :products="produks"
+                                    />
                                 </div>
-                                <div class="w-24">
+                                <div class="flex items-center gap-2">
                                     <input
                                         v-model="item.jumlah"
                                         type="number"
                                         min="1"
-                                        :max="getProdukStok(item.id_produk) || undefined"
+                                        :max="
+                                            getProdukStok(item.id_produk) ||
+                                            undefined
+                                        "
                                         placeholder="Qty"
-                                        class="w-full rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
+                                        class="w-20 shrink-0 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
                                     />
+                                    <div
+                                        class="flex-1 text-right text-sm font-medium sm:w-28 sm:flex-none"
+                                    >
+                                        {{
+                                            item.id_produk && item.jumlah
+                                                ? formatRupiah(
+                                                      getProdukHarga(
+                                                          item.id_produk,
+                                                      ) * Number(item.jumlah),
+                                                  )
+                                                : '-'
+                                        }}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="shrink-0 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
+                                        :disabled="form.items.length <= 1"
+                                        :class="{
+                                            'opacity-40':
+                                                form.items.length <= 1,
+                                        }"
+                                        aria-label="Hapus item"
+                                        @click="removeItem(index)"
+                                    >
+                                        <Minus class="h-4 w-4" />
+                                    </button>
                                 </div>
-                                <div class="w-28 pt-2 text-right text-sm font-medium">
-                                    {{
-                                        item.id_produk && item.jumlah
-                                            ? formatRupiah(
-                                                  getProdukHarga(item.id_produk) * Number(item.jumlah),
-                                              )
-                                            : '-'
-                                    }}
-                                </div>
-                                <button
-                                    type="button"
-                                    class="mt-1.5 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                    :disabled="form.items.length <= 1"
-                                    :class="{ 'opacity-40': form.items.length <= 1 }"
-                                    @click="removeItem(index)"
-                                >
-                                    <Minus class="h-4 w-4" />
-                                </button>
                             </div>
                         </div>
+
+                        <button
+                            type="button"
+                            class="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-sidebar-border/70 px-3 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:border-indigo-400 hover:bg-indigo-50 dark:border-sidebar-border dark:hover:bg-indigo-500/10"
+                            @click="addItem"
+                        >
+                            <Plus class="h-3 w-3" />
+                            Tambah Item
+                        </button>
                     </div>
 
-                    <div class="rounded-lg border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20">
+                    <div
+                        class="rounded-lg border border-sidebar-border/70 bg-slate-50/50 p-4 dark:border-sidebar-border dark:bg-zinc-800/20"
+                    >
                         <div class="flex justify-between text-sm">
                             <span class="text-muted-foreground">Total</span>
-                            <span class="font-bold">{{ formatRupiah(computedTotal) }}</span>
+                            <span class="font-bold">{{
+                                formatRupiah(computedTotal)
+                            }}</span>
                         </div>
                         <div class="mt-2 flex justify-between text-sm">
                             <span class="text-muted-foreground">Kembalian</span>
@@ -1010,7 +1202,10 @@ function hapusTransaksi(trx: Transaksi) {
                     </div>
 
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium" for="trx-bayar">
+                        <label
+                            class="mb-1.5 block text-sm font-medium"
+                            for="trx-bayar"
+                        >
                             Jumlah Bayar (Rp)
                         </label>
                         <input
@@ -1026,7 +1221,9 @@ function hapusTransaksi(trx: Transaksi) {
                             v-if="form.errors.bayar"
                             class="mt-1 flex items-center gap-1 text-xs text-rose-600"
                         >
-                            <AlertCircle class="h-3 w-3" />{{ form.errors.bayar }}
+                            <AlertCircle class="h-3 w-3" />{{
+                                form.errors.bayar
+                            }}
                         </p>
                     </div>
 
