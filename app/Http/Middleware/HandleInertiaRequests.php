@@ -2,6 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Pesanan;
+use App\Models\Produk;
+use App\Services\PesananService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -42,6 +45,31 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Angka kecil untuk badge sidebar admin; closure agar tak dievaluasi
+            // pada partial reload yang tidak memintanya.
+            'sidebarBadges' => fn () => $this->sidebarBadges($request),
+        ];
+    }
+
+    /**
+     * Hitungan ringkas untuk badge sidebar admin (pesanan aktif & stok menipis).
+     * Hanya admin yang memakainya; peran lain dapat null agar tak ada query sia-sia.
+     *
+     * @return array{pesananAktif: int, stokMenipis: int}|null
+     */
+    private function sidebarBadges(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if (! $user || $user->role !== 'admin') {
+            return null;
+        }
+
+        return [
+            // Pesanan online yang masih perlu diproses (selaras KasirController).
+            'pesananAktif' => Pesanan::whereIn('status', PesananService::STATUS_AKTIF)->count(),
+            // Stok menipis/habis non-jasa, ambang 5 (selaras DashboardController & Produk).
+            'stokMenipis' => Produk::where('tipe_jual', '!=', 'jasa')->where('stok', '<=', 5)->count(),
         ];
     }
 }

@@ -129,25 +129,27 @@ Skenario jika ada pelanggan yang datang untuk mengirim uang atau mengambil uang 
 ### 1.5 Cara Menyimpan Pesanan & Memproses Pesanan Online
 
 #### A. Menyimpan Pesanan (Bayar Nanti)
-Gunakan ini jika pembeli meletakkan barang di meja kasir tetapi ingin pergi mengambil barang lain terlebih dahulu, atau ingin membayar nanti saat pulang kerja.
+Gunakan ini jika pembeli meletakkan barang di meja kasir tetapi ingin mengambil barang lain dulu, atau ingin membayar nanti saat hendak pulang.
 
-1. Masukkan barang-barang belanjaan pembeli ke keranjang seperti biasa.
-2. Di bagian bawah keranjang, tekan tombol abu-abu **Simpan Pesanan** (jangan tekan Bayar Sekarang).
-3. Isi **Nama Pemesan** dan **Nomor WhatsApp**, lalu tekan **Simpan**.
-4. Stok barang otomatis ditahan agar tidak dijual ke orang lain. Transaksi masuk ke menu **Pesanan Online** dengan status *Menunggu Diproses*.
+1. Masukkan barang belanjaan pembeli ke keranjang seperti biasa. Fitur ini hanya untuk produk **satuan/eceran** — barang **curah** dan **jasa** tidak bisa disimpan sebagai pesanan.
+2. Di bagian atas ringkasan keranjang ada dua pilihan: **Proses Sekarang** dan **Simpan Pesanan**. Tekan **Simpan Pesanan** (kotaknya berubah jadi oranye).
+3. Isi **Nama pemesan** dan **Nomor WhatsApp** (boleh tambah **Catatan** bila perlu), lalu tekan tombol oranye **Simpan sebagai Pesanan** di paling bawah.
+4. Stok barang otomatis ditahan agar tidak terjual ke orang lain. Pesanan pindah ke menu **Pesanan Online** dengan status *Menunggu*, siap dibayar saat pembeli kembali.
 
 #### B. Memproses Pesanan Online (Saat Diambil/Dibayar)
 Gunakan ini saat pelanggan datang ke toko untuk mengambil pesanan yang mereka buat dari website toko online atau pesanan yang Anda simpan sebelumnya.
 
-![Pesanan Bayar](/docs/manual/img-detail/31-kasir-pesanan-bayar.png)
-*Gambar 1.3 — Memproses Pembayaran Pesanan Online*
+![Pesanan Bayar](/docs/manual/img/31-kasir-pesanan-bayar.png)
+*Gambar 1.5 — Jendela Proses Pembayaran: ① pilih Metode Bayar · ② isi Uang Diterima · ③ tekan Selesaikan Pembayaran.*
 
-1. Buka menu **Pesanan Online** di sidebar kiri.
-2. Cari nama atau kode pesanan pelanggan di tab **Perlu Diproses**.
-3. Jika barang sudah siap dibungkus, Anda bisa menekan **Tandai Siap** (status berubah jadi *Siap Diambil*).
-4. Ketika pelanggan membayar, tekan tombol hijau **Proses Bayar** ①.
-5. Jendela pembayaran akan terbuka ②. Pilih metode pembayaran, isi **Uang Diterima**, lalu tekan **Selesaikan Pembayaran** ③.
-6. Pesanan selesai dan tercatat resmi sebagai transaksi penjualan di sistem.
+1. Buka menu **Pesanan Online** di sidebar kiri. Semua pesanan yang belum dibayar berkumpul di bagian **Perlu Diproses**.
+2. Cari pelanggan lewat kotak pencarian di atas — pencarian mencocokkan **nama pemesan atau nomor WhatsApp** (bukan kode pesanan).
+3. Jika barang sudah selesai dibungkus, tekan **Tandai Siap**; status pesanan berubah jadi *Siap diambil* dan tombolnya berganti menjadi **Ingatkan via WA** untuk mengabari pelanggan. *(Langkah ini opsional — boleh langsung ke pembayaran.)*
+4. Ketika pelanggan membayar, tekan tombol biru **Proses Bayar** (berikon dompet). Jendela **Proses Pembayaran** akan terbuka.
+5. Di jendela tersebut: ① pilih **Metode Bayar** (Tunai / QRIS / Transfer), ② isi **Uang Diterima** — atau tekan **Uang pas** untuk mengisinya otomatis sejumlah total — lalu ③ tekan **Selesaikan Pembayaran**.
+6. Pesanan selesai dan tercatat resmi sebagai transaksi penjualan. Riwayatnya pindah ke bagian **Riwayat Pesanan**, lengkap dengan tombol **Kirim Struk** via WhatsApp.
+
+> 📝 Untuk **QRIS** dan **Transfer**, kolom Uang Diterima otomatis terisi sebesar total tagihan, jadi Anda tinggal menekan Selesaikan Pembayaran.
 
 ---
 
@@ -179,7 +181,7 @@ Kategori berguna agar barang tersusun rapi di kasir dan website.
 #### B. Cara Menambah Produk Baru
 Mendaftarkan barang dagangan baru agar kasir bisa memindai barcodenya.
 
-![Form Produk Atas](/docs/manual/img-detail/56-produk-tambah.png)
+![Form Produk Atas](/docs/manual/img/56-produk-tambah.png)
 *Gambar 2.1 — Pengisian Form Produk Bagian Atas*
 
 1. Buka menu **Data Produk** $\rightarrow$ Tekan **Tambah Produk Baru**.
@@ -187,10 +189,11 @@ Mendaftarkan barang dagangan baru agar kasir bisa memindai barcodenya.
 3. **Jenis & Cara Jual:**
    - **Asal Produk:** Pilih **Beli Jadi** (barang kulakan) atau **Buatan Sendiri** (olahan dapur Anda).
    - **Tipe Jual:** Pilih **Satuan** (eceran per biji), **Curah** (timbangan/literan), atau **Jasa** (transfer/tarik tunai).
-4. **Harga & Stok:**
-   - Isi **Harga Jual** dan **Stok Awal**.
-   - Jika Asal Produk = **Beli Jadi**, isi **Harga Modal/Beli** di form ini.
-   - Jika Asal Produk = **Buatan Sendiri**, **kosongkan harga modal** (harga modal akan dihitung otomatis dari menu **Produksi**).
+4. **Harga & Stok** (kolomnya menyesuaikan pilihan di atas):
+   - Isi **Harga Jual**.
+   - Jika Asal Produk = **Beli Jadi**, isi juga **Harga Modal/Beli** dan **Stok Awal** di form ini.
+   - Jika Asal Produk = **Buatan Sendiri**, kolom **Harga Modal** dan **Stok** **tidak muncul** — keduanya dihitung otomatis dari menu **Produksi**. Setelah produk tersimpan, aplikasi menawarkan langsung membuka menu Produksi untuk mencatat batch pertamanya.
+   - Jika Tipe Jual = **Jasa**, bagian Harga & Stok diganti **Tarif Fee Bertingkat** (atur fee/biaya admin per rentang nominal; pendapatan toko = fee-nya).
 5. **Barcode & SKU:**
    - Sorot kursor ke kolom Barcode, lalu tembakkan barcode fisik barang dengan scanner agar kodenya terinput otomatis.
    - Jika barang tidak memiliki barcode fisik, tekan tombol **Generate Otomatis** agar sistem membuatkan kode barcode internal.
@@ -214,7 +217,7 @@ Gunakan ini untuk menambah stok barang kulakan yang dibeli dari supplier.
 #### B. Membuat Barang Sendiri (Produksi)
 Gunakan ini untuk menambah stok keripik atau kue olahan dapur Anda sendiri sekaligus menghitung harga modal per unitnya.
 
-![Form Produksi](/docs/manual/img-detail/66-produksi-catat.png)
+![Form Produksi](/docs/manual/img/66-produksi-catat.png)
 *Gambar 2.2 — Form Pencatatan Batch Produksi*
 
 1. Buka menu **Produksi** $\rightarrow$ Tekan **Catat Produksi**.
@@ -245,7 +248,7 @@ Gunakan ini untuk mencatat uang keluar yang **bukan untuk belanja barang daganga
 
 ### 2.4 Membuat Promo / Diskon
 1. Buka menu **Promo** $\rightarrow$ Tekan **Tambah Promo Baru** ①.
-2. Isi Nama Promo (misal: *"Promo Gajian"*), pilih tipe diskon (Persentase / Nominal rupiah).
+2. Isi Nama Promo (misal: *"Promo Gajian"*), lalu pilih **Tipe Diskon**: **Nominal (Rp)** — potongan rupiah, atau **Bundling (beli X gratis Y)** — isi jumlah beli & jumlah gratis. (Tipe Persentase lama tidak bisa dipilih lagi untuk promo baru.)
 3. Tentukan sasaran produk: **Semua Produk** atau **Produk Spesifik** saja.
 4. Jika memilih produk spesifik, perhatikan widget **Dampak ke Laba per Unit** di bawah form:
    - **Warna Hijau:** Diskon aman, Anda masih mendapatkan untung bersih yang layak.
@@ -339,7 +342,7 @@ Pilih tema tampilan yang paling nyaman untuk mata Anda:
 
 ---
 
-## 5. PENYELASAIAN MASALAH CEPAT (FAQ)
+## 5. PENYELESAIAN MASALAH CEPAT (FAQ)
 
 ### Tanya: "Kenapa barcode produk tidak mau terbaca saat ditembak scanner?"
 * **Jawab:** Pastikan kabel scanner terhubung erat ke komputer/HP dan lampu scanner menyala. Jika barcode fisik produk sudah rusak/kotor, kasir dapat menginput barang dengan mengetik nama barang secara manual di kolom **Cari Produk**.

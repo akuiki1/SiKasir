@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppearanceToggle from '@/components/AppearanceToggle.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
-import CatatMenu from '@/components/CatatMenu.vue';
+import MenuSearch from '@/components/MenuSearch.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,23 +38,25 @@ const showAvatar = computed(() => !!user.value?.avatar);
     <header
         class="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border/70 px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-6"
     >
-        <div class="flex min-w-0 items-center gap-2">
-            <!-- Di mobile, kasir memakai Bottom Navigation, jadi toggle disembunyikan. -->
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+            <!-- Kasir: Bottom Navigation di mobile → toggle hanya desktop.
+                 Admin: toggle desktop pindah ke dalam sidebar → di sini hanya
+                 untuk membuka panel geser di mobile. -->
             <SidebarTrigger
-                :class="['-ml-1', isKasir ? 'hidden md:flex' : '']"
+                :class="['-ml-1', isKasir ? 'hidden md:flex' : 'md:hidden']"
             />
             <template v-if="breadcrumbs && breadcrumbs.length > 0">
                 <Breadcrumbs :breadcrumbs="breadcrumbs" />
             </template>
         </div>
 
-        <!-- Admin: hub "Catat" sebagai satu pintu masuk pencatatan terpandu. -->
-        <div v-if="!isKasir" class="flex shrink-0 items-center gap-1">
-            <CatatMenu />
+        <!-- Admin: command-palette cari menu di tengah, sejajar akun kanan-atas. -->
+        <div v-if="!isKasir" class="hidden flex-1 justify-center md:flex">
+            <MenuSearch />
         </div>
 
-        <!-- Akun + pengaturan tampilan kasir di kanan atas header. -->
-        <div v-if="isKasir" class="flex shrink-0 items-center gap-1">
+        <!-- Akun + pengaturan tampilan di kanan atas header (admin & kasir). -->
+        <div class="flex flex-1 shrink-0 items-center justify-end gap-1">
             <AppearanceToggle />
 
             <DropdownMenu>

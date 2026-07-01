@@ -1,222 +1,68 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import {
-    LayoutGrid,
-    Users,
-    Package,
-    ShoppingCart,
-    History,
-    DollarSign,
-    Tag,
-    Tags,
-    Factory,
-    Contact,
-    Warehouse,
-    Wallet,
-    TrendingUp,
-    UsersRound,
-    Boxes,
-    ClipboardList,
-} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
-import NavUser from '@/components/NavUser.vue';
 import {
     Sidebar,
     SidebarContent,
-    SidebarFooter,
     SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarTrigger,
 } from '@/components/ui/sidebar';
-import type { NavGroup } from '@/types';
+import { useNavMenu } from '@/composables/useNavMenu';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 
-const isAdmin = computed(() => user.value?.role === 'admin');
+const { isAdmin, pinned, groups } = useNavMenu();
 
 const roleLabel = computed(() =>
     isAdmin.value ? 'Panel Admin' : 'Mode Kasir',
 );
-
-const mainNavGroups = computed<NavGroup[]>(() => {
-    const role = user.value?.role;
-
-    if (role === 'admin') {
-        return [
-            {
-                label: 'Ringkasan',
-                items: [
-                    {
-                        title: 'Dashboard',
-                        href: '/admin/dashboard',
-                        icon: LayoutGrid,
-                    },
-                ],
-            },
-            {
-                label: 'Penjualan',
-                items: [
-                    {
-                        title: 'Data Transaksi',
-                        href: '/admin/transactions',
-                        icon: ShoppingCart,
-                    },
-                    {
-                        title: 'Pesanan Online',
-                        href: '/admin/pesanan',
-                        icon: ClipboardList,
-                    },
-                    {
-                        title: 'Pelanggan',
-                        href: '/admin/pelanggan',
-                        icon: Contact,
-                    },
-                    {
-                        title: 'Promo',
-                        href: '/admin/promos',
-                        icon: Tag,
-                    },
-                ],
-            },
-            {
-                label: 'Produk & Stok',
-                items: [
-                    {
-                        title: 'Kategori',
-                        href: '/admin/kategori',
-                        icon: Tags,
-                    },
-                    {
-                        title: 'Data Produk',
-                        href: '/admin/products',
-                        icon: Package,
-                    },
-                    {
-                        title: 'Manajemen Stok',
-                        href: '/admin/stok',
-                        icon: Warehouse,
-                    },
-                    {
-                        title: 'Produksi',
-                        href: '/admin/produksi',
-                        icon: Factory,
-                    },
-                ],
-            },
-            {
-                label: 'Keuangan',
-                items: [
-                    {
-                        title: 'Pengeluaran',
-                        href: '/admin/pengeluarans',
-                        icon: DollarSign,
-                    },
-                ],
-            },
-            {
-                label: 'Laporan & Analisis',
-                items: [
-                    {
-                        title: 'Analisis Penjualan',
-                        href: '/admin/laporan/penjualan',
-                        icon: TrendingUp,
-                    },
-                    {
-                        title: 'Stok & Inventaris',
-                        href: '/admin/laporan/inventaris',
-                        icon: Boxes,
-                    },
-                    {
-                        title: 'Laporan Keuangan',
-                        href: '/admin/laporan/keuangan',
-                        icon: Wallet,
-                    },
-                    {
-                        title: 'Analisis Pelanggan',
-                        href: '/admin/laporan/pelanggan',
-                        icon: UsersRound,
-                    },
-                ],
-            },
-            {
-                label: 'Pengaturan',
-                items: [
-                    {
-                        title: 'Data User',
-                        href: '/admin/users',
-                        icon: Users,
-                    },
-                ],
-            },
-        ];
-    }
-
-    // Kasir hanya punya sedikit menu — tampilkan datar tanpa label kategori.
-    return [
-        {
-            label: '',
-            items: [
-                {
-                    title: 'Dashboard',
-                    href: '/kasir/dashboard',
-                    icon: LayoutGrid,
-                },
-                {
-                    title: 'Transaksi',
-                    href: '/kasir/transaksi',
-                    icon: ShoppingCart,
-                },
-                {
-                    title: 'Pesanan Online',
-                    href: '/kasir/pesanan',
-                    icon: ClipboardList,
-                },
-                {
-                    title: 'Riwayat Transaksi',
-                    href: '/kasir/riwayat',
-                    icon: History,
-                },
-            ],
-        },
-    ];
-});
 </script>
 
 <template>
     <Sidebar collapsible="icon" variant="inset">
         <SidebarHeader class="border-b border-sidebar-border/60 pb-2">
-            <SidebarMenu>
-                <SidebarMenuItem>
-                    <SidebarMenuButton size="lg" as-child>
-                        <Link
-                            :href="
-                                user?.role === 'admin'
-                                    ? '/admin/dashboard'
-                                    : '/kasir/dashboard'
-                            "
-                        >
-                            <AppLogo :subtitle="roleLabel" />
-                        </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-            </SidebarMenu>
+            <!-- Admin: tombol buka/tutup sidebar ditaruh di sini, di samping logo.
+                 Saat menyempit jadi ikon, logo disembunyikan & toggle di tengah. -->
+            <div class="flex items-center gap-1">
+                <SidebarMenu
+                    :class="
+                        isAdmin
+                            ? 'min-w-0 flex-1 group-data-[collapsible=icon]:hidden'
+                            : ''
+                    "
+                >
+                    <SidebarMenuItem>
+                        <SidebarMenuButton size="lg" as-child>
+                            <Link
+                                :href="
+                                    user?.role === 'admin'
+                                        ? '/admin/dashboard'
+                                        : '/kasir/dashboard'
+                                "
+                            >
+                                <AppLogo :subtitle="roleLabel" />
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+                <SidebarTrigger
+                    v-if="isAdmin"
+                    class="hidden shrink-0 text-sidebar-foreground/70 group-data-[collapsible=icon]:mx-auto hover:bg-sidebar-accent hover:text-sidebar-foreground md:flex"
+                />
+            </div>
         </SidebarHeader>
 
         <SidebarContent class="py-1">
-            <NavMain :groups="mainNavGroups" />
+            <NavMain :groups="groups" :pinned="pinned" :enhanced="isAdmin" />
         </SidebarContent>
 
-        <!-- Akun kasir dipindah ke header; footer hanya untuk admin. -->
-        <SidebarFooter
-            v-if="isAdmin"
-            class="border-t border-sidebar-border/60 pt-2"
-        >
-            <NavUser />
-        </SidebarFooter>
+        <!-- Akun (admin & kasir) ada di kanan atas header → sidebar tanpa footer. -->
     </Sidebar>
     <slot />
 </template>

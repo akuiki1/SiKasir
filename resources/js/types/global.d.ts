@@ -19,6 +19,10 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            sidebarBadges: {
+                pesananAktif: number;
+                stokMenipis: number;
+            } | null;
             [key: string]: unknown;
         };
     }

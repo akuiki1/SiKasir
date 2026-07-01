@@ -6,6 +6,12 @@ export type BreadcrumbItem = {
     href: NonNullable<InertiaLinkProps['href']>;
 };
 
+/** Badge angka di item nav. `order` = aksen (pesanan), `warn` = amber (stok menipis). */
+export type NavBadge = {
+    count: number;
+    tone: 'order' | 'warn';
+};
+
 export type NavItem = {
     title: string;
     href: NonNullable<InertiaLinkProps['href']>;
@@ -13,6 +19,8 @@ export type NavItem = {
     isActive?: boolean;
     /** Render sebagai aksi utama yang ditonjolkan (primary CTA). */
     highlight?: boolean;
+    /** Badge hitungan (mis. pesanan aktif / stok menipis). */
+    badge?: NavBadge;
 };
 
 export type NavGroup = {

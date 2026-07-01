@@ -33,7 +33,15 @@ class LaporanStokService
      */
     public function abcAnalysis(Carbon $start, Carbon $end): array
     {
-        $periodDays = (int) $start->diffInDays($end) + 1;
+        // Laju penjualan (velocity) & "estimasi habis" harus dibagi hari yang
+        // BENAR-BENAR sudah berjalan, bukan seluruh rentang filter. Filter "Tahun
+        // Ini" berakhir 31 Des, padahal penjualan baru ada sampai hari ini —
+        // memakai ~365 hari akan mengencerkan laju ~2x & melebih-lebihkan estimasi
+        // habis. Batasi ujung periode pada waktu sekarang bila rentang menembus
+        // masa depan; rentang yang seluruhnya di masa lalu tetap utuh.
+        $now = Carbon::now();
+        $effectiveEnd = $end->greaterThan($now) ? $now : $end;
+        $periodDays = max(1, (int) $start->diffInDays($effectiveEnd) + 1);
 
         // Penjualan per produk pada periode: kuantitas, omzet (subtotal baris), frekuensi transaksi.
         $sales = DB::table('detail_transaksis as d')
