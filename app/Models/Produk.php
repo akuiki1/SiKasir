@@ -93,6 +93,25 @@ class Produk extends Model
     }
 
     /**
+     * URL foto produk yang siap ditampilkan. Nilai `foto` bisa berupa dua bentuk:
+     * path relatif hasil upload (mis. "produk/abc.jpg" → dilayani lewat symlink
+     * storage) ATAU URL lengkap yang ditempel manual (mis. "https://.../x.jpg").
+     * Untuk URL lengkap, kembalikan apa adanya; jangan diprefiks "storage/".
+     */
+    public static function fotoUrl(?string $foto): ?string
+    {
+        if (! $foto) {
+            return null;
+        }
+
+        if (Str::startsWith($foto, ['http://', 'https://'])) {
+            return $foto;
+        }
+
+        return asset('storage/'.$foto);
+    }
+
+    /**
      * Buat barcode EAN-13 unik untuk penomoran internal toko.
      * Prefix "2" memakai rentang in-store/restricted distribution GS1 (aman dipakai
      * sendiri, tidak bentrok barcode pabrikan), diikuti 11 digit acak lalu satu

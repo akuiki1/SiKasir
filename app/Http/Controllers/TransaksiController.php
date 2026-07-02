@@ -279,7 +279,7 @@ class TransaksiController extends Controller
                 'harga' => $detail->harga,
                 'subtotal' => $detail->subtotal,
                 'foto' => $detail->produk?->foto ?? null,
-                'foto_url' => $detail->produk?->foto ? asset('storage/'.$detail->produk->foto) : null,
+                'foto_url' => Produk::fotoUrl($detail->produk?->foto),
             ])->values(),
         ];
     }

@@ -66,7 +66,7 @@ class ProdukController extends Controller
                     'barcode' => $produk->barcode,
                     'sku' => $produk->sku,
                     'foto' => $produk->foto,
-                    'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
+                    'foto_url' => Produk::fotoUrl($produk->foto),
                     'status_stok' => $produk->status_stok,
                     'archived_at' => $produk->deleted_at?->translatedFormat('d M Y'),
                     // Hanya produk arsip TANPA riwayat (transaksi/produksi/pesanan) yang

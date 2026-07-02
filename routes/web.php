@@ -102,7 +102,7 @@ Route::get('/', function () {
             'nama' => $p->nama,
             'harga_jual' => $p->harga_jual,
             'stok' => (int) $p->stok,
-            'foto_url' => $p->foto ? asset("storage/{$p->foto}") : null,
+            'foto_url' => Produk::fotoUrl($p->foto),
             'total_terjual' => (int) $p->total_terjual,
             'promo' => $promoFor($p->id_produk, $p->harga_jual),
         ]);
@@ -117,7 +117,7 @@ Route::get('/', function () {
             'kategori' => $p->kategori?->nama_kategori,
             'harga_jual' => $p->harga_jual,
             'stok' => $p->stok,
-            'foto_url' => $p->foto ? asset("storage/{$p->foto}") : null,
+            'foto_url' => Produk::fotoUrl($p->foto),
             'promo' => $promoFor($p->id_produk, $p->harga_jual),
         ])
         // Produk berfoto tampil paling atas, lalu yang sedang promo; urutan nama

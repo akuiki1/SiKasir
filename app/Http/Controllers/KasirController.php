@@ -122,7 +122,7 @@ class KasirController extends Controller
                 'nama' => $produk->nama,
                 'stok' => $produk->stok,
                 'status' => $produk->status_stok,
-                'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
+                'foto_url' => Produk::fotoUrl($produk->foto),
             ]);
         $lowStockCount = Produk::where('tipe_jual', '!=', 'jasa')
             ->where('stok', '<=', self::AMBANG_STOK)
@@ -179,7 +179,7 @@ class KasirController extends Controller
                 'id_produk' => $row->id_produk,
                 'nama' => $row->nama,
                 'total_terjual' => (int) $row->total_terjual,
-                'foto_url' => $row->foto ? asset("storage/{$row->foto}") : null,
+                'foto_url' => Produk::fotoUrl($row->foto),
             ]);
 
         // --- Pesanan online menunggu (shop-wide, bukan per kasir) ---
@@ -240,7 +240,7 @@ class KasirController extends Controller
                 'satuan' => $produk->satuan,
                 'barcode' => $produk->barcode,
                 'foto' => $produk->foto,
-                'foto_url' => $produk->foto ? asset("storage/{$produk->foto}") : null,
+                'foto_url' => Produk::fotoUrl($produk->foto),
             ]);
 
         // Produk "sering dibeli" untuk quick-pick (barang kecil tanpa barcode, mis. permen).
@@ -748,7 +748,7 @@ class KasirController extends Controller
                 'subtotal' => $detail->subtotal,
                 'nominal' => $detail->nominal, // pass-through jasa (null bila bukan jasa)
                 'foto' => $detail->produk?->foto ?? null,
-                'foto_url' => $detail->produk?->foto ? asset('storage/'.$detail->produk->foto) : null,
+                'foto_url' => Produk::fotoUrl($detail->produk?->foto),
             ])->values(),
         ];
     }
