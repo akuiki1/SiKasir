@@ -636,6 +636,11 @@ const fotoUploadName = computed(() => form.foto_upload?.name ?? '');
 // Preview object-URL untuk file yang baru dipilih (di-revoke saat ganti/tutup).
 const fotoUploadPreview = ref<string | null>(null);
 
+// Pesan kesalahan sisi-klien untuk pemilihan foto (mis. masih terlalu besar
+// setelah dikompres, atau format tak didukung). Ditampilkan sebelum submit
+// supaya user tak menabrak 503 di hosting.
+const fotoUploadError = ref<string | null>(null);
+
 function setFotoUploadPreview(file: File | null) {
     if (fotoUploadPreview.value) {
         URL.revokeObjectURL(fotoUploadPreview.value);
@@ -657,6 +662,7 @@ function openTambah() {
     form.reset();
     form.foto_upload = null;
     form.clearErrors();
+    fotoUploadError.value = null;
     setFotoUploadPreview(null);
     resetWizardState();
     showModal.value = true;
@@ -683,6 +689,7 @@ function openEdit(produk: Produk) {
         fee: t.fee,
     }));
     form.clearErrors();
+    fotoUploadError.value = null;
     setFotoUploadPreview(null);
     resetWizardState();
     showModal.value = true;
@@ -694,6 +701,7 @@ function closeModal() {
     stopScannerListening();
     form.reset();
     form.foto_upload = null;
+    fotoUploadError.value = null;
     setFotoUploadPreview(null);
     form.clearErrors();
     resetWizardState();
@@ -763,9 +771,21 @@ async function compressImage(file: File): Promise<File> {
     }
 }
 
+// Batas aman ukuran akhir yang boleh dikirim ke server. Diselaraskan dengan
+// validasi Laravel (`foto_upload` max:2048 KB = 2 MB): apa pun di atas ini pasti
+// gagal di server (dan di hosting bersama malah memicu 503 sebelum Laravel jalan),
+// jadi lebih baik dicegah di sini dengan pesan yang jelas.
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+// Format yang bisa ditampilkan langsung sebagai <img> di katalog & didukung server.
+// HEIC/HEIF dari iPhone yang gagal dikonversi (di browser non-Apple) tak lolos ini.
+const WEB_SAFE_IMAGE = /^image\/(jpe?g|png|webp|gif)$/;
+
 async function handleFileUpload(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0] ?? null;
+
+    fotoUploadError.value = null;
 
     if (!file) {
         form.foto_upload = null;
@@ -776,6 +796,26 @@ async function handleFileUpload(event: Event) {
 
     const prepared = await compressImage(file);
 
+    // Jaring pengaman: bila kompresi gagal (format tak didukung spt HEIC) atau
+    // hasilnya masih di atas batas server, jangan diteruskan — tampilkan pesan
+    // ramah alih-alih membiarkan upload menabrak 503 di hosting.
+    if (!WEB_SAFE_IMAGE.test(prepared.type)) {
+        fotoUploadError.value =
+            'Format foto ini tidak didukung (mis. HEIC dari iPhone). Ubah pengaturan kamera ke "Paling Kompatibel"/JPG, atau kirim ulang lewat screenshot galeri.';
+    } else if (prepared.size > MAX_UPLOAD_BYTES) {
+        fotoUploadError.value =
+            'Foto masih terlalu besar setelah dikompres. Pilih foto lain atau perkecil resolusinya dulu.';
+    }
+
+    if (fotoUploadError.value) {
+        form.foto_upload = null;
+        setFotoUploadPreview(null);
+        // Kosongkan input agar memilih file yang sama lagi tetap memicu @change.
+        input.value = '';
+
+        return;
+    }
+
     form.foto_upload = prepared;
     setFotoUploadPreview(prepared);
     form.foto = '';
@@ -784,6 +824,7 @@ async function handleFileUpload(event: Event) {
 function clearFoto() {
     form.foto = '';
     form.foto_upload = null;
+    fotoUploadError.value = null;
     setFotoUploadPreview(null);
 }
 
@@ -2647,12 +2688,12 @@ const statusClass: Record<string, string> = {
                                     File dipilih: {{ fotoUploadName }}
                                 </p>
                                 <p
-                                    v-if="form.errors.foto"
-                                    class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                    v-if="fotoUploadError || form.errors.foto"
+                                    class="mt-1 flex items-start gap-1 text-xs text-rose-600"
                                 >
-                                    <AlertCircle class="h-3 w-3" />{{
-                                        form.errors.foto
-                                    }}
+                                    <AlertCircle
+                                        class="mt-0.5 h-3 w-3 shrink-0"
+                                    />{{ fotoUploadError || form.errors.foto }}
                                 </p>
                             </div>
                         </div>
