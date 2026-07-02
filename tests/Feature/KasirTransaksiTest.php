@@ -229,11 +229,12 @@ test('per-product nominal promo is applied per item', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Promo global (id_produk null, butuh id_promo + cek minimal belanja)
+| Promo global (id_produk null) — diterapkan OTOMATIS tanpa input id_promo,
+| tetap menghormati syarat minimal belanja.
 |--------------------------------------------------------------------------
 */
 
-test('global promo is applied when minimal belanja is met', function () {
+test('global promo is applied automatically when minimal belanja is met', function () {
     $kasir = User::factory()->create(['role' => 'kasir']);
     $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 10]);
     $promo = Promo::factory()->create([
@@ -246,10 +247,10 @@ test('global promo is applied when minimal belanja is met', function () {
         'tanggal_selesai' => now()->addDay(),
     ]);
 
+    // Tanpa mengirim id_promo — promo global aktif diterapkan otomatis.
     $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
         'metode_pembayaran' => 'cash',
         'bayar' => 20000,
-        'id_promo' => $promo->id_promo,
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2], // subtotal 20000 >= 15000
         ],
@@ -265,7 +266,7 @@ test('global promo is applied when minimal belanja is met', function () {
 test('global promo is ignored when minimal belanja is not met', function () {
     $kasir = User::factory()->create(['role' => 'kasir']);
     $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 10]);
-    $promo = Promo::factory()->create([
+    Promo::factory()->create([
         'tipe' => 'persen',
         'nilai' => 10,
         'id_produk' => null,
@@ -278,7 +279,6 @@ test('global promo is ignored when minimal belanja is not met', function () {
     $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
         'metode_pembayaran' => 'cash',
         'bayar' => 20000,
-        'id_promo' => $promo->id_promo,
         'items' => [
             ['id_produk' => $produk->id_produk, 'jumlah' => 2], // subtotal 20000 < 50000
         ],
@@ -288,6 +288,45 @@ test('global promo is ignored when minimal belanja is not met', function () {
         'id_promo' => null,
         'total_harga' => 20000,
         'diskon' => 0,
+    ]);
+});
+
+test('the best-value global promo is auto-applied when several are active', function () {
+    $kasir = User::factory()->create(['role' => 'kasir']);
+    $produk = Produk::factory()->create(['harga_jual' => 10000, 'stok' => 10]);
+
+    // Dua promo global aktif: nominal 1.500 vs persen 10% (2.000 dari subtotal 20.000).
+    Promo::factory()->create([
+        'tipe' => 'nominal',
+        'nilai' => 1500,
+        'id_produk' => null,
+        'minimal_belanja' => null,
+        'aktif' => true,
+        'tanggal_mulai' => now()->subDay(),
+        'tanggal_selesai' => now()->addDay(),
+    ]);
+    $persen = Promo::factory()->create([
+        'tipe' => 'persen',
+        'nilai' => 10,
+        'id_produk' => null,
+        'minimal_belanja' => null,
+        'aktif' => true,
+        'tanggal_mulai' => now()->subDay(),
+        'tanggal_selesai' => now()->addDay(),
+    ]);
+
+    $this->actingAs($kasir)->post(route('kasir.transaksi.store'), [
+        'metode_pembayaran' => 'cash',
+        'bayar' => 20000,
+        'items' => [
+            ['id_produk' => $produk->id_produk, 'jumlah' => 2], // subtotal 20000
+        ],
+    ])->assertRedirect(route('kasir.transaksi'));
+
+    $this->assertDatabaseHas('transaksis', [
+        'id_promo' => $persen->id_promo, // 2.000 > 1.500 → persen menang
+        'total_harga' => 18000,
+        'diskon' => 2000,
     ]);
 });
 

@@ -356,7 +356,7 @@ class KasirController extends Controller
             'metode_pembayaran' => ['required', Rule::in(['cash', 'qris', 'transfer'])],
             'bayar' => ['required', 'integer', 'min:0'],
             'id_pelanggan' => ['nullable', 'exists:pelanggans,id_pelanggan'],
-            'id_promo' => ['nullable', 'exists:promos,id_promo'],
+            // Promo keranjang tidak lagi dipilih manual — diterapkan otomatis di bawah.
             'items' => ['required', 'array', 'min:1'],
             'items.*.id_produk' => ['required', 'exists:produks,id_produk'],
             // numeric (bukan integer) agar produk curah bisa dijual pecahan (mis. 1.429 liter).
@@ -506,26 +506,24 @@ class KasirController extends Controller
                 ];
             }
 
+            // Promo keranjang (global, id_produk null) diterapkan OTOMATIS: dari promo
+            // aktif yang syarat minimal belanjanya terpenuhi, pilih yang diskonnya
+            // paling besar untuk pelanggan. Kasir tidak perlu memilih manual.
             $globalDiskon = 0;
             $appliedPromoId = null;
 
-            if (! empty($validated['id_promo'])) {
-                $globalPromo = Promo::where('id_promo', $validated['id_promo'])
-                    ->where('aktif', true)
-                    ->whereNull('id_produk')
-                    ->where('tanggal_mulai', '<=', $now)
-                    ->where('tanggal_selesai', '>=', $now)
-                    ->first();
+            foreach ($activePromos->whereNull('id_produk') as $globalPromo) {
+                if ($globalPromo->minimal_belanja && $subtotal < $globalPromo->minimal_belanja) {
+                    continue;
+                }
 
-                if ($globalPromo) {
-                    if (! $globalPromo->minimal_belanja || $subtotal >= $globalPromo->minimal_belanja) {
-                        $appliedPromoId = $globalPromo->id_promo;
-                        if ($globalPromo->tipe === 'persen') {
-                            $globalDiskon = (int) ($subtotal * ($globalPromo->nilai / 100));
-                        } else {
-                            $globalDiskon = (int) $globalPromo->nilai;
-                        }
-                    }
+                $diskon = $globalPromo->tipe === 'persen'
+                    ? (int) ($subtotal * ($globalPromo->nilai / 100))
+                    : (int) $globalPromo->nilai;
+
+                if ($diskon > $globalDiskon) {
+                    $globalDiskon = $diskon;
+                    $appliedPromoId = $globalPromo->id_promo;
                 }
             }
 

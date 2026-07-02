@@ -14,11 +14,18 @@ interface PickerProduk {
     stok: number;
 }
 
-const props = defineProps<{
-    modelValue: string;
-    products: PickerProduk[];
-    invalid?: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+        modelValue: string;
+        products: PickerProduk[];
+        invalid?: boolean;
+        placeholder?: string;
+    }>(),
+    {
+        invalid: false,
+        placeholder: 'Cari produk…',
+    },
+);
 
 const emit = defineEmits<{
     'update:modelValue': [value: string];
@@ -169,7 +176,7 @@ onBeforeUnmount(() => {
                 ref="inputRef"
                 v-model="query"
                 type="text"
-                placeholder="Cari produk…"
+                :placeholder="placeholder"
                 autocomplete="off"
                 role="combobox"
                 :aria-expanded="open"

@@ -303,7 +303,7 @@ const form = useForm({
     id_user: '',
     metode_pembayaran: 'cash' as 'cash' | 'qris' | 'transfer',
     bayar: '',
-    items: [{ id_produk: '', jumlah: '1' }] as FormItem[],
+    items: [] as FormItem[],
 });
 
 const computedTotal = computed(() => {
@@ -334,7 +334,8 @@ function openTambah() {
     editingTransaksi.value = null;
     form.reset();
     form.metode_pembayaran = 'cash';
-    form.items = [{ id_produk: '', jumlah: '1' }];
+    form.items = [];
+    pickerModel.value = '';
     showFormModal.value = true;
 }
 
@@ -360,14 +361,53 @@ function closeFormModal() {
     form.clearErrors();
 }
 
-function addItem() {
-    form.items.push({ id_produk: '', jumlah: '1' });
+// Item ditambah lewat satu kolom pencarian di atas (pola keranjang, seperti kasir):
+// pilih produk → masuk daftar di bawah, atau menambah qty jika sudah ada.
+const pickerModel = ref('');
+
+watch(pickerModel, (value) => {
+    if (!value) {
+        return;
+    }
+
+    addProduk(value);
+    pickerModel.value = ''; // reset agar picker siap untuk pencarian berikutnya
+});
+
+function addProduk(idProduk: string): void {
+    const existing = form.items.find((item) => item.id_produk === idProduk);
+
+    if (existing) {
+        existing.jumlah = String(Number(existing.jumlah) + 1);
+
+        return;
+    }
+
+    form.items.push({ id_produk: idProduk, jumlah: '1' });
+}
+
+function incItem(index: number): void {
+    const item = form.items[index];
+    item.jumlah = String(Number(item.jumlah) + 1);
+}
+
+function decItem(index: number): void {
+    const item = form.items[index];
+    const next = Number(item.jumlah) - 1;
+
+    if (next >= 1) {
+        item.jumlah = String(next);
+    }
 }
 
 function removeItem(index: number) {
-    if (form.items.length > 1) {
-        form.items.splice(index, 1);
-    }
+    form.items.splice(index, 1);
+}
+
+function getProdukNama(idProduk: string): string {
+    const produk = props.produks.find((p) => p.id_produk === Number(idProduk));
+
+    return produk?.nama ?? 'Produk';
 }
 
 function getProdukHarga(idProduk: string): number {
@@ -1111,77 +1151,119 @@ function hapusTransaksi(trx: Transaksi) {
                             >Item Produk</label
                         >
 
+                        <!-- Cari & tambahkan produk ke keranjang -->
+                        <ProductPicker
+                            v-model="pickerModel"
+                            :products="produks"
+                            placeholder="Cari produk untuk ditambahkan…"
+                        />
+
                         <div
                             v-if="form.errors.items"
-                            class="mb-2 flex items-center gap-1 text-xs text-rose-600"
+                            class="mt-2 flex items-center gap-1 text-xs text-rose-600"
                         >
                             <AlertCircle class="h-3 w-3" />{{
                                 form.errors.items
                             }}
                         </div>
 
-                        <div class="flex flex-col gap-2">
+                        <!-- Daftar produk yang sudah ditambahkan -->
+                        <div
+                            v-if="form.items.length > 0"
+                            class="mt-3 flex flex-col gap-2"
+                        >
                             <div
                                 v-for="(item, index) in form.items"
-                                :key="index"
-                                class="flex flex-col gap-2 rounded-lg border border-sidebar-border/70 p-3 sm:flex-row sm:items-start dark:border-sidebar-border"
+                                :key="item.id_produk"
+                                class="flex flex-col gap-2 rounded-lg border border-sidebar-border/70 p-3 sm:flex-row sm:items-center dark:border-sidebar-border"
                             >
                                 <div class="min-w-0 flex-1">
-                                    <ProductPicker
-                                        v-model="item.id_produk"
-                                        :products="produks"
-                                    />
+                                    <p class="truncate text-sm font-semibold">
+                                        {{ getProdukNama(item.id_produk) }}
+                                    </p>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{
+                                            formatRupiah(
+                                                getProdukHarga(item.id_produk),
+                                            )
+                                        }}
+                                        · stok
+                                        <span
+                                            :class="
+                                                getProdukStok(item.id_produk) <=
+                                                0
+                                                    ? 'font-semibold text-rose-600'
+                                                    : ''
+                                            "
+                                            >{{
+                                                getProdukStok(item.id_produk)
+                                            }}</span
+                                        >
+                                    </p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <input
-                                        v-model="item.jumlah"
-                                        type="number"
-                                        min="1"
-                                        :max="
-                                            getProdukStok(item.id_produk) ||
-                                            undefined
-                                        "
-                                        placeholder="Qty"
-                                        class="w-20 shrink-0 rounded-lg border border-sidebar-border/70 bg-background px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-sidebar-border"
-                                    />
+                                    <!-- Stepper qty -->
                                     <div
-                                        class="flex-1 text-right text-sm font-medium sm:w-28 sm:flex-none"
+                                        class="flex items-center rounded-lg border border-sidebar-border/70 dark:border-sidebar-border"
+                                    >
+                                        <button
+                                            type="button"
+                                            class="flex h-8 w-8 items-center justify-center rounded-l-lg text-muted-foreground transition-colors hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-zinc-800"
+                                            :disabled="Number(item.jumlah) <= 1"
+                                            aria-label="Kurangi"
+                                            @click="decItem(index)"
+                                        >
+                                            <Minus class="h-3.5 w-3.5" />
+                                        </button>
+                                        <input
+                                            v-model="item.jumlah"
+                                            type="number"
+                                            min="1"
+                                            :max="
+                                                getProdukStok(item.id_produk) ||
+                                                undefined
+                                            "
+                                            class="h-8 w-12 border-x border-sidebar-border/70 bg-background text-center text-sm focus:outline-none dark:border-sidebar-border"
+                                        />
+                                        <button
+                                            type="button"
+                                            class="flex h-8 w-8 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800"
+                                            aria-label="Tambah"
+                                            @click="incItem(index)"
+                                        >
+                                            <Plus class="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                    <div
+                                        class="flex-1 text-right text-sm font-semibold sm:w-28 sm:flex-none"
                                     >
                                         {{
-                                            item.id_produk && item.jumlah
-                                                ? formatRupiah(
-                                                      getProdukHarga(
-                                                          item.id_produk,
-                                                      ) * Number(item.jumlah),
-                                                  )
-                                                : '-'
+                                            formatRupiah(
+                                                getProdukHarga(item.id_produk) *
+                                                    Number(item.jumlah || 0),
+                                            )
                                         }}
                                     </div>
                                     <button
                                         type="button"
-                                        class="shrink-0 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
-                                        :disabled="form.items.length <= 1"
-                                        :class="{
-                                            'opacity-40':
-                                                form.items.length <= 1,
-                                        }"
+                                        class="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-zinc-800"
                                         aria-label="Hapus item"
                                         @click="removeItem(index)"
                                     >
-                                        <Minus class="h-4 w-4" />
+                                        <Trash2 class="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <button
-                            type="button"
-                            class="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-sidebar-border/70 px-3 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:border-indigo-400 hover:bg-indigo-50 dark:border-sidebar-border dark:hover:bg-indigo-500/10"
-                            @click="addItem"
+                        <!-- Keranjang kosong -->
+                        <p
+                            v-else
+                            class="mt-3 rounded-lg border border-dashed border-sidebar-border/70 px-3 py-4 text-center text-xs text-muted-foreground dark:border-sidebar-border"
                         >
-                            <Plus class="h-3 w-3" />
-                            Tambah Item
-                        </button>
+                            Belum ada produk. Cari &amp; tambahkan lewat kolom
+                            di atas.
+                        </p>
                     </div>
 
                     <div
@@ -1237,8 +1319,10 @@ function hapusTransaksi(trx: Transaksi) {
                         </button>
                         <button
                             type="submit"
-                            class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-60"
-                            :disabled="form.processing"
+                            class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            :disabled="
+                                form.processing || form.items.length === 0
+                            "
                         >
                             <Save class="h-4 w-4" />
                             {{
