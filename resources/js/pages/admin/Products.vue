@@ -709,16 +709,76 @@ function lanjutKeProduksi() {
     router.visit(`/admin/produksi?aksi=tambah${id ? `&produk=${id}` : ''}`);
 }
 
-function handleFileUpload(event: Event) {
+// Kompres + perkecil foto di browser SEBELUM diunggah. Foto langsung dari HP
+// biasanya 3–8 MB; hosting bersama sering menolaknya dengan "503 Service
+// Unavailable" (kena batas ukuran upload / memori server) sebelum Laravel
+// sempat memvalidasi. Dengan menurunkan resolusi ke maks. 1600px sisi terpanjang
+// dan mengekspor ulang sebagai JPEG, ukuran turun jadi ratusan KB — aman lewat
+// batas server dan tetap tajam untuk katalog. Bila gambar gagal didecode
+// (mis. format HEIC yang tak didukung canvas) file asli dipakai apa adanya.
+async function compressImage(file: File): Promise<File> {
+    const MAX_EDGE = 1600;
+    const QUALITY = 0.82;
+
+    if (!file.type.startsWith('image/') || file.type === 'image/gif') {
+        return file;
+    }
+
+    try {
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(
+            1,
+            MAX_EDGE / Math.max(bitmap.width, bitmap.height),
+        );
+        const width = Math.round(bitmap.width * scale);
+        const height = Math.round(bitmap.height * scale);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            return file;
+        }
+
+        ctx.drawImage(bitmap, 0, 0, width, height);
+        bitmap.close?.();
+
+        const blob = await new Promise<Blob | null>((resolve) =>
+            canvas.toBlob(resolve, 'image/jpeg', QUALITY),
+        );
+
+        // Pakai hasil kompresi hanya bila benar-benar lebih kecil dari aslinya.
+        if (!blob || blob.size >= file.size) {
+            return file;
+        }
+
+        const nama = file.name.replace(/\.[^.]+$/, '') || 'foto';
+
+        return new File([blob], `${nama}.jpg`, { type: 'image/jpeg' });
+    } catch {
+        // Gagal decode (format tak didukung dsb.) — biarkan file asli, server tetap memvalidasi.
+        return file;
+    }
+}
+
+async function handleFileUpload(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0] ?? null;
 
-    form.foto_upload = file;
-    setFotoUploadPreview(file);
+    if (!file) {
+        form.foto_upload = null;
+        setFotoUploadPreview(null);
 
-    if (file) {
-        form.foto = '';
+        return;
     }
+
+    const prepared = await compressImage(file);
+
+    form.foto_upload = prepared;
+    setFotoUploadPreview(prepared);
+    form.foto = '';
 }
 
 function clearFoto() {
