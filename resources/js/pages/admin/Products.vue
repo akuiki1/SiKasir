@@ -717,65 +717,95 @@ function lanjutKeProduksi() {
     router.visit(`/admin/produksi?aksi=tambah${id ? `&produk=${id}` : ''}`);
 }
 
+// Batas keras ukuran yang boleh dikirim ke server (selaras validasi Laravel
+// `foto_upload` max:2048 = 2 MB) & sasaran hasil kompresi yang sengaja dibuat di
+// bawahnya agar ada kelonggaran terhadap batas hosting.
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+const TARGET_UPLOAD_BYTES = Math.floor(1.5 * 1024 * 1024);
+
+function toCompressedFile(original: File, blob: Blob): File {
+    const nama = original.name.replace(/\.[^.]+$/, '') || 'foto';
+
+    return new File([blob], `${nama}.jpg`, { type: 'image/jpeg' });
+}
+
 // Kompres + perkecil foto di browser SEBELUM diunggah. Foto langsung dari HP
 // biasanya 3–8 MB; hosting bersama sering menolaknya dengan "503 Service
 // Unavailable" (kena batas ukuran upload / memori server) sebelum Laravel
-// sempat memvalidasi. Dengan menurunkan resolusi ke maks. 1600px sisi terpanjang
-// dan mengekspor ulang sebagai JPEG, ukuran turun jadi ratusan KB — aman lewat
-// batas server dan tetap tajam untuk katalog. Bila gambar gagal didecode
-// (mis. format HEIC yang tak didukung canvas) file asli dipakai apa adanya.
+// sempat memvalidasi. Fungsi ini menurunkan kualitas lalu resolusi secara
+// BERTAHAP sampai hasilnya di bawah TARGET_UPLOAD_BYTES — jadi foto sebesar
+// apa pun (yang bisa didecode browser) otomatis mengecil mengikuti batas server,
+// bukan ditolak. Kombinasi dicoba dari besar→kecil sehingga hasil pertama yang
+// muat = kualitas terbaik yang masih muat. Bila gambar gagal didecode
+// (mis. HEIC di browser non-Apple) file asli dikembalikan apa adanya dan guard
+// di handleFileUpload yang akan menolaknya dengan pesan.
 async function compressImage(file: File): Promise<File> {
-    const MAX_EDGE = 1600;
-    const QUALITY = 0.82;
-
+    // gif (animasi) & non-gambar dibiarkan — render kanvas mematikan animasi.
     if (!file.type.startsWith('image/') || file.type === 'image/gif') {
         return file;
     }
 
-    try {
-        const bitmap = await createImageBitmap(file);
-        const scale = Math.min(
-            1,
-            MAX_EDGE / Math.max(bitmap.width, bitmap.height),
-        );
-        const width = Math.round(bitmap.width * scale);
-        const height = Math.round(bitmap.height * scale);
+    let bitmap: ImageBitmap;
 
+    try {
+        bitmap = await createImageBitmap(file, {
+            imageOrientation: 'from-image', // hormati orientasi EXIF foto HP
+        });
+    } catch {
+        return file;
+    }
+
+    // Sisi terpanjang & kualitas JPEG, dicoba dari paling tinggi ke paling rendah.
+    const edges = [1600, 1280, 1024, 800];
+    const qualities = [0.82, 0.7, 0.6, 0.5];
+
+    let smallest: Blob | null = null;
+
+    for (const edge of edges) {
+        const scale = Math.min(1, edge / Math.max(bitmap.width, bitmap.height));
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+
         const ctx = canvas.getContext('2d');
 
         if (!ctx) {
-            return file;
+            break;
         }
 
-        ctx.drawImage(bitmap, 0, 0, width, height);
-        bitmap.close?.();
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
-        const blob = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob(resolve, 'image/jpeg', QUALITY),
-        );
+        for (const quality of qualities) {
+            const blob = await new Promise<Blob | null>((resolve) =>
+                canvas.toBlob(resolve, 'image/jpeg', quality),
+            );
 
-        // Pakai hasil kompresi hanya bila benar-benar lebih kecil dari aslinya.
-        if (!blob || blob.size >= file.size) {
-            return file;
+            if (!blob) {
+                continue;
+            }
+
+            if (!smallest || blob.size < smallest.size) {
+                smallest = blob;
+            }
+
+            if (blob.size <= TARGET_UPLOAD_BYTES) {
+                bitmap.close?.();
+
+                return toCompressedFile(file, blob);
+            }
         }
-
-        const nama = file.name.replace(/\.[^.]+$/, '') || 'foto';
-
-        return new File([blob], `${nama}.jpg`, { type: 'image/jpeg' });
-    } catch {
-        // Gagal decode (format tak didukung dsb.) — biarkan file asli, server tetap memvalidasi.
-        return file;
     }
-}
 
-// Batas aman ukuran akhir yang boleh dikirim ke server. Diselaraskan dengan
-// validasi Laravel (`foto_upload` max:2048 KB = 2 MB): apa pun di atas ini pasti
-// gagal di server (dan di hosting bersama malah memicu 503 sebelum Laravel jalan),
-// jadi lebih baik dicegah di sini dengan pesan yang jelas.
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+    bitmap.close?.();
+
+    // Sangat jarang: tak ada yang mencapai sasaran. Pakai yang terkecil bila
+    // memang lebih kecil dari aslinya; kalau tidak, biarkan file asli.
+    if (smallest && smallest.size < file.size) {
+        return toCompressedFile(file, smallest);
+    }
+
+    return file;
+}
 
 // Format yang bisa ditampilkan langsung sebagai <img> di katalog & didukung server.
 // HEIC/HEIF dari iPhone yang gagal dikonversi (di browser non-Apple) tak lolos ini.
