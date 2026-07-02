@@ -12,6 +12,11 @@ bootstrap/ssr/
 public/hot
 public/fonts-manifest.dev.json
 
+# public/storage = symlink ke storage/app/public, dibuat per-server via
+# `php artisan storage:link`. JANGAN di-commit: kalau ter-track, git membuatnya
+# jadi folder biasa di server dan menghalangi symlink → foto produk 404.
+/public/storage
+
 # Cache directories
 vendor/
 composer.lock
