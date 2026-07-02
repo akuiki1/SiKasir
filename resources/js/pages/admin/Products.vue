@@ -636,6 +636,11 @@ const fotoUploadName = computed(() => form.foto_upload?.name ?? '');
 // Preview object-URL untuk file yang baru dipilih (di-revoke saat ganti/tutup).
 const fotoUploadPreview = ref<string | null>(null);
 
+// Pesan kesalahan sisi-klien untuk pemilihan foto (mis. masih terlalu besar
+// setelah dikompres, atau format tak didukung). Ditampilkan sebelum submit
+// supaya user tak menabrak 503 di hosting.
+const fotoUploadError = ref<string | null>(null);
+
 function setFotoUploadPreview(file: File | null) {
     if (fotoUploadPreview.value) {
         URL.revokeObjectURL(fotoUploadPreview.value);
@@ -657,6 +662,7 @@ function openTambah() {
     form.reset();
     form.foto_upload = null;
     form.clearErrors();
+    fotoUploadError.value = null;
     setFotoUploadPreview(null);
     resetWizardState();
     showModal.value = true;
@@ -683,6 +689,7 @@ function openEdit(produk: Produk) {
         fee: t.fee,
     }));
     form.clearErrors();
+    fotoUploadError.value = null;
     setFotoUploadPreview(null);
     resetWizardState();
     showModal.value = true;
@@ -694,6 +701,7 @@ function closeModal() {
     stopScannerListening();
     form.reset();
     form.foto_upload = null;
+    fotoUploadError.value = null;
     setFotoUploadPreview(null);
     form.clearErrors();
     resetWizardState();
@@ -709,21 +717,187 @@ function lanjutKeProduksi() {
     router.visit(`/admin/produksi?aksi=tambah${id ? `&produk=${id}` : ''}`);
 }
 
-function handleFileUpload(event: Event) {
+// Batas keras ukuran yang boleh dikirim ke server (selaras validasi Laravel
+// `foto_upload` max:2048 = 2 MB) & sasaran hasil kompresi yang sengaja dibuat di
+// bawahnya agar ada kelonggaran terhadap batas hosting.
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+const TARGET_UPLOAD_BYTES = Math.floor(1.5 * 1024 * 1024);
+
+function toCompressedFile(original: File, blob: Blob): File {
+    const nama = original.name.replace(/\.[^.]+$/, '') || 'foto';
+
+    return new File([blob], `${nama}.jpg`, { type: 'image/jpeg' });
+}
+
+function isHeic(file: File): boolean {
+    return (
+        /image\/hei[cf]/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)
+    );
+}
+
+async function decodeToBitmap(source: Blob): Promise<ImageBitmap | null> {
+    try {
+        return await createImageBitmap(source, {
+            imageOrientation: 'from-image', // hormati orientasi EXIF foto HP
+        });
+    } catch {
+        return null;
+    }
+}
+
+// Konversi HEIC/HEIF (mis. foto iPhone yang di-import lewat Android) ke JPEG.
+// heic2any membawa libheif (WASM) yang besar, jadi diimpor DINAMIS — hanya
+// diunduh saat benar-benar ketemu file HEIC, tak membebani bundle utama.
+async function decodeHeic(file: File): Promise<Blob | null> {
+    try {
+        const heic2any = (await import('heic2any')).default;
+        const out = await heic2any({
+            blob: file,
+            toType: 'image/jpeg',
+            quality: 0.92,
+        });
+
+        return Array.isArray(out) ? out[0] : out;
+    } catch {
+        return null;
+    }
+}
+
+// Kompres + perkecil foto di browser SEBELUM diunggah. Foto langsung dari HP
+// biasanya 3–8 MB; hosting bersama sering menolaknya dengan "503 Service
+// Unavailable" (kena batas ukuran upload / memori server) sebelum Laravel
+// sempat memvalidasi. Fungsi ini menurunkan kualitas lalu resolusi secara
+// BERTAHAP sampai hasilnya di bawah TARGET_UPLOAD_BYTES — jadi foto sebesar apa
+// pun otomatis mengecil mengikuti batas server, bukan ditolak. Kombinasi dicoba
+// dari besar→kecil sehingga hasil pertama yang muat = kualitas terbaik yang muat.
+// Foto HEIC yang tak bisa didecode browser (mis. di Android) dikonversi dulu via
+// heic2any; bila tetap gagal, file asli dikembalikan dan guard di
+// handleFileUpload yang akan menolaknya dengan pesan.
+async function compressImage(file: File): Promise<File> {
+    const heic = isHeic(file);
+
+    // Lewati non-gambar & gif animasi (render kanvas mematikan animasi). HEIC
+    // tetap diproses walau MIME-nya kadang kosong di Android.
+    if (
+        !heic &&
+        (!file.type.startsWith('image/') || file.type === 'image/gif')
+    ) {
+        return file;
+    }
+
+    // Decode langsung dulu (cepat; Safari bahkan bisa HEIC). Bila gagal & ini
+    // HEIC, konversi lewat heic2any lalu decode hasilnya.
+    let bitmap = await decodeToBitmap(file);
+
+    if (!bitmap && heic) {
+        const jpeg = await decodeHeic(file);
+        bitmap = jpeg ? await decodeToBitmap(jpeg) : null;
+    }
+
+    if (!bitmap) {
+        return file;
+    }
+
+    // Sisi terpanjang & kualitas JPEG, dicoba dari paling tinggi ke paling rendah.
+    const edges = [1600, 1280, 1024, 800];
+    const qualities = [0.82, 0.7, 0.6, 0.5];
+
+    let smallest: Blob | null = null;
+
+    for (const edge of edges) {
+        const scale = Math.min(1, edge / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            break;
+        }
+
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+        for (const quality of qualities) {
+            const blob = await new Promise<Blob | null>((resolve) =>
+                canvas.toBlob(resolve, 'image/jpeg', quality),
+            );
+
+            if (!blob) {
+                continue;
+            }
+
+            if (!smallest || blob.size < smallest.size) {
+                smallest = blob;
+            }
+
+            if (blob.size <= TARGET_UPLOAD_BYTES) {
+                bitmap.close?.();
+
+                return toCompressedFile(file, blob);
+            }
+        }
+    }
+
+    bitmap.close?.();
+
+    // Sangat jarang: tak ada yang mencapai sasaran. Pakai yang terkecil bila
+    // memang lebih kecil dari aslinya; kalau tidak, biarkan file asli.
+    if (smallest && smallest.size < file.size) {
+        return toCompressedFile(file, smallest);
+    }
+
+    return file;
+}
+
+// Format yang bisa ditampilkan langsung sebagai <img> di katalog & didukung server.
+// HEIC/HEIF dari iPhone yang gagal dikonversi (di browser non-Apple) tak lolos ini.
+const WEB_SAFE_IMAGE = /^image\/(jpe?g|png|webp|gif)$/;
+
+async function handleFileUpload(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0] ?? null;
 
-    form.foto_upload = file;
-    setFotoUploadPreview(file);
+    fotoUploadError.value = null;
 
-    if (file) {
-        form.foto = '';
+    if (!file) {
+        form.foto_upload = null;
+        setFotoUploadPreview(null);
+
+        return;
     }
+
+    const prepared = await compressImage(file);
+
+    // Jaring pengaman: bila kompresi gagal (format tak didukung spt HEIC) atau
+    // hasilnya masih di atas batas server, jangan diteruskan — tampilkan pesan
+    // ramah alih-alih membiarkan upload menabrak 503 di hosting.
+    if (!WEB_SAFE_IMAGE.test(prepared.type)) {
+        fotoUploadError.value =
+            'Format foto ini tidak didukung atau filenya rusak. Coba foto lain (JPG/PNG) atau kirim ulang lewat screenshot galeri.';
+    } else if (prepared.size > MAX_UPLOAD_BYTES) {
+        fotoUploadError.value =
+            'Foto masih terlalu besar setelah dikompres. Pilih foto lain atau perkecil resolusinya dulu.';
+    }
+
+    if (fotoUploadError.value) {
+        form.foto_upload = null;
+        setFotoUploadPreview(null);
+        // Kosongkan input agar memilih file yang sama lagi tetap memicu @change.
+        input.value = '';
+
+        return;
+    }
+
+    form.foto_upload = prepared;
+    setFotoUploadPreview(prepared);
+    form.foto = '';
 }
 
 function clearFoto() {
     form.foto = '';
     form.foto_upload = null;
+    fotoUploadError.value = null;
     setFotoUploadPreview(null);
 }
 
@@ -2587,12 +2761,12 @@ const statusClass: Record<string, string> = {
                                     File dipilih: {{ fotoUploadName }}
                                 </p>
                                 <p
-                                    v-if="form.errors.foto"
-                                    class="mt-1 flex items-center gap-1 text-xs text-rose-600"
+                                    v-if="fotoUploadError || form.errors.foto"
+                                    class="mt-1 flex items-start gap-1 text-xs text-rose-600"
                                 >
-                                    <AlertCircle class="h-3 w-3" />{{
-                                        form.errors.foto
-                                    }}
+                                    <AlertCircle
+                                        class="mt-0.5 h-3 w-3 shrink-0"
+                                    />{{ fotoUploadError || form.errors.foto }}
                                 </p>
                             </div>
                         </div>
