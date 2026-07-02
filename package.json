@@ -39,6 +39,7 @@
         "@vueuse/core": "^14.3.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
+        "heic2any": "^0.0.4",
         "jsbarcode": "^3.12.3",
         "laravel-vite-plugin": "^3.0.0",
         "lucide-vue-next": "^0.468.0",
