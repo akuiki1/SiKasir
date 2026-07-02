@@ -729,29 +729,72 @@ function toCompressedFile(original: File, blob: Blob): File {
     return new File([blob], `${nama}.jpg`, { type: 'image/jpeg' });
 }
 
+function isHeic(file: File): boolean {
+    return (
+        /image\/hei[cf]/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)
+    );
+}
+
+async function decodeToBitmap(source: Blob): Promise<ImageBitmap | null> {
+    try {
+        return await createImageBitmap(source, {
+            imageOrientation: 'from-image', // hormati orientasi EXIF foto HP
+        });
+    } catch {
+        return null;
+    }
+}
+
+// Konversi HEIC/HEIF (mis. foto iPhone yang di-import lewat Android) ke JPEG.
+// heic2any membawa libheif (WASM) yang besar, jadi diimpor DINAMIS — hanya
+// diunduh saat benar-benar ketemu file HEIC, tak membebani bundle utama.
+async function decodeHeic(file: File): Promise<Blob | null> {
+    try {
+        const heic2any = (await import('heic2any')).default;
+        const out = await heic2any({
+            blob: file,
+            toType: 'image/jpeg',
+            quality: 0.92,
+        });
+
+        return Array.isArray(out) ? out[0] : out;
+    } catch {
+        return null;
+    }
+}
+
 // Kompres + perkecil foto di browser SEBELUM diunggah. Foto langsung dari HP
 // biasanya 3–8 MB; hosting bersama sering menolaknya dengan "503 Service
 // Unavailable" (kena batas ukuran upload / memori server) sebelum Laravel
 // sempat memvalidasi. Fungsi ini menurunkan kualitas lalu resolusi secara
-// BERTAHAP sampai hasilnya di bawah TARGET_UPLOAD_BYTES — jadi foto sebesar
-// apa pun (yang bisa didecode browser) otomatis mengecil mengikuti batas server,
-// bukan ditolak. Kombinasi dicoba dari besar→kecil sehingga hasil pertama yang
-// muat = kualitas terbaik yang masih muat. Bila gambar gagal didecode
-// (mis. HEIC di browser non-Apple) file asli dikembalikan apa adanya dan guard
-// di handleFileUpload yang akan menolaknya dengan pesan.
+// BERTAHAP sampai hasilnya di bawah TARGET_UPLOAD_BYTES — jadi foto sebesar apa
+// pun otomatis mengecil mengikuti batas server, bukan ditolak. Kombinasi dicoba
+// dari besar→kecil sehingga hasil pertama yang muat = kualitas terbaik yang muat.
+// Foto HEIC yang tak bisa didecode browser (mis. di Android) dikonversi dulu via
+// heic2any; bila tetap gagal, file asli dikembalikan dan guard di
+// handleFileUpload yang akan menolaknya dengan pesan.
 async function compressImage(file: File): Promise<File> {
-    // gif (animasi) & non-gambar dibiarkan — render kanvas mematikan animasi.
-    if (!file.type.startsWith('image/') || file.type === 'image/gif') {
+    const heic = isHeic(file);
+
+    // Lewati non-gambar & gif animasi (render kanvas mematikan animasi). HEIC
+    // tetap diproses walau MIME-nya kadang kosong di Android.
+    if (
+        !heic &&
+        (!file.type.startsWith('image/') || file.type === 'image/gif')
+    ) {
         return file;
     }
 
-    let bitmap: ImageBitmap;
+    // Decode langsung dulu (cepat; Safari bahkan bisa HEIC). Bila gagal & ini
+    // HEIC, konversi lewat heic2any lalu decode hasilnya.
+    let bitmap = await decodeToBitmap(file);
 
-    try {
-        bitmap = await createImageBitmap(file, {
-            imageOrientation: 'from-image', // hormati orientasi EXIF foto HP
-        });
-    } catch {
+    if (!bitmap && heic) {
+        const jpeg = await decodeHeic(file);
+        bitmap = jpeg ? await decodeToBitmap(jpeg) : null;
+    }
+
+    if (!bitmap) {
         return file;
     }
 
@@ -831,7 +874,7 @@ async function handleFileUpload(event: Event) {
     // ramah alih-alih membiarkan upload menabrak 503 di hosting.
     if (!WEB_SAFE_IMAGE.test(prepared.type)) {
         fotoUploadError.value =
-            'Format foto ini tidak didukung (mis. HEIC dari iPhone). Ubah pengaturan kamera ke "Paling Kompatibel"/JPG, atau kirim ulang lewat screenshot galeri.';
+            'Format foto ini tidak didukung atau filenya rusak. Coba foto lain (JPG/PNG) atau kirim ulang lewat screenshot galeri.';
     } else if (prepared.size > MAX_UPLOAD_BYTES) {
         fotoUploadError.value =
             'Foto masih terlalu besar setelah dikompres. Pilih foto lain atau perkecil resolusinya dulu.';
