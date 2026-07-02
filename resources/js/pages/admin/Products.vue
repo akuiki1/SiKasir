@@ -717,11 +717,14 @@ function lanjutKeProduksi() {
     router.visit(`/admin/produksi?aksi=tambah${id ? `&produk=${id}` : ''}`);
 }
 
-// Batas keras ukuran yang boleh dikirim ke server (selaras validasi Laravel
-// `foto_upload` max:2048 = 2 MB) & sasaran hasil kompresi yang sengaja dibuat di
-// bawahnya agar ada kelonggaran terhadap batas hosting.
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
-const TARGET_UPLOAD_BYTES = Math.floor(1.5 * 1024 * 1024);
+// Batas keras ukuran yang boleh dikirim ke server. Validasi Laravel (`foto_upload`
+// max:2048 KB = 2 MB) dan `upload_max_filesize` PHP di hosting bersama SAMA-SAMA
+// bisa persis 2 MB dengan nol toleransi — ditemukan di produksi bahwa foto yang
+// hasil kompresinya mepet ke 2 MB tetap ditolak server (503 sebelum request
+// sempat sampai ke Laravel). Jadi batas & sasaran di sini sengaja dibuat lebih
+// rendah, menyisakan jarak aman yang nyata di bawah 2 MB.
+const MAX_UPLOAD_BYTES = Math.floor(1.8 * 1024 * 1024);
+const TARGET_UPLOAD_BYTES = 1024 * 1024;
 
 function toCompressedFile(original: File, blob: Blob): File {
     const nama = original.name.replace(/\.[^.]+$/, '') || 'foto';
@@ -1216,9 +1219,14 @@ function submitForm() {
     };
 
     if (isEditing) {
-        router.put(
+        // PHP tak bisa mem-parse form multipart (yang membawa file foto) pada
+        // request PUT/PATCH — isian jadi kosong & (untuk file besar) body
+        // menumpuk di memori sampai memicu 503. Kirim sebagai POST dengan spoof
+        // `_method: 'put'` (pola standar Inertia/Laravel utuk upload saat update):
+        // POST di-parse benar & filenya ditulis ke temp disk, bukan memori.
+        router.post(
             productUpdate(editingProduk.value!.id_produk).url,
-            data,
+            { ...data, _method: 'put' },
             options,
         );
     } else {
