@@ -10,6 +10,8 @@ use App\Models\TarifJasa;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -256,6 +258,7 @@ class ProdukController extends Controller
         }
 
         $stokLama = (float) $produk->stok;
+        $fotoLama = $produk->foto;
 
         if ($request->hasFile('foto_upload')) {
             $validated['foto'] = $request->file('foto_upload')->store('produk', 'public');
@@ -274,6 +277,12 @@ class ProdukController extends Controller
         }
 
         $produk->update($validated);
+
+        // Foto lama diganti/dikosongkan — buang file-nya dari disk agar tidak
+        // menumpuk jadi berkas yatim (kuota disk shared hosting terbatas).
+        if ($produk->foto !== $fotoLama) {
+            $this->hapusFotoLokal($fotoLama);
+        }
 
         // Sinkronkan tarif bertingkat: produk jasa ditulis ulang dari form, produk
         // non-jasa dibersihkan (mis. baru dipindah dari jasa ke satuan/curah).
@@ -371,6 +380,20 @@ class ProdukController extends Controller
     }
 
     /**
+     * Hapus file foto dari disk publik bila memang berkas hasil upload lokal.
+     * URL eksternal (foto yang ditempel manual, mis. "https://…") dilewati — itu
+     * bukan milik kita. Aman dipanggil dengan null/kosong.
+     */
+    private function hapusFotoLokal(?string $foto): void
+    {
+        if (blank($foto) || Str::startsWith($foto, ['http://', 'https://'])) {
+            return;
+        }
+
+        Storage::disk('public')->delete($foto);
+    }
+
+    /**
      * Apakah produk sudah pernah dipakai pada riwayat bisnis (transaksi/produksi/
      * pesanan)? Ketiganya FK restrictOnDelete — produk seperti ini wajib tetap
      * diarsipkan agar laporan & riwayat tidak rusak, tidak boleh dihapus permanen.
@@ -400,6 +423,8 @@ class ProdukController extends Controller
             return back();
         }
 
+        $fotoLama = $produk->foto;
+
         DB::transaction(function () use ($produk): void {
             // Bersihkan jejak yang TIDAK memblokir agar tak menyisakan data yatim:
             // kartu stok (saldo awal) & promo khusus produk ini. Tarif jasa ikut
@@ -409,6 +434,9 @@ class ProdukController extends Controller
 
             $produk->forceDelete();
         });
+
+        // File foto ikut dibuang setelah baris DB benar-benar terhapus.
+        $this->hapusFotoLokal($fotoLama);
 
         return redirect()->route('admin.products', ['view' => 'arsip'])
             ->with('success', 'Produk berhasil dihapus permanen.');
