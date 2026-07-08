@@ -396,6 +396,10 @@ const activeTip = ref<'asal' | 'reseller' | 'tarif' | null>(null);
 // Overlay sukses dalam modal (menggantikan penutupan langsung).
 const submitted = ref(false);
 const submitting = ref(false);
+// Status kirim-ulang otomatis (untuk label tombol) + pesan gagal transient
+// terakhir dengan opsi "Kirim Ulang" manual.
+const retryInfo = ref<{ attempt: number; max: number } | null>(null);
+const submitError = ref<string | null>(null);
 const successMeta = ref<{ nama: string; isProd: boolean; editing: boolean }>({
     nama: '',
     isProd: false,
@@ -421,6 +425,10 @@ const stepSubtitle = computed(() => {
 const footerNextLabel = computed(() => {
     if (isCompressing.value) {
         return 'Memproses foto…';
+    }
+
+    if (retryInfo.value) {
+        return `Mengirim ulang… (${retryInfo.value.attempt}/${retryInfo.value.max})`;
     }
 
     if (wizardStep.value < 3) {
@@ -495,6 +503,8 @@ function resetWizardState(): void {
     submitted.value = false;
     submitting.value = false;
     showBarcodeSection.value = false;
+    submitError.value = null;
+    retryInfo.value = null;
 }
 
 // Pilih tipe jual + samakan satuan default (kosong utk jasa, liter utk curah).
@@ -732,14 +742,16 @@ function lanjutKeProduksi() {
     router.visit(`/admin/produksi?aksi=tambah${id ? `&produk=${id}` : ''}`);
 }
 
-// Batas keras ukuran yang boleh dikirim ke server. Validasi Laravel (`foto_upload`
-// max:2048 KB = 2 MB) dan `upload_max_filesize` PHP di hosting bersama SAMA-SAMA
-// bisa persis 2 MB dengan nol toleransi — ditemukan di produksi bahwa foto yang
-// hasil kompresinya mepet ke 2 MB tetap ditolak server (503 sebelum request
-// sempat sampai ke Laravel). Jadi batas & sasaran di sini sengaja dibuat lebih
-// rendah, menyisakan jarak aman yang nyata di bawah 2 MB.
-const MAX_UPLOAD_BYTES = Math.floor(1.8 * 1024 * 1024);
-const TARGET_UPLOAD_BYTES = 1024 * 1024;
+// Batas keras & sasaran ukuran upload. Validasi Laravel (`foto_upload` max:2048 KB
+// = 2 MB) dan `upload_max_filesize`/`post_max_size` PHP hosting bersama bisa persis
+// 2 MB tanpa toleransi — di produksi foto yang hasil kompresinya mepet 2 MB tetap
+// ditolak server sebelum sampai ke Laravel. Selain itu, makin kecil file makin
+// singkat waktu unggah di jaringan seluler lemah → makin kecil peluang request
+// menggantung menembus timeout gateway (gejala 502/504). Karena foto katalog POS
+// tampil kecil, sasaran diperketat ke ~0,8 MB (batas keras 1,5 MB) demi margin
+// aman yang jelas di bawah 2 MB.
+const MAX_UPLOAD_BYTES = Math.floor(1.5 * 1024 * 1024);
+const TARGET_UPLOAD_BYTES = Math.floor(0.8 * 1024 * 1024);
 
 function toCompressedFile(original: File, blob: Blob): File {
     const nama = original.name.replace(/\.[^.]+$/, '') || 'foto';
@@ -1184,8 +1196,13 @@ function tarifRangeLabel(index: number): string {
     return `${formatRupiah(min)} – ${formatRupiah(higher - 1)}`;
 }
 
-function submitForm() {
-    const data = {
+// Kirim-ulang otomatis saat gagal transient (jaringan putus / 502/503/504).
+const MAX_SUBMIT_RETRIES = 2;
+// Jeda sebelum tiap percobaan ulang (ms), naik bertahap. Indeks = attempt saat gagal.
+const RETRY_DELAYS = [1200, 3000];
+
+function buildSubmitData() {
+    return {
         ...form.data(),
         id_kategori: Number(form.id_kategori),
         foto: form.foto || null,
@@ -1209,16 +1226,37 @@ function submitForm() {
                   }))
                 : [],
     };
+}
 
+function submitForm() {
+    submitError.value = null;
+    retryInfo.value = null;
+    dispatchSubmit(buildSubmitData(), 0);
+}
+
+// Kirim satu percobaan. Data yang sama dipakai ulang untuk retry (termasuk File
+// foto) agar percobaan berikutnya identik.
+function dispatchSubmit(
+    data: ReturnType<typeof buildSubmitData>,
+    attempt: number,
+): void {
     const isEditing = !!editingProduk.value;
+    submitting.value = true;
+
     const options = {
         onStart: () => {
             submitting.value = true;
         },
         onFinish: () => {
-            submitting.value = false;
+            // Jangan lepas status "menyimpan" bila sedang menjadwalkan retry.
+            if (!retryInfo.value) {
+                submitting.value = false;
+            }
         },
         onSuccess: () => {
+            submitting.value = false;
+            retryInfo.value = null;
+            submitError.value = null;
             // Tampilkan overlay sukses alih-alih menutup modal langsung.
             successMeta.value = {
                 nama: form.nama || 'Produk',
@@ -1232,12 +1270,22 @@ function submitForm() {
             submitted.value = true;
         },
         onError: (errors: Record<string, string>) => {
+            // Error validasi (422) — bukan kegagalan transient, jangan diulang.
             // router.* tidak mengisi form.errors otomatis — sinkronkan manual
             // agar pesan error tampil inline, lalu loncat ke langkah terkait.
+            submitting.value = false;
+            retryInfo.value = null;
             form.clearErrors();
             form.setError(errors);
             jumpToErrorStep(errors);
         },
+        // Server balas non-Inertia (502/504/500 dst). Return false → tekan modal
+        // error bawaan Inertia, kita tangani sendiri (retry / pesan ramah).
+        onHttpException: (response: { status: number }) =>
+            handleTransientFailure(data, attempt, isEditing, response.status),
+        // Jaringan gagal tanpa respons (offline/reset). Return false → tekan default.
+        onNetworkError: () =>
+            handleTransientFailure(data, attempt, isEditing, null),
     };
 
     if (isEditing) {
@@ -1254,6 +1302,45 @@ function submitForm() {
     } else {
         router.post(productStore().url, data, options);
     }
+}
+
+// Tangani kegagalan transient. Selalu return false agar modal error bawaan
+// Inertia ditekan. Retry otomatis DIJAGA agar tak membuat produk ganda:
+// - error jaringan (status null): server hampir pasti tak sempat memproses →
+//   aman diulang, baik tambah maupun edit.
+// - 502/503/504: server MUNGKIN sudah menyimpan. Hanya diulang otomatis saat
+//   EDIT (idempoten — kirim ulang tak menggandakan). Untuk TAMBAH, berhenti &
+//   tawarkan "Kirim Ulang" manual + minta cek daftar dulu agar tak dobel.
+function handleTransientFailure(
+    data: ReturnType<typeof buildSubmitData>,
+    attempt: number,
+    isEditing: boolean,
+    status: number | null,
+): boolean {
+    const isNetwork = status === null;
+    const isGateway = status === 502 || status === 503 || status === 504;
+    const canAutoRetry =
+        attempt < MAX_SUBMIT_RETRIES && (isNetwork || (isGateway && isEditing));
+
+    if (canAutoRetry) {
+        const next = attempt + 1;
+        retryInfo.value = { attempt: next, max: MAX_SUBMIT_RETRIES };
+        submitting.value = true;
+        window.setTimeout(
+            () => dispatchSubmit(data, next),
+            RETRY_DELAYS[attempt] ?? 3000,
+        );
+
+        return false;
+    }
+
+    retryInfo.value = null;
+    submitting.value = false;
+    submitError.value = isEditing
+        ? 'Koneksi atau server sedang sibuk, perubahan mungkin belum tersimpan. Coba kirim ulang.'
+        : 'Koneksi atau server sedang sibuk. Cek dulu daftar produk — kalau produk belum muncul tekan "Kirim Ulang"; kalau sudah muncul, cukup tutup jendela ini.';
+
+    return false;
 }
 
 function arsipkanProduk(produk: Produk) {
@@ -3288,6 +3375,23 @@ const statusClass: Record<string, string> = {
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Banner gagal kirim transient (502/504/jaringan) + kirim ulang manual -->
+                    <div
+                        v-if="submitError"
+                        class="mx-5 mb-2 flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-600 dark:text-rose-400"
+                    >
+                        <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+                        <span class="flex-1">{{ submitError }}</span>
+                        <button
+                            type="button"
+                            class="shrink-0 cursor-pointer rounded-lg bg-rose-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-rose-500 disabled:opacity-60"
+                            :disabled="submitting || isCompressing"
+                            @click="submitForm"
+                        >
+                            Kirim Ulang
+                        </button>
                     </div>
 
                     <!-- Footer -->
