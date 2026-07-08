@@ -419,6 +419,10 @@ const stepSubtitle = computed(() => {
 });
 
 const footerNextLabel = computed(() => {
+    if (isCompressing.value) {
+        return 'Memproses foto…';
+    }
+
     if (wizardStep.value < 3) {
         return 'Lanjut';
     }
@@ -458,6 +462,12 @@ function goToStep(n: WizardStep): void {
 }
 
 function nextStep(): void {
+    // Jangan lanjut/submit selama foto masih dikompres — form belum memegang
+    // berkas final, sehingga produk bisa tersimpan tanpa foto.
+    if (isCompressing.value) {
+        return;
+    }
+
     if (wizardStep.value < 3) {
         wizardStep.value = (wizardStep.value + 1) as WizardStep;
         activeTip.value = null;
@@ -640,6 +650,11 @@ const fotoUploadPreview = ref<string | null>(null);
 // setelah dikompres, atau format tak didukung). Ditampilkan sebelum submit
 // supaya user tak menabrak 503 di hosting.
 const fotoUploadError = ref<string | null>(null);
+
+// True selama foto sedang dikompres di browser (bisa beberapa detik untuk HEIC/
+// foto besar). Dipakai untuk mengunci tombol Lanjut/Simpan agar produk tak
+// terkirim tanpa foto yang dikira sudah terlampir.
+const isCompressing = ref(false);
 
 function setFotoUploadPreview(file: File | null) {
     if (fotoUploadPreview.value) {
@@ -870,7 +885,14 @@ async function handleFileUpload(event: Event) {
         return;
     }
 
-    const prepared = await compressImage(file);
+    isCompressing.value = true;
+    let prepared: File;
+
+    try {
+        prepared = await compressImage(file);
+    } finally {
+        isCompressing.value = false;
+    }
 
     // Jaring pengaman: bila kompresi gagal (format tak didukung spt HEIC) atau
     // hasilnya masih di atas batas server, jangan diteruskan — tampilkan pesan
@@ -3288,7 +3310,7 @@ const statusClass: Record<string, string> = {
                         <button
                             type="button"
                             class="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-3 text-[13.5px] font-bold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:opacity-60"
-                            :disabled="submitting"
+                            :disabled="submitting || isCompressing"
                             @click="nextStep"
                         >
                             {{ footerNextLabel }}

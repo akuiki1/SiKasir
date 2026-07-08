@@ -10,6 +10,8 @@ use App\Models\TarifJasa;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -175,7 +177,18 @@ class ProdukController extends Controller
         }
 
         if ($request->hasFile('foto_upload')) {
-            $validated['foto'] = $request->file('foto_upload')->store('produk', 'public');
+            $path = $request->file('foto_upload')->store('produk', 'public');
+
+            // store() mengembalikan false bila gagal menulis (mis. kuota disk/
+            // inode shared hosting penuh). Jangan simpan produk dengan foto kosong
+            // secara diam-diam — beri tahu user agar bisa mencoba lagi.
+            if ($path === false) {
+                return back()->withInput()->withErrors([
+                    'foto' => 'Foto gagal disimpan (penyimpanan mungkin penuh). Coba lagi atau pilih foto lain.',
+                ]);
+            }
+
+            $validated['foto'] = $path;
         } else {
             $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
         }
@@ -256,9 +269,20 @@ class ProdukController extends Controller
         }
 
         $stokLama = (float) $produk->stok;
+        $fotoLama = $produk->foto;
 
         if ($request->hasFile('foto_upload')) {
-            $validated['foto'] = $request->file('foto_upload')->store('produk', 'public');
+            $path = $request->file('foto_upload')->store('produk', 'public');
+
+            // Lihat catatan di store(): jangan menimpa foto lama dengan nilai
+            // kosong secara diam-diam bila penyimpanan hosting menolak berkas.
+            if ($path === false) {
+                return back()->withInput()->withErrors([
+                    'foto' => 'Foto gagal disimpan (penyimpanan mungkin penuh). Coba lagi atau pilih foto lain.',
+                ]);
+            }
+
+            $validated['foto'] = $path;
         } else {
             $validated['foto'] = blank($validated['foto'] ?? null) ? null : $validated['foto'];
         }
@@ -274,6 +298,13 @@ class ProdukController extends Controller
         }
 
         $produk->update($validated);
+
+        // Foto lama yang tergantikan (diganti upload baru, ditukar ke URL, atau
+        // dikosongkan) kini yatim di disk — hapus agar tak menumpuk & memakan
+        // kuota/inode shared hosting. URL eksternal dijaga di dalam helper.
+        if ($produk->foto !== $fotoLama) {
+            $this->hapusFotoLokal($fotoLama);
+        }
 
         // Sinkronkan tarif bertingkat: produk jasa ditulis ulang dari form, produk
         // non-jasa dibersihkan (mis. baru dipindah dari jasa ke satuan/curah).
@@ -410,7 +441,24 @@ class ProdukController extends Controller
             $produk->forceDelete();
         });
 
+        // Baris DB sudah hilang — berkas fotonya kini yatim; hapus dari disk.
+        $this->hapusFotoLokal($produk->foto);
+
         return redirect()->route('admin.products', ['view' => 'arsip'])
             ->with('success', 'Produk berhasil dihapus permanen.');
+    }
+
+    /**
+     * Hapus berkas foto lokal sebuah produk dari disk 'public'. Hanya berkas
+     * hasil upload (path relatif) yang dihapus — foto yang berupa URL internet
+     * tidak menyimpan berkas apa pun, jadi dilewati. Aman dipanggil dengan null.
+     */
+    private function hapusFotoLokal(?string $foto): void
+    {
+        if (blank($foto) || Str::startsWith($foto, ['http://', 'https://'])) {
+            return;
+        }
+
+        Storage::disk('public')->delete($foto);
     }
 }
