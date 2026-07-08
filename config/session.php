@@ -18,7 +18,10 @@ return [
     |
     */
 
-    'driver' => env('SESSION_DRIVER', 'database'),
+    // Default 'file' (bukan 'database'): di shared hosting, menyimpan session di
+    // MySQL menambah round-trip & kontensi koneksi DB tiap request. .env boleh
+    // menimpanya bila memakai redis/database.
+    'driver' => env('SESSION_DRIVER', 'file'),
 
     /*
     |--------------------------------------------------------------------------

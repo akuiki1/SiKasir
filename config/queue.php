@@ -13,7 +13,10 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    // Default 'sync' (bukan 'database'): shared hosting tak menjalankan
+    // `queue:work`, jadi 'database' hanya menumpuk job yang tak pernah diproses.
+    // Ganti ke 'database'/'redis' hanya bila ada worker yang berjalan.
+    'default' => env('QUEUE_CONNECTION', 'sync'),
 
     /*
     |--------------------------------------------------------------------------

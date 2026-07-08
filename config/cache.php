@@ -15,7 +15,9 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'database'),
+    // Default 'file' (bukan 'database'): hindari memukul MySQL untuk cache di
+    // shared hosting (mengurangi round-trip & tekanan koneksi DB per request).
+    'default' => env('CACHE_STORE', 'file'),
 
     /*
     |--------------------------------------------------------------------------
