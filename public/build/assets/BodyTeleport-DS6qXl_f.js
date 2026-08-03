@@ -1,0 +1,1 @@
+import{Ot as e,Pt as t,Tt as n,Ut as r,Vt as i,Zt as a,kt as o,zt as s}from"./app-Dncwm4EQ.js";var c=t({__name:`BodyTeleport`,setup(t){let c=a(!1);return s(()=>{c.value=!0}),(t,a)=>c.value?(i(),e(n,{key:0,to:`body`},[r(t.$slots,`default`)])):o(``,!0)}});export{c as t};
