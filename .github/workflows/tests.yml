@@ -18,8 +18,18 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     strategy:
+      # Tanpa ini, satu versi yang gagal membatalkan versi lain sebelum selesai.
+      # Itulah yang terjadi selama ini: job 8.4 gagal, lalu 8.3 dan 8.5 dibatalkan,
+      # sehingga hasil versi yang benar-benar dipakai produksi tidak pernah terlihat.
+      fail-fast: false
       matrix:
-        php-version: ['8.3', '8.4', '8.5']
+        # 8.5 dikeluarkan mengikuti SaaSKasir, yang composer.lock-nya terbukti
+        # belum bisa dipasang di 8.5 ("lock file does not contain a compatible
+        # set of packages"). Di repo ini 8.5 belum pernah benar-benar berjalan —
+        # selalu keburu dibatalkan — jadi ini kehati-hatian, bukan hasil
+        # pengamatan. Masukkan lagi setelah `composer update` melewati 8.5.
+        # Produksi berjalan di 8.3.
+        php-version: ['8.3', '8.4']
 
     steps:
       - name: Checkout code
