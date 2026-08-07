@@ -388,6 +388,16 @@ test('admin can delete produk used in transaction and preserve transaction histo
 
     $response->assertRedirect(route('admin.products'));
     $response->assertSessionHas('success');
-    $this->assertDatabaseMissing('produks', ['id_produk' => $produk->id_produk]);
-    $this->assertDatabaseHas('detail_transaksis', ['id_transaksi' => $transaksi->id_transaksi, 'id_produk' => null]);
+
+    // Diarsipkan, bukan dibuang: barisnya tetap ada dengan deleted_at terisi.
+    $this->assertSoftDeleted('produks', ['id_produk' => $produk->id_produk]);
+
+    // Justru di sinilah riwayatnya terjaga. Dulu menghapus produk meng-null-kan
+    // id_produk pada detail transaksi, sehingga struk lama kehilangan jejak
+    // barang apa yang terjual. Sejak beralih ke arsip, tautannya sengaja
+    // dipertahankan — itu inti dari nama test ini.
+    $this->assertDatabaseHas('detail_transaksis', [
+        'id_transaksi' => $transaksi->id_transaksi,
+        'id_produk' => $produk->id_produk,
+    ]);
 });

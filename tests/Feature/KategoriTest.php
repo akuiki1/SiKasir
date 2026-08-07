@@ -155,7 +155,11 @@ test('admin can upload produk foto file', function () {
     Storage::disk('public')->assertExists($produk->foto);
 });
 
-test('admin can delete a produk', function () {
+// Menghapus produk berarti MENGARSIPKAN, bukan membuang barisnya — lihat
+// SoftDeletes di App\Models\Produk dan pesan "berhasil diarsipkan" pada
+// ProdukController::destroy(). Hapus permanen jalurnya terpisah
+// (admin.products.force-delete), diuji di ProdukArsipTest.
+test('admin can archive a produk', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $produk = Produk::factory()->create();
 
@@ -164,7 +168,7 @@ test('admin can delete a produk', function () {
     );
 
     $response->assertRedirect(route('admin.products'));
-    $this->assertDatabaseMissing('produks', ['id_produk' => $produk->id_produk]);
+    $this->assertSoftDeleted('produks', ['id_produk' => $produk->id_produk]);
 });
 
 // ─── Transaksi ───────────────────────────────────────────────────────────────
